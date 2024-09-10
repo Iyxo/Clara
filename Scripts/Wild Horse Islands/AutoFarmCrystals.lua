@@ -1,29 +1,18 @@
+-- Flaga kontrolująca działanie skryptu
+_G.AutoFarmCrystalActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
+
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
 local islandsFolder = game:GetService("Workspace").Islands["Unicorn Island"]
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-local teleportActive = true -- Flaga do kontrolowania teleportacji
 local teleportHeight = 5 -- Wysokość nad obiektem, na którą teleportujemy gracza
-
--- Funkcja nasłuchująca naciśnięcia klawisza "V" do przełączania teleportacji
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-    if input.KeyCode == Enum.KeyCode.V and not gameProcessedEvent then
-        teleportActive = not teleportActive
-        if teleportActive then
-            print("Teleportacja włączona")
-        else
-            print("Teleportacja wyłączona")
-        end
-    end
-end)
 
 -- Funkcja sprawdzająca modele i teleportująca do "Meshes/Gems 2"
 local function teleportToGems()
-    if teleportActive then
+    if _G.AutoFarmCrystalActive then -- Sprawdzenie, czy skrypt jest aktywny
         -- Przeglądaj każdy model w folderze "Unicorn Island"
         for _, model in pairs(islandsFolder:GetChildren()) do
             if model:IsA("Model") then
