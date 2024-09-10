@@ -23,8 +23,12 @@ local function followObject(target)
     -- Funkcja aktualizująca położenie gracza na obiekcie
     local connection
     connection = RunService.Heartbeat:Connect(function()
-        if target and target.Parent then
-            humanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 1.6, 0.4)
+        if _G.AutoFarmAnimalActive then -- Sprawdź flagę w każdej klatce
+            if target and target.Parent then
+                humanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 1.6, 0.4)
+            else
+                connection:Disconnect()
+            end
         else
             connection:Disconnect()
         end
@@ -62,10 +66,11 @@ local function getNextTarget()
     return nil
 end
 
-while true do
+-- Główna pętla skryptu
+RunService.Heartbeat:Connect(function()
     if not _G.AutoFarmAnimalActive then
         print("Dezaktywacja skryptu.")
-        break
+        return
     end
 
     local targetPart = getNextTarget()
@@ -81,9 +86,5 @@ while true do
     else
         -- Jeśli nie ma więcej obiektów, zakończ pętlę lub zrób coś innego
         print("Brak więcej obiektów do śledzenia.")
-        break
     end
-
-    -- Dodaj opóźnienie, aby dać czas na sprawdzenie wartości flagi
-    wait(0.1)
-end
+end)
