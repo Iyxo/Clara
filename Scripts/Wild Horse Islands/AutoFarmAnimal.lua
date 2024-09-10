@@ -23,6 +23,10 @@ local function followObject(target)
     -- Funkcja aktualizująca położenie gracza na obiekcie
     local connection
     connection = RunService.Heartbeat:Connect(function()
+        if not _G.AutoFarmAnimalActive then
+            connection:Disconnect() -- Zatrzymaj śledzenie, jeśli flaga jest ustawiona na false
+            return
+        end
         if target and target.Parent then
             humanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 1.6, 0.4)
         else
@@ -72,13 +76,21 @@ while _G.AutoFarmAnimalActive do
 
         -- Czekaj, aż obiekt zniknie
         repeat
+            if not _G.AutoFarmAnimalActive then
+                break -- Przerwij pętlę, jeśli flaga jest ustawiona na false
+            end
             wait(1)
         until not targetPart.Parent
     else
         -- Jeśli nie ma więcej obiektów, poczekaj na nowe obiekty
         print("Brak więcej obiektów do śledzenia. Czekam na nowe obiekty...")
         repeat
+            if not _G.AutoFarmAnimalActive then
+                break -- Przerwij pętlę, jeśli flaga jest ustawiona na false
+            end
             wait(1)
         until getNextTarget() -- Czekaj, aż pojawią się nowe obiekty
     end
 end
+
+print("Skrypt zatrzymany.")
