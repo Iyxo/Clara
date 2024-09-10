@@ -62,7 +62,12 @@ local function getNextTarget()
     return nil
 end
 
-while _G.AutoFarmAnimalActive do
+while true do
+    if not _G.AutoFarmAnimalActive then
+        print("Dezaktywacja skryptu.")
+        break
+    end
+
     local targetPart = getNextTarget()
 
     if targetPart then
@@ -78,4 +83,7 @@ while _G.AutoFarmAnimalActive do
         print("Brak więcej obiektów do śledzenia.")
         break
     end
+
+    -- Dodaj opóźnienie, aby dać czas na sprawdzenie wartości flagi
+    wait(0.1)
 end
