@@ -14,13 +14,10 @@ local function firstScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            print("Wywołuję RemoteEvent: " .. event.Name)
             local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if success then
-                print("Sukces dla RemoteEvent: " .. event.Name)
-            else
+            if not success then
                 warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
             end
         end
@@ -39,13 +36,10 @@ local function secondScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            print("Wywołuję RemoteEvent: " .. event.Name)
             local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if success then
-                print("Sukces dla RemoteEvent: " .. event.Name)
-            else
+            if not success then
                 warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
             end
         end
@@ -62,29 +56,23 @@ local function thirdScript()
     local checkpointMarker = game:GetService("Workspace"):WaitForChild("CheckpointMarker"):WaitForChild("Marker")
     local RunService = game:GetService("RunService")
 
-    -- Funkcja teleportacji
-    local function teleport()
-        if _G.TrainingAutoFarmActive then -- Sprawdzenie, czy skrypt jest aktywny
-            local seat = character:FindFirstChildOfClass("Seat") or character:FindFirstChildOfClass("VehicleSeat")
-            if seat then
-                seat.Parent:SetPrimaryPartCFrame(checkpointMarker.CFrame)
-            else
-                rootPart.CFrame = checkpointMarker.CFrame
-            end
+    -- Funkcja do ustawienia pozycji bezpośrednio przy obiekcie
+    local function moveToTarget()
+        if _G.TrainingAutoFarmActive then
+            local targetPosition = checkpointMarker.Position + Vector3.new(0, 1, 0) -- Blisko markeru
+            rootPart.CFrame = CFrame.new(targetPosition)
         end
     end
 
-    -- Użycie RunService do szybkiego wykonywania kodu
+    -- Stałe podążanie za obiektem bez zbędnych teleportacji
     RunService.Heartbeat:Connect(function()
         if _G.TrainingAutoFarmActive then
-            teleport()
+            moveToTarget() -- Maksymalna szybkość podążania, aktualizowana przy każdym cyklu Heartbeat
         end
     end)
 end
 
 -- Wykonaj skrypty w odpowiedniej kolejności
 firstScript()
-wait(1)
 secondScript()
-wait(1)
 thirdScript()
