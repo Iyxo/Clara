@@ -55,19 +55,27 @@ local function thirdScript()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     local checkpointMarker = game:GetService("Workspace"):WaitForChild("CheckpointMarker"):WaitForChild("Marker")
     local RunService = game:GetService("RunService")
+    local TweenService = game:GetService("TweenService") -- Nowe dodanie TweenService dla płynnych ruchów
 
-    -- Funkcja do ustawienia pozycji bezpośrednio przy obiekcie
+    -- Funkcja do płynnego przemieszczania postaci
     local function moveToTarget()
         if _G.TrainingAutoFarmActive then
-            local targetPosition = checkpointMarker.Position + Vector3.new(0, 1, 0) -- Blisko markeru
-            rootPart.CFrame = CFrame.new(targetPosition)
+            local targetPosition = checkpointMarker.Position + Vector3.new(0, 1, 0) -- Pozycja obok markeru
+            local distance = (rootPart.Position - targetPosition).Magnitude -- Obliczenie odległości do celu
+
+            -- Użycie TweenService dla płynnego przejścia
+            local tweenInfo = TweenInfo.new(distance / 50, Enum.EasingStyle.Linear) -- Czas zależny od odległości
+            local goal = {CFrame = CFrame.new(targetPosition)}
+            local tween = TweenService:Create(rootPart, tweenInfo, goal)
+
+            tween:Play() -- Rozpoczęcie ruchu
         end
     end
 
-    -- Stałe podążanie za obiektem bez zbędnych teleportacji
+    -- Stałe podążanie za obiektem
     RunService.Heartbeat:Connect(function()
         if _G.TrainingAutoFarmActive then
-            moveToTarget() -- Maksymalna szybkość podążania, aktualizowana przy każdym cyklu Heartbeat
+            moveToTarget() -- Wywołanie płynnego ruchu do celu
         end
     end)
 end
