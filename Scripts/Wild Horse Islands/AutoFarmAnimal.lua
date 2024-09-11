@@ -35,21 +35,14 @@ local function followObject(target)
     end)
 end
 
--- Funkcja do określenia folderu obiektów w zależności od wyspy
+-- Funkcja do wyszukiwania folderu Animals w Workspace.Islands
 local function getAnimalsFolder()
-    local islandName = ""
-    -- Sprawdź, na jakiej wyspie znajduje się gracz
-    if Workspace.Islands:FindFirstChild("Mainland") then
-        islandName = "Mainland"
-    elseif Workspace.Islands:FindFirstChild("Desert Island") then
-        islandName = "Desert Island"
+    for _, island in pairs(Workspace.Islands:GetChildren()) do
+        local animalsFolder = island:FindFirstChild("Nodes") and island.Nodes:FindFirstChild("Animals")
+        if animalsFolder then
+            return animalsFolder
+        end
     end
-
-    -- Zwróć folder odpowiedniej wyspy
-    if islandName ~= "" then
-        return Workspace.Islands[islandName].Nodes.Animals
-    end
-
     return nil
 end
 
