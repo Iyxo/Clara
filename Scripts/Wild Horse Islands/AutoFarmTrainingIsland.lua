@@ -14,10 +14,13 @@ local function firstScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
+            print("Wywołuję RemoteEvent: " .. event.Name)
             local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if not success then
+            if success then
+                print("Sukces dla RemoteEvent: " .. event.Name)
+            else
                 warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
             end
         end
@@ -36,10 +39,13 @@ local function secondScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
+            print("Wywołuję RemoteEvent: " .. event.Name)
             local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if not success then
+            if success then
+                print("Sukces dla RemoteEvent: " .. event.Name)
+            else
                 warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
             end
         end
@@ -55,32 +61,33 @@ local function thirdScript()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     local checkpointMarker = game:GetService("Workspace"):WaitForChild("CheckpointMarker"):WaitForChild("Marker")
     local RunService = game:GetService("RunService")
-    local TweenService = game:GetService("TweenService") -- Nowe dodanie TweenService dla płynnych ruchów
 
-    -- Funkcja do płynnego przemieszczania postaci
-    local function moveToTarget()
+    -- Funkcja do podążania za markerem z maksymalną szybkością
+    local function followMarker()
         if _G.TrainingAutoFarmActive then
-            local targetPosition = checkpointMarker.Position + Vector3.new(0, 1, 0) -- Pozycja obok markeru
-            local distance = (rootPart.Position - targetPosition).Magnitude -- Obliczenie odległości do celu
-
-            -- Użycie TweenService dla płynnego przejścia
-            local tweenInfo = TweenInfo.new(distance / 50, Enum.EasingStyle.Linear) -- Czas zależny od odległości
-            local goal = {CFrame = CFrame.new(targetPosition)}
-            local tween = TweenService:Create(rootPart, tweenInfo, goal)
-
-            tween:Play() -- Rozpoczęcie ruchu
+            local seat = character:FindFirstChildOfClass("Seat") or character:FindFirstChildOfClass("VehicleSeat")
+            
+            -- Ustawienie pozycji gracza bezpośrednio na obiekt
+            if seat then
+                seat.Parent:SetPrimaryPartCFrame(checkpointMarker.CFrame)
+            else
+                -- Manipulacja CFrame w celu "przyklejenia" gracza do obiektu
+                rootPart.CFrame = checkpointMarker.CFrame
+            end
         end
     end
 
-    -- Stałe podążanie za obiektem
+    -- Używamy RunService.Heartbeat dla maksymalnej responsywności
     RunService.Heartbeat:Connect(function()
         if _G.TrainingAutoFarmActive then
-            moveToTarget() -- Wywołanie płynnego ruchu do celu
+            followMarker()
         end
     end)
 end
 
 -- Wykonaj skrypty w odpowiedniej kolejności
 firstScript()
+wait(1)
 secondScript()
+wait(1)
 thirdScript()
