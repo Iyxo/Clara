@@ -1,26 +1,22 @@
 -- Flaga kontrolująca działanie skryptu
-_G.TrainingAutoFarmActive = false -- Domyślnie wyłączone
-_G.SelectedOption = 1 -- Domyślna wartość dla dropdowna
+_G.TrainingAutoFarmActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
 
--- Funkcja aktywująca się jako pierwszy
+-- Kod aktywujący się jako pierwszy
 local function firstScript()
     if not _G.TrainingAutoFarmActive then return end -- Sprawdzenie, czy skrypt jest aktywny
 
     local args = {
         [1] = "SelectLayout",
         [2] = workspace.Islands:FindFirstChild("Training Island"):FindFirstChild("Outdoor Arena").DynamicArena,
-        [3] = _G.SelectedOption -- Użycie wartości z dropdowna
+        [3] = 1
     }
 
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            local success, err = pcall(function()
+            pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if not success then
-                warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
-            end
         end
     end
 end
@@ -37,12 +33,9 @@ local function secondScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            local success, err = pcall(function()
+            pcall(function()
                 event:FireServer(unpack(args))
             end)
-            if not success then
-                warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
-            end
         end
     end
 end
