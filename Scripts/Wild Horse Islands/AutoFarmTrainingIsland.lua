@@ -14,9 +14,15 @@ local function firstScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            pcall(function()
+            print("Wywołuję RemoteEvent: " .. event.Name)
+            local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
+            if success then
+                print("Sukces dla RemoteEvent: " .. event.Name)
+            else
+                warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
+            end
         end
     end
 end
@@ -33,9 +39,15 @@ local function secondScript()
     local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
     for _, event in ipairs(eventsFolder:GetChildren()) do
         if event:IsA("RemoteEvent") then
-            pcall(function()
+            print("Wywołuję RemoteEvent: " .. event.Name)
+            local success, err = pcall(function()
                 event:FireServer(unpack(args))
             end)
+            if success then
+                print("Sukces dla RemoteEvent: " .. event.Name)
+            else
+                warn("Błąd przy wywoływaniu RemoteEvent: " .. event.Name .. " - " .. err)
+            end
         end
     end
 end
