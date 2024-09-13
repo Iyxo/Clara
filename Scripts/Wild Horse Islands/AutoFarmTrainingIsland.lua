@@ -1,5 +1,5 @@
 -- Flaga kontrolująca działanie skryptu
-_G.TrainingAutoFarmActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
+_G.TrainingAutoFarmActive = false -- Domyślnie wyłączone
 _G.SelectedOption = 1 -- Domyślna wartość dla dropdowna
 
 -- Funkcja aktywująca się jako pierwszy
