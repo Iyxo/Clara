@@ -10,7 +10,7 @@ return function(layoutValue)
         local args = {
             [1] = "SelectLayout",
             [2] = workspace.Islands:FindFirstChild("Training Island"):FindFirstChild("Outdoor Arena").DynamicArena,
-            [3] = _G.SelectedTrainingOption -- Użyj wartości wybranej z Dropdown
+            [3] = _G.SelectedTrainingOption -- Tu użyjemy dynamicznej wartości
         }
 
         local eventsFolder = game:GetService("ReplicatedStorage").Communication.Events
