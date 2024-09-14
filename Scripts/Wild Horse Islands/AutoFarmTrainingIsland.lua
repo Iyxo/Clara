@@ -49,18 +49,29 @@ local function thirdScript()
     local rootPart = character:WaitForChild("HumanoidRootPart")
     local checkpointMarker = game:GetService("Workspace"):WaitForChild("CheckpointMarker"):WaitForChild("Marker")
     local RunService = game:GetService("RunService")
+    
+    -- Funkcja losująca małe przesunięcie pozycji
+    local function randomOffset()
+        local maxOffset = 0.2 -- Maksymalne przesunięcie dla drgania
+        return Vector3.new(
+            math.random() * maxOffset - (maxOffset / 2),
+            math.random() * maxOffset - (maxOffset / 2),
+            math.random() * maxOffset - (maxOffset / 2)
+        )
+    end
 
-    -- Funkcja do podążania za markerem z maksymalną szybkością
+    -- Funkcja do podążania za markerem i drgania
     local function followMarker()
         if _G.TrainingAutoFarmActive then
             local seat = character:FindFirstChildOfClass("Seat") or character:FindFirstChildOfClass("VehicleSeat")
-            
-            -- Ustawienie pozycji gracza bezpośrednio na obiekt
+            local newPosition = checkpointMarker.Position + randomOffset() -- Dodajemy losowe przesunięcie
+
+            -- Ustawienie pozycji gracza z losowym drganiem
             if seat then
-                seat.Parent:SetPrimaryPartCFrame(checkpointMarker.CFrame)
+                seat.Parent:SetPrimaryPartCFrame(CFrame.new(newPosition))
             else
-                -- Manipulacja CFrame w celu "przyklejenia" gracza do obiektu
-                rootPart.CFrame = checkpointMarker.CFrame
+                -- Manipulacja CFrame w celu "przyklejenia" gracza do obiektu z drganiem
+                rootPart.CFrame = CFrame.new(newPosition)
             end
         end
     end
