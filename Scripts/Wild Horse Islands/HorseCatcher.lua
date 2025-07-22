@@ -1,6 +1,6 @@
 -- Horse Catcher Pro - CaptureProgress Tracking Edition
--- by Iyxo - 2025-07-22 17:12:18
--- Revolutionary horse catching with ULTRA-AGGRESSIVE lasso protection
+-- by Iyxo - 2025-07-22 17:04:52
+-- Revolutionary horse catching with professional CaptureProgress monitoring
 
 local parentTab, Rayfield, Window = ...
 
@@ -152,206 +152,7 @@ local Cache = {
 }
 
 -- =================================
--- 🔥 ULTRA-AGGRESSIVE LASSO PROTECTION SYSTEM
--- =================================
-local lassoProtection = {
-    active = false,
-    hookedFunctions = {},
-    originalFunctions = {},
-    lastEquipTime = 0,
-    forceEquipInterval = 0.1, -- Check every 0.1 seconds
-    instantReEquip = true,
-    blockUnequip = true,
-    protectionLevel = "ULTRA", -- NORMAL, AGGRESSIVE, ULTRA
-    
-    -- Statistics
-    stats = {
-        blockedUnequips = 0,
-        forceEquips = 0,
-        protectionTriggers = 0
-    }
-}
-
--- 🔥 ULTRA-AGGRESSIVE: Hook game functions to block lasso unequip
-local function initializeLassoProtection()
-    if lassoProtection.active then return end
-    
-    lassoProtection.active = true
-    
-    pcall(function()
-        if gameSystem.available and gameSystem.u2 and gameSystem.u2.Network then
-            -- Hook NetworkFireServer to intercept unequip attempts
-            local originalFireServer = gameSystem.u2.Network.FireServer
-            lassoProtection.originalFunctions.FireServer = originalFireServer
-            
-            gameSystem.u2.Network.FireServer = function(self, command, ...)
-                local args = {...}
-                
-                -- Block lasso unequip attempts during horse catching
-                if horseCatcher.isRunning and lassoProtection.blockUnequip then
-                    if command == "Inventory" and args[1] == "Use" then
-                        -- Check if trying to unequip lasso
-                        local itemId = args[2]
-                        if itemId == horseCatcher.currentLassoID then
-                            -- Allow lasso re-equip but not other items
-                            return originalFireServer(self, command, ...)
-                        elseif itemId and itemId:find("{") then
-                            -- Block equipping other items (potential lasso unequip)
-                            lassoProtection.stats.blockedUnequips = lassoProtection.stats.blockedUnequips + 1
-                            
-                            Rayfield:Notify({
-                               Title = "🛡️ Lasso Protected!",
-                               Content = "Blocked attempt to unequip lasso | Protection: ULTRA",
-                               Duration = 1,
-                               Image = 4483362458,
-                            })
-                            
-                            -- Immediately re-equip lasso
-                            spawn(function()
-                                wait(0.05)
-                                if horseCatcher.currentLassoID then
-                                    originalFireServer(self, "Inventory", "Use", horseCatcher.currentLassoID)
-                                    lassoProtection.stats.forceEquips = lassoProtection.stats.forceEquips + 1
-                                end
-                            end)
-                            
-                            return -- Block the original call
-                        end
-                    end
-                    
-                    -- Block equipment deactivation
-                    if command == "Equipment" and #args >= 2 and args[2] == "Deactivate" then
-                        if args[1] == horseCatcher.currentLassoID then
-                            lassoProtection.stats.blockedUnequips = lassoProtection.stats.blockedUnequips + 1
-                            return -- Block deactivation
-                        end
-                    end
-                end
-                
-                return originalFireServer(self, command, ...)
-            end
-            
-            lassoProtection.hookedFunctions.FireServer = true
-        end
-    end)
-    
-    -- Also hook ReplicatedStorage remote if available
-    pcall(function()
-        if gameSystem.remoteEvent and gameSystem.remoteEvent.FireServer then
-            local originalRemoteFireServer = gameSystem.remoteEvent.FireServer
-            lassoProtection.originalFunctions.RemoteFireServer = originalRemoteFireServer
-            
-            gameSystem.remoteEvent.FireServer = function(self, ...)
-                local args = {...}
-                
-                if horseCatcher.isRunning and lassoProtection.blockUnequip then
-                    -- Check for inventory-related calls that might unequip lasso
-                    if args[1] == "Inventory" and args[2] == "Use" then
-                        local itemId = args[3]
-                        if itemId and itemId ~= horseCatcher.currentLassoID and itemId:find("{") then
-                            lassoProtection.stats.blockedUnequips = lassoProtection.stats.blockedUnequips + 1
-                            
-                            -- Force re-equip lasso immediately
-                            spawn(function()
-                                if horseCatcher.currentLassoID then
-                                    originalRemoteFireServer(self, "Inventory", "Use", horseCatcher.currentLassoID)
-                                end
-                            end)
-                            
-                            return -- Block the call
-                        end
-                    end
-                end
-                
-                return originalRemoteFireServer(self, ...)
-            end
-            
-            lassoProtection.hookedFunctions.RemoteFireServer = true
-        end
-    end)
-end
-
--- 🔥 ULTRA-AGGRESSIVE: Force lasso monitoring
-local function ultraAggressiveLassoMonitoring()
-    if not horseCatcher.isRunning or not lassoProtection.active then
-        return
-    end
-    
-    local currentTime = tick()
-    if currentTime - lassoProtection.lastEquipTime < lassoProtection.forceEquipInterval then
-        return
-    end
-    
-    lassoProtection.lastEquipTime = currentTime
-    
-    pcall(function()
-        if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
-            local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
-            
-            -- ULTRA-AGGRESSIVE: If lasso not equipped, immediately force equip
-            if not currentlyEquipped or currentlyEquipped ~= horseCatcher.currentLassoID then
-                if horseCatcher.currentLassoID then
-                    local inventoryItem = gameSystem.u3.GetLocal({"inventory", horseCatcher.currentLassoID})
-                    if inventoryItem then
-                        -- INSTANT re-equip
-                        gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
-                        lassoProtection.stats.forceEquips = lassoProtection.stats.forceEquips + 1
-                        lassoProtection.stats.protectionTriggers = lassoProtection.stats.protectionTriggers + 1
-                        
-                        if lassoProtection.protectionLevel == "ULTRA" then
-                            Rayfield:Notify({
-                               Title = "⚡ ULTRA Protection!",
-                               Content = "Lasso instantly re-equipped | Level: " .. lassoProtection.protectionLevel,
-                               Duration = 0.5,
-                               Image = 4483362458,
-                            })
-                        end
-                    else
-                        -- Lasso disappeared from inventory, try to find new one
-                        equipLasso()
-                    end
-                end
-            end
-            
-            -- Double-check with redundancy
-            if lassoProtection.protectionLevel == "ULTRA" then
-                spawn(function()
-                    wait(0.02) -- Micro delay
-                    local doubleCheck = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
-                    if not doubleCheck or doubleCheck ~= horseCatcher.currentLassoID then
-                        if horseCatcher.currentLassoID then
-                            gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
-                        end
-                    end
-                end)
-            end
-        end
-    end)
-end
-
--- Cleanup protection when stopping
-local function cleanupLassoProtection()
-    if not lassoProtection.active then return end
-    
-    lassoProtection.active = false
-    
-    -- Restore original functions
-    pcall(function()
-        if lassoProtection.hookedFunctions.FireServer and gameSystem.u2 and gameSystem.u2.Network then
-            gameSystem.u2.Network.FireServer = lassoProtection.originalFunctions.FireServer
-        end
-        
-        if lassoProtection.hookedFunctions.RemoteFireServer and gameSystem.remoteEvent then
-            gameSystem.remoteEvent.FireServer = lassoProtection.originalFunctions.RemoteFireServer
-        end
-    end)
-    
-    lassoProtection.hookedFunctions = {}
-    lassoProtection.originalFunctions = {}
-end
-
--- =================================
--- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM (ENHANCED WITH ULTRA LASSO PROTECTION)
+-- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM (ENHANCED WITH CAPTURE PROGRESS)
 -- =================================
 local horseCatcher = {
     isRunning = false,
@@ -360,7 +161,7 @@ local horseCatcher = {
     isAttached = false,
     lassoEquipped = false,
     currentLassoID = nil,
-    lassoProtectionActive = false,
+    lassoProtectionActive = false, -- NEW: Lasso protection
     
     connections = {
         capture = nil,
@@ -369,7 +170,7 @@ local horseCatcher = {
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
-        ultraLassoProtection = nil -- 🔥 NEW: Ultra lasso protection
+        lassoProtection = nil -- NEW: Lasso protection connection
     },
     
     capturedHorses = {},
@@ -403,10 +204,8 @@ local horseCatcher = {
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
         
-        autoEquipLasso = true,
-        protectLasso = true,
-        ultraProtection = true, -- 🔥 NEW: Ultra protection mode
-        protectionLevel = "ULTRA", -- NORMAL, AGGRESSIVE, ULTRA
+        autoEquipLasso = true, -- NEW: Auto equip lasso
+        protectLasso = true, -- NEW: Protect lasso from unequipping
         
         safeDistance = 5,
         attachmentOffset = 4,
@@ -422,8 +221,7 @@ local horseCatcher = {
         lastCleanupTime = 0,
         lastIslandCheck = 0,
         lastProgressCheck = 0,
-        lastLassoCheck = 0,
-        lastUltraProtectionCheck = 0, -- 🔥 NEW: Ultra protection timing
+        lastLassoCheck = 0, -- NEW: Lasso check timing
         
         currentTargetStartTime = 0,
         lastProgressChange = 0,
@@ -534,6 +332,7 @@ local function isWildHorse(horse)
     return isWild
 end
 
+-- 🔥 ENHANCED: Fixed horse cache to scan ALL islands properly
 local function updateHorseCache()
     local currentTime = tick()
     if currentTime - Cache.lastUpdate < Cache.updateInterval then
@@ -582,10 +381,13 @@ local function updateHorseCache()
         Cache.islandHorses[islandName] = localHorseCount
     end
     
+    -- 🔥 FIXED: Enhanced scanning with proper island detection
     pcall(function()
         if Workspace.Islands then
+            -- Priority 1: Current island (highest priority)
             local currentIslandPriority = 1
             
+            -- Scan all islands, prioritizing current one
             for _, island in pairs(Workspace.Islands:GetChildren()) do
                 if island:IsA("Model") and island.Name ~= "Islands" then
                     local priority = (island.Name == currentIsland) and currentIslandPriority or 2
@@ -593,6 +395,7 @@ local function updateHorseCache()
                 end
             end
             
+            -- Special handling for Mainland if it exists separately
             if Workspace.Islands:FindFirstChild("Mainland") then
                 local priority = (currentIsland == "Mainland") and currentIslandPriority or 2
                 scanLocation(Workspace.Islands.Mainland, "Mainland", priority)
@@ -600,6 +403,7 @@ local function updateHorseCache()
         end
     end)
     
+    -- Sort horses by island priority and distance
     table.sort(Cache.horses, function(a, b)
         if a.priority ~= b.priority then
             return a.priority < b.priority
@@ -626,6 +430,7 @@ local function updateHorseCache()
     return Cache.horses
 end
 
+-- 🔥 ENHANCED: Auto-equip and protect lasso system
 local function equipLasso()
     if horseCatcher.lassoEquipped and horseCatcher.currentLassoID then
         return true, horseCatcher.currentLassoID
@@ -634,12 +439,14 @@ local function equipLasso()
     local success = false
     local toolID = nil
     
+    -- Method 1: Game system detection with auto-equip
     if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
         local lastEquipped = gameSystem.u3.GetLocal({"lastEquippedLasso"})
         if lastEquipped then
             local inventoryItem = gameSystem.u3.GetLocal({"inventory", lastEquipped})
             if inventoryItem then
                 pcall(function()
+                    -- Check if already equipped
                     local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
                     if currentlyEquipped ~= lastEquipped then
                         gameSystem.u2.Network:FireServer("Inventory", "Use", lastEquipped)
@@ -649,6 +456,7 @@ local function equipLasso()
                 end)
             end
         else
+            -- Auto-find lasso in inventory if none equipped
             if horseCatcher.settings.autoEquipLasso then
                 pcall(function()
                     local inventory = gameSystem.u3.GetLocal({"inventory"}) or {}
@@ -668,6 +476,7 @@ local function equipLasso()
         end
     end
     
+    -- Method 2: Fallback
     if not success then
         toolID = "{60769f1f-cade-463b-ae32-adaacc91116f}"
         success = true
@@ -679,6 +488,39 @@ local function equipLasso()
     end
     
     return success, toolID
+end
+
+-- 🔥 NEW: Lasso protection system
+local function protectLasso()
+    if not horseCatcher.settings.protectLasso or not horseCatcher.isRunning then
+        return
+    end
+    
+    local currentTime = tick()
+    if currentTime - horseCatcher.runtime.lastLassoCheck < 1 then -- Check every second
+        return
+    end
+    
+    horseCatcher.runtime.lastLassoCheck = currentTime
+    
+    pcall(function()
+        if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
+            local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
+            
+            -- If no equipment equipped or wrong equipment, re-equip lasso
+            if not currentlyEquipped or currentlyEquipped ~= horseCatcher.currentLassoID then
+                if horseCatcher.currentLassoID then
+                    local inventoryItem = gameSystem.u3.GetLocal({"inventory", horseCatcher.currentLassoID})
+                    if inventoryItem then
+                        gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
+                    else
+                        -- Lasso not found, try to find new one
+                        equipLasso()
+                    end
+                end
+            end
+        end
+    end)
 end
 
 local function findOptimalTarget()
@@ -703,6 +545,7 @@ local function findOptimalTarget()
             
             local score = 1000
             
+            -- Enhanced island priority
             if horseData.island == currentIsland then
                 score = score + 500
             elseif horseData.priority == 1 then
@@ -1035,11 +878,12 @@ local function cleanupSystem()
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC WITH ULTRA LASSO PROTECTION
+-- ENHANCED MAIN LOGIC WITH CAPTURE PROGRESS MONITORING
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
     
+    -- 🔥 ENHANCED: Auto-equip lasso on start
     local lassoReady, lassoID = equipLasso()
     if not lassoReady then
         Rayfield:Notify({
@@ -1063,15 +907,6 @@ local function startHorseCatching()
     
     horseCatcher.isRunning = true
     horseCatcher.lassoProtectionActive = true
-    
-    -- 🔥 NEW: Initialize ULTRA lasso protection
-    if horseCatcher.settings.ultraProtection then
-        lassoProtection.protectionLevel = horseCatcher.settings.protectionLevel
-        lassoProtection.blockUnequip = horseCatcher.settings.protectLasso
-        lassoProtection.instantReEquip = true
-        initializeLassoProtection()
-    end
-    
     horseCatcher.runtime.sessionStartTime = tick()
     horseCatcher.statistics.sessionsRun = horseCatcher.statistics.sessionsRun + 1
     horseCatcher.statistics.currentStreak = 0
@@ -1082,7 +917,6 @@ local function startHorseCatching()
     horseCatcher.runtime.lastIslandCheck = 0
     horseCatcher.runtime.lastProgressCheck = 0
     horseCatcher.runtime.lastLassoCheck = 0
-    horseCatcher.runtime.lastUltraProtectionCheck = 0
     
     horseCatcher.runtime.currentTargetStartTime = 0
     horseCatcher.runtime.lastProgressChange = 0
@@ -1096,7 +930,7 @@ local function startHorseCatching()
     
     Rayfield:Notify({
        Title = "🚀 Ultra Horse Catching Started!",
-       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. " | ULTRA Lasso Protection: " .. horseCatcher.settings.protectionLevel,
+       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. " | Lasso protected",
        Duration = 3,
        Image = 4483362458,
     })
@@ -1114,17 +948,10 @@ local function startHorseCatching()
         horseCatcher.runtime.lastIslandCheck = currentTime
     end)
     
-    -- 🔥 NEW: ULTRA lasso protection connection
-    horseCatcher.connections.ultraLassoProtection = RunService.Heartbeat:Connect(function()
+    -- 🔥 NEW: Lasso protection connection
+    horseCatcher.connections.lassoProtection = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
-        
-        local currentTime = tick()
-        if currentTime - horseCatcher.runtime.lastUltraProtectionCheck < 0.05 then -- Check every 50ms for ULTRA mode
-            return
-        end
-        
-        horseCatcher.runtime.lastUltraProtectionCheck = currentTime
-        ultraAggressiveLassoMonitoring()
+        protectLasso()
     end)
     
     -- CaptureProgress monitoring connection
@@ -1257,9 +1084,6 @@ local function stopHorseCatching()
     horseCatcher.isRunning = false
     horseCatcher.lassoProtectionActive = false
     
-    -- 🔥 CLEANUP: Remove ULTRA lasso protection
-    cleanupLassoProtection()
-    
     for name, connection in pairs(horseCatcher.connections) do
         if connection then
             connection:Disconnect()
@@ -1288,8 +1112,8 @@ local function stopHorseCatching()
     local currentIsland = detectCurrentIsland()
     
     Rayfield:Notify({
-       Title = "🏁 ULTRA Protection Session Ended",
-       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Protected: " .. lassoProtection.stats.blockedUnequips .. " unequips",
+       Title = "🏁 CaptureProgress Session Ended",
+       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Progress Hits: " .. horseCatcher.statistics.progressStats.totalProgressHits,
        Duration = 5,
        Image = 4483362458,
     })
@@ -1298,10 +1122,10 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- ENHANCED UI WITH ULTRA LASSO PROTECTION
+-- ENHANCED UI WITH CAPTURE PROGRESS FEATURES
 -- =================================
 
--- CaptureProgress Control Section
+-- 🔥 CaptureProgress Control Section
 local CaptureProgressSection = parentTab:CreateSection("🎯 CaptureProgress System")
 
 local ProgressMonitoringToggle = parentTab:CreateToggle({
@@ -1334,8 +1158,8 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
    end,
 })
 
--- 🔥 ENHANCED: Ultra Lasso Protection Section
-local UltraLassoSection = parentTab:CreateSection("🛡️ ULTRA Lasso Protection")
+-- 🔥 Enhanced Lasso Control Section
+local LassoControlSection = parentTab:CreateSection("🎯 Lasso Management")
 
 local AutoEquipLassoToggle = parentTab:CreateToggle({
    Name = "🚀 Auto-Equip Lasso",
@@ -1347,43 +1171,11 @@ local AutoEquipLassoToggle = parentTab:CreateToggle({
 })
 
 local ProtectLassoToggle = parentTab:CreateToggle({
-   Name = "🛡️ Block Lasso Unequip",
+   Name = "🛡️ Protect Lasso (Anti-Unequip)",
    CurrentValue = true,
    Flag = "ProtectLassoToggle",
    Callback = function(Value)
       horseCatcher.settings.protectLasso = Value
-      if lassoProtection.active then
-          lassoProtection.blockUnequip = Value
-      end
-   end,
-})
-
-local UltraProtectionToggle = parentTab:CreateToggle({
-   Name = "⚡ ULTRA Protection Mode",
-   CurrentValue = true,
-   Flag = "UltraProtectionToggle",
-   Callback = function(Value)
-      horseCatcher.settings.ultraProtection = Value
-   end,
-})
-
-local ProtectionLevelDropdown = parentTab:CreateDropdown({
-   Name = "🔥 Protection Level",
-   Options = {"NORMAL", "AGGRESSIVE", "ULTRA"},
-   CurrentOption = {"ULTRA"},
-   MultipleOptions = false,
-   Flag = "ProtectionLevelDropdown",
-   Callback = function(Option)
-      horseCatcher.settings.protectionLevel = Option[1]
-      if lassoProtection.active then
-          lassoProtection.protectionLevel = Option[1]
-      end
-      Rayfield:Notify({
-         Title = "🛡️ Protection Level Updated",
-         Content = "Now using: " .. Option[1] .. " protection level",
-         Duration = 2,
-         Image = 4483362458,
-      })
    end,
 })
 
@@ -1417,7 +1209,7 @@ local MovementDropdown = parentTab:CreateDropdown({
       horseCatcher.settings.movementMode = Option[1]
       Rayfield:Notify({
          Title = "📍 Movement Updated",
-         Content = "Now using: " .. Option[1]:upper() .. " mode (ULTRA Protected)",
+         Content = "Now using: " .. Option[1]:upper() .. " mode (CaptureProgress)",
          Duration = 2,
          Image = 4483362458,
       })
@@ -1483,11 +1275,13 @@ local LiveStatusSection = parentTab:CreateSection("📊 Professional Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
 local CaptureProgressInfo = parentTab:CreateParagraph({Title = "🎯 CaptureProgress Status", Content = "No target selected"})
-local UltraLassoStatus = parentTab:CreateParagraph({Title = "🛡️ ULTRA Lasso Protection", Content = "Protection ready"}) -- 🔥 NEW
+local LassoStatus = parentTab:CreateParagraph({Title = "🎯 Lasso Status", Content = "Lasso monitoring ready"})
 local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Ultra-optimized system ready"})
 local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Professional mode ready"})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
 local PerformanceMetrics = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Monitoring ready"})
+
+-- ... (rest of UI similar)
 
 -- =================================
 -- ENHANCED STATUS UPDATE SYSTEM
@@ -1513,9 +1307,9 @@ spawn(function()
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
-        -- 🔥 NEW: ULTRA Lasso Protection Status
-        local ultraLassoText = ""
-        if horseCatcher.isRunning and lassoProtection.active then
+        -- 🔥 NEW: Lasso Status
+        local lassoText = ""
+        if horseCatcher.isRunning then
             local currentlyEquipped = "Unknown"
             pcall(function()
                 if gameSystem.available and gameSystem.u3 then
@@ -1524,21 +1318,16 @@ spawn(function()
                 end
             end)
             
-            ultraLassoText = "🛡️ Protection Level: " .. lassoProtection.protectionLevel .. "\n"
-            ultraLassoText = ultraLassoText .. "⚡ Status: ULTRA-ACTIVE\n"
-            ultraLassoText = ultraLassoText .. "🚫 Blocked Unequips: " .. lassoProtection.stats.blockedUnequips .. "\n"
-            ultraLassoText = ultraLassoText .. "🔄 Force Equips: " .. lassoProtection.stats.forceEquips .. "\n"
-            ultraLassoText = ultraLassoText .. "🎯 Current Equipped: " .. currentlyEquipped .. "\n"
-            ultraLassoText = ultraLassoText .. "⚡ Protection Triggers: " .. lassoProtection.stats.protectionTriggers
+            lassoText = "🎯 Current Lasso: " .. (horseCatcher.currentLassoID and horseCatcher.currentLassoID:sub(1, 8) .. "..." or "Unknown") .. "\n"
+            lassoText = lassoText .. "⚙️ Currently Equipped: " .. currentlyEquipped .. "\n"
+            lassoText = lassoText .. "🛡️ Protection: " .. (horseCatcher.settings.protectLasso and "✅" or "❌") .. "\n"
+            lassoText = lassoText .. "🚀 Auto-Equip: " .. (horseCatcher.settings.autoEquipLasso and "✅" or "❌") .. "\n"
+            lassoText = lassoText .. "🔄 Status: " .. (horseCatcher.lassoProtectionActive and "PROTECTED" or "INACTIVE")
         else
-            ultraLassoText = "🛡️ Protection Level: " .. horseCatcher.settings.protectionLevel .. "\n"
-            ultraLassoText = ultraLassoText .. "⚡ Status: STANDBY\n"
-            ultraLassoText = ultraLassoText .. "🚀 Auto-Equip: " .. (horseCatcher.settings.autoEquipLasso and "✅" or "❌") .. "\n"
-            ultraLassoText = ultraLassoText .. "🛡️ Block Unequip: " .. (horseCatcher.settings.protectLasso and "✅" or "❌") .. "\n"
-            ultraLassoText = ultraLassoText .. "⚡ ULTRA Mode: " .. (horseCatcher.settings.ultraProtection and "✅" or "❌")
+            lassoText = "🎯 Lasso protection ready\n🚀 Auto-equip: " .. (horseCatcher.settings.autoEquipLasso and "✅" or "❌") .. "\n🛡️ Protection: " .. (horseCatcher.settings.protectLasso and "✅" or "❌") .. "\n🔄 Status: STANDBY"
         end
         
-        UltraLassoStatus:Set({Title = "🛡️ ULTRA Lasso Protection", Content = ultraLassoText})
+        LassoStatus:Set({Title = "🎯 Lasso Status", Content = lassoText})
         
         -- CaptureProgress Information
         local progressText = ""
@@ -1632,48 +1421,6 @@ spawn(function()
         performanceText = performanceText .. "🐌 Slowest Capture: " .. string.format("%.1f", horseCatcher.statistics.progressStats.slowestCapture) .. "s\n"
         performanceText = performanceText .. "🎯 Capture Attempts: " .. horseCatcher.runtime.captureAttempts
         PerformanceMetrics:Set({Title = "⚡ Performance Metrics", Content = performanceText})
-        
-        -- Enhanced System Status
-        local systemText = ""
-        if gameSystem.available and gameSystem.networkReady then
-            systemText = "✅ Game System: ULTRA-Connected\n✅ Network (u2): High-Performance\n✅ Capture Remote: Optimized"
-        elseif gameSystem.available then
-            systemText = "⚠️ Game System: Connected\n❌ Network (u2): Limited\n❌ Performance Degraded"
-        else
-            systemText = "❌ Game System: Disconnected\n❌ Network: Unavailable\n❌ System Failure"
-        end
-        
-        local lassoReady, lassoID = equipLasso()
-        if lassoReady then
-            systemText = systemText .. "\n✅ Lasso: Ready (" .. (lassoID and lassoID:sub(1,8) or "Unknown") .. "...)"
-        else
-            systemText = systemText .. "\n❌ Lasso: Not Found"
-        end
-        
-        local cacheSize = #Cache.horses
-        systemText = systemText .. "\n📦 Cache: " .. cacheSize .. " horses"
-        systemText = systemText .. "\n🏝️ Island: " .. currentIsland
-        
-        SystemStatus:Set({Title = "🔧 System Status", Content = systemText})
-        
-        -- Enhanced Catching Status
-        local catchingText = ""
-        if horseCatcher.isRunning then
-            local runtime = tick() - horseCatcher.runtime.sessionStartTime
-            local minutes = math.floor(runtime / 60)
-            local seconds = math.floor(runtime % 60)
-            
-            catchingText = "🚀 ULTRA-ACTIVE (" .. horseCatcher.settings.movementMode:upper() .. ")\n"
-            catchingText = catchingText .. "🏝️ Island: " .. currentIsland .. "\n"
-            catchingText = catchingText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
-            catchingText = catchingText .. "🎯 Cooldown: " .. horseCatcher.settings.captureCooldown .. "s\n"
-            catchingText = catchingText .. "🧠 Smart: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n"
-            catchingText = catchingText .. "⚡ Aggressive: " .. (horseCatcher.settings.aggressiveTargeting and "✅" or "❌") .. "\n"
-            catchingText = catchingText .. "🛡️ ULTRA Protection: " .. (lassoProtection.active and "✅" or "❌")
-        else
-            catchingText = "🔴 STOPPED\n🏝️ Island: " .. currentIsland .. "\n💤 ULTRA-optimized system ready\n⚙️ Mode: " .. horseCatcher.settings.movementMode:upper() .. " (Professional)\n🔧 System: " .. (gameSystem.available and gameSystem.networkReady and "✅" or "❌") .. "\n🛡️ ULTRA Protection: Ready\n🚀 Ultra-performance ready"
-        end
-        CatchingStatus:Set({Title = "🎯 Catching Status", Content = catchingText})
     end
 end)
 
@@ -1687,9 +1434,6 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     horseCatcher.lassoProtectionActive = false
     
-    -- Clean up protection
-    cleanupLassoProtection()
-    
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
     
@@ -1699,7 +1443,7 @@ player.CharacterAdded:Connect(function(newCharacter)
         
         Rayfield:Notify({
            Title = "🔄 Character Respawned",
-           Content = "ULTRA Horse catching stopped - restart when ready",
+           Content = "Horse catching stopped - restart when ready",
            Duration = 3,
            Image = 4483362458,
         })
@@ -1711,7 +1455,7 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "🚀 Ultra Horse Catcher Pro Loaded!",
-   Content = "CaptureProgress monitoring | ULTRA Lasso Protection | Island detection | Revolutionary catching system",
+   Content = "CaptureProgress monitoring | Auto-lasso | Island detection | Revolutionary catching system",
    Duration = 5,
    Image = 4483362458,
 })
@@ -1720,15 +1464,15 @@ local initialIsland = detectCurrentIsland()
 
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
-       Title = "✅ ULTRA System Ready!",
-       Content = "Island: " .. initialIsland .. " | Real-time progress tracking | ULTRA Lasso Protection!",
+       Title = "✅ CaptureProgress System Ready!",
+       Content = "Island: " .. initialIsland .. " | Real-time progress tracking | Auto-lasso protection!",
        Duration = 4,
        Image = 4483362458,
     })
 else
     Rayfield:Notify({
        Title = "⚠️ Performance Warning",
-       Content = "Network system issues detected - ULTRA Protection may be limited | Island: " .. initialIsland,
+       Content = "Network system issues detected - CaptureProgress may be limited | Island: " .. initialIsland,
        Duration = 4,
        Image = 4483362458,
     })
@@ -1739,8 +1483,8 @@ spawn(function()
     local detectedIsland = detectCurrentIsland()
     if detectedIsland ~= "Unknown" then
         Rayfield:Notify({
-           Title = "🛡️ ULTRA Protection Ready!",
-           Content = "Island: " .. detectedIsland .. " | ULTRA Lasso Protection | Professional progress monitoring!",
+           Title = "🎯 CaptureProgress Ready!",
+           Content = "Island: " .. detectedIsland .. " | Professional progress monitoring active!",
            Duration = 3,
            Image = 4483362458,
         })
