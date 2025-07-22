@@ -1,4 +1,4 @@
--- Horse Catcher Pro - Organized Loadstring
+-- Horse Catcher Pro - Properly Organized Loadstring
 -- by Iyxo - 2025-07-22
 -- Gets tab, rayfield, and window as parameters
 
@@ -87,16 +87,6 @@ pcall(function()
     gameSystem.available = true
     gameSystem.remoteEvent = ReplicatedStorage.Communication.Events['']
 end)
-
--- =================================
--- UI SECTIONS - ORGANIZED
--- =================================
-local MainControlSection = parentTab:CreateSection("🎯 Main Control")
-local MovementSettingsSection = parentTab:CreateSection("📍 Movement & Settings")
-local LiveStatusSection = parentTab:CreateSection("📊 Live Status")
-local AdvancedSettingsSection = parentTab:CreateSection("⚙️ Advanced Settings")
-local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
-local StatisticsSection = parentTab:CreateSection("📈 Statistics")
 
 -- =================================
 -- CORE FUNCTIONS
@@ -591,10 +581,12 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- UI CONTROLS - ORGANIZED BY SECTIONS
+-- UI SECTIONS & CONTROLS - PROPERLY ORGANIZED
 -- =================================
 
--- MAIN CONTROL SECTION
+-- 🎯 MAIN CONTROL SECTION
+local MainControlSection = parentTab:CreateSection("🎯 Main Control")
+
 local MainToggle = parentTab:CreateToggle({
    Name = "🐎 Auto Horse Catching",
    CurrentValue = false,
@@ -611,7 +603,9 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- MOVEMENT & SETTINGS SECTION
+-- 📍 MOVEMENT & SETTINGS SECTION
+local MovementSettingsSection = parentTab:CreateSection("📍 Movement & Settings")
+
 local MovementDropdown = parentTab:CreateDropdown({
    Name = "📍 Movement Mode",
    Options = {"attachment", "pulse", "smooth"},
@@ -674,12 +668,16 @@ local SmartTargetingToggle = parentTab:CreateToggle({
    end,
 })
 
--- LIVE STATUS SECTION
+-- 📊 LIVE STATUS SECTION
+local LiveStatusSection = parentTab:CreateSection("📊 Live Status")
+
 local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Initializing..."})
 local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Ready"})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "None"})
 
--- ADVANCED SETTINGS SECTION
+-- ⚙️ ADVANCED SETTINGS SECTION
+local AdvancedSettingsSection = parentTab:CreateSection("⚙️ Advanced Settings")
+
 local MaxAttemptsSlider = parentTab:CreateSlider({
    Name = "🎯 Max Attempts per Horse",
    Range = {10, 35},
@@ -716,7 +714,9 @@ local SmoothSpeedSlider = parentTab:CreateSlider({
    end,
 })
 
--- QUICK ACTIONS SECTION
+-- ⚡ QUICK ACTIONS SECTION
+local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
+
 local ResetCapturedButton = parentTab:CreateButton({
    Name = "🗑️ Reset Captured List",
    Callback = function()
@@ -750,7 +750,9 @@ local ResetStatsButton = parentTab:CreateButton({
    end,
 })
 
--- STATISTICS SECTION
+-- 📈 STATISTICS SECTION
+local StatisticsSection = parentTab:CreateSection("📈 Statistics")
+
 local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Statistics", Content = "Ready to start"})
 local AllTimeStats = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
 
@@ -886,7 +888,7 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "🐎 Horse Catcher Pro Loaded!",
-   Content = "Organized interface | Working remote confirmed",
+   Content = "Properly organized interface | Working remote confirmed",
    Duration = 4,
    Image = 4483362458,
 })
@@ -907,6 +909,6 @@ else
     })
 end
 
-print("🐎 Horse Catcher Pro - Organized Edition Loaded!")
+print("🐎 Horse Catcher Pro - Properly Organized Edition Loaded!")
 print("✅ Confirmed working remote: Equipment protocol")
-print("📊 Clean organized interface with all features")
+print("📊 Properly organized interface with correct sections")
