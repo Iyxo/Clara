@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Simplified CaptureProgress Edition
--- by Iyxo - 2025-07-22 17:56:13
--- Revolutionary horse catching with professional CaptureProgress monitoring
+-- Horse Catcher Pro - Professional Smart Scanning Edition
+-- by Iyxo - 2025-07-22 22:05:30
+-- Revolutionary horse catching with intelligent scanning and CaptureProgress monitoring
 
 local parentTab, Rayfield, Window = ...
 
@@ -77,6 +77,316 @@ local function detectCurrentIsland()
     
     islandSystem.lastUpdate = currentTime
     return islandSystem.currentIsland
+end
+
+-- =================================
+-- PROFESSIONAL INTELLIGENT SCANNING SYSTEM
+-- =================================
+local intelligentScanner = {
+    enabled = false,
+    isScanning = false,
+    isPaused = false,
+    
+    -- Island bounds configuration
+    islandBounds = {
+        ["Mainland"] = {
+            corner1 = Vector3.new(-992.5, 6.8, -951.3),
+            corner2 = Vector3.new(1084.9, 6.7, 861.8)
+        }
+        -- Add more islands here as needed
+    },
+    
+    -- Known horse locations for intelligent targeting
+    knownHorseLocations = {},
+    lastKnownUpdate = 0,
+    
+    -- Scanning settings
+    settings = {
+        scanType = "terrain", -- "terrain" or "random"
+        scanSpeed = 0.5, -- seconds between teleports
+        autoScan = true,
+        smartTargeting = true,
+        landOnly = true,
+        scanPoints = 12,
+        maxKnownLocations = 100
+    },
+    
+    -- Runtime data
+    runtime = {
+        currentScanIndex = 0,
+        totalScanPoints = 0,
+        lastScanTime = 0,
+        scanStartTime = 0,
+        horsesFoundThisScan = 0,
+        totalHorsesFound = 0,
+        originalPosition = nil,
+        currentScanPoints = {}
+    },
+    
+    connections = {
+        scanner = nil,
+        horseWatcher = nil
+    }
+}
+
+-- Check if position is on land (terrain-based)
+local function isOnLand(position)
+    if not intelligentScanner.settings.landOnly then return true end
+    
+    local success, result = pcall(function()
+        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
+        
+        if raycast and raycast.Instance and raycast.Instance:IsA("Terrain") then
+            local material = raycast.Material
+            
+            -- Land materials (not water)
+            local landMaterials = {
+                Enum.Material.Grass,
+                Enum.Material.Ground,
+                Enum.Material.Rock,
+                Enum.Material.Sand,
+                Enum.Material.Snow,
+                Enum.Material.Mud,
+                Enum.Material.LeafyGrass,
+                Enum.Material.Concrete,
+                Enum.Material.Brick,
+                Enum.Material.Cobblestone,
+                Enum.Material.Pebble
+            }
+            
+            for _, landMat in pairs(landMaterials) do
+                if material == landMat then
+                    return true
+                end
+            end
+            
+            return material ~= Enum.Material.Water
+        end
+        
+        return true -- If not terrain, assume land
+    end)
+    
+    return success and result
+end
+
+-- Generate intelligent scan points
+local function generateScanPoints(islandName)
+    local bounds = intelligentScanner.islandBounds[islandName]
+    if not bounds then return {} end
+    
+    local points = {}
+    local count = intelligentScanner.settings.scanPoints
+    
+    local minX = math.min(bounds.corner1.X, bounds.corner2.X)
+    local maxX = math.max(bounds.corner1.X, bounds.corner2.X)
+    local minZ = math.min(bounds.corner1.Z, bounds.corner2.Z)
+    local maxZ = math.max(bounds.corner1.Z, bounds.corner2.Z)
+    local avgY = (bounds.corner1.Y + bounds.corner2.Y) / 2
+    
+    if intelligentScanner.settings.scanType == "terrain" then
+        -- Smart terrain-based grid distribution
+        local gridSize = math.ceil(math.sqrt(count))
+        local stepX = (maxX - minX) / gridSize
+        local stepZ = (maxZ - minZ) / gridSize
+        
+        for i = 0, gridSize - 1 do
+            for j = 0, gridSize - 1 do
+                if #points >= count then break end
+                
+                local baseX = minX + (i + 0.5) * stepX
+                local baseZ = minZ + (j + 0.5) * stepZ
+                
+                -- Add randomization within grid cell
+                local randomX = baseX + (math.random() - 0.5) * stepX * 0.6
+                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.6
+                local randomY = avgY + math.random(-30, 120)
+                
+                local point = Vector3.new(randomX, randomY, randomZ)
+                
+                -- Terrain validation
+                if intelligentScanner.settings.landOnly then
+                    local attempts = 0
+                    while not isOnLand(point) and attempts < 8 do
+                        randomX = baseX + (math.random() - 0.5) * stepX
+                        randomZ = baseZ + (math.random() - 0.5) * stepZ
+                        randomY = avgY + math.random(-30, 120)
+                        point = Vector3.new(randomX, randomY, randomZ)
+                        attempts = attempts + 1
+                    end
+                end
+                
+                table.insert(points, point)
+            end
+        end
+    else
+        -- Pure random distribution
+        for i = 1, count do
+            local attempts = 0
+            local point
+            
+            repeat
+                local randomX = minX + (maxX - minX) * math.random()
+                local randomZ = minZ + (maxZ - minZ) * math.random()
+                local randomY = avgY + math.random(-30, 120)
+                point = Vector3.new(randomX, randomY, randomZ)
+                attempts = attempts + 1
+            until not intelligentScanner.settings.landOnly or isOnLand(point) or attempts > 15
+            
+            table.insert(points, point)
+        end
+    end
+    
+    -- Add known horse locations for intelligent targeting
+    if intelligentScanner.settings.smartTargeting then
+        local currentTime = tick()
+        for location, data in pairs(intelligentScanner.knownHorseLocations) do
+            if currentTime - data.lastSeen < 300 and data.island == islandName then -- 5 minutes
+                if #points < count * 1.5 then -- Don't exceed 150% of scan points
+                    table.insert(points, 1, data.position) -- Add at beginning for priority
+                end
+            end
+        end
+    end
+    
+    return points
+end
+
+-- Scan horses at current position
+local function scanHorsesAtPosition(position)
+    local foundHorses = {}
+    local currentTime = tick()
+    
+    pcall(function()
+        local currentIsland = detectCurrentIsland()
+        local islandObject = nil
+        
+        if Workspace.Islands:FindFirstChild(currentIsland) then
+            islandObject = Workspace.Islands[currentIsland]
+        end
+        
+        if islandObject then
+            for _, child in pairs(islandObject:GetChildren()) do
+                if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
+                    local distance = (position - child.HumanoidRootPart.Position).Magnitude
+                    
+                    if distance <= 512 then -- Within streaming range
+                        local humanoid = child:FindFirstChild("Humanoid")
+                        if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
+                            -- Check if wild horse
+                            local isWild = false
+                            local horseName = "Unknown"
+                            
+                            pcall(function()
+                                local overhead = child:FindFirstChild("OverheadPart")
+                                if overhead and overhead:FindFirstChild("Overhead") then
+                                    local nameLabel = overhead.Overhead:FindFirstChild("NameLabel")
+                                    if nameLabel and nameLabel.Text == "Wild" then
+                                        isWild = true
+                                    end
+                                    
+                                    local breedLabel = overhead.Overhead:FindFirstChild("BreedLabel")
+                                    if breedLabel and breedLabel.Text ~= "" then
+                                        horseName = breedLabel.Text
+                                    else
+                                        horseName = child.Name:sub(2, 9) .. "..."
+                                    end
+                                end
+                            end)
+                            
+                            if isWild then
+                                foundHorses[child.Name] = {
+                                    object = child,
+                                    name = horseName,
+                                    position = child.HumanoidRootPart.Position,
+                                    distance = distance,
+                                    island = currentIsland,
+                                    scanPoint = position,
+                                    timestamp = currentTime
+                                }
+                                
+                                -- Add to known locations for future intelligent targeting
+                                intelligentScanner.knownHorseLocations[child.Name] = {
+                                    position = child.HumanoidRootPart.Position,
+                                    island = currentIsland,
+                                    lastSeen = currentTime,
+                                    name = horseName
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    
+    return foundHorses
+end
+
+-- Start intelligent scanning
+local function startIntelligentScan()
+    if intelligentScanner.isScanning then return false end
+    
+    local currentIsland = detectCurrentIsland()
+    if not intelligentScanner.islandBounds[currentIsland] then
+        Rayfield:Notify({
+           Title = "❌ Island Not Configured",
+           Content = "No scanning bounds set for " .. currentIsland,
+           Duration = 4,
+           Image = 4483362458,
+        })
+        return false
+    end
+    
+    intelligentScanner.isScanning = true
+    intelligentScanner.isPaused = false
+    intelligentScanner.runtime.originalPosition = humanoidRootPart.CFrame
+    intelligentScanner.runtime.scanStartTime = tick()
+    intelligentScanner.runtime.horsesFoundThisScan = 0
+    intelligentScanner.runtime.currentScanIndex = 0
+    
+    -- Generate scan points
+    intelligentScanner.runtime.currentScanPoints = generateScanPoints(currentIsland)
+    intelligentScanner.runtime.totalScanPoints = #intelligentScanner.runtime.currentScanPoints
+    
+    Rayfield:Notify({
+       Title = "🚀 Intelligent Scan Started",
+       Content = "Island: " .. currentIsland .. " | Points: " .. intelligentScanner.runtime.totalScanPoints .. " | Type: " .. intelligentScanner.settings.scanType:upper(),
+       Duration = 3,
+       Image = 4483362458,
+    })
+    
+    return true
+end
+
+-- Stop intelligent scanning
+local function stopIntelligentScan()
+    intelligentScanner.isScanning = false
+    intelligentScanner.isPaused = false
+    
+    if intelligentScanner.runtime.originalPosition then
+        humanoidRootPart.CFrame = intelligentScanner.runtime.originalPosition
+    end
+    
+    local scanTime = tick() - intelligentScanner.runtime.scanStartTime
+    
+    Rayfield:Notify({
+       Title = "🏁 Intelligent Scan Complete",
+       Content = "Found: " .. intelligentScanner.runtime.horsesFoundThisScan .. " horses | Time: " .. string.format("%.1f", scanTime) .. "s",
+       Duration = 4,
+       Image = 4483362458,
+    })
+end
+
+-- Pause/Resume scanning
+local function toggleScanPause()
+    intelligentScanner.isPaused = not intelligentScanner.isPaused
+    
+    Rayfield:Notify({
+       Title = intelligentScanner.isPaused and "⏸️ Scan Paused" or "▶️ Scan Resumed",
+       Content = intelligentScanner.isPaused and "Scanning paused" or "Scanning resumed",
+       Duration = 2,
+       Image = 4483362458,
+    })
 end
 
 -- =================================
@@ -160,17 +470,15 @@ local function enableNoclip()
         end
     end
     
-    -- Apply to current character
     pcall(function()
         for _, part in pairs(character:GetChildren()) do
             setNoclip(part)
         end
     end)
     
-    -- Monitor for new parts
     noclipSystem.connections.childAdded = character.ChildAdded:Connect(function(child)
         if noclipSystem.active then
-            wait(0.1) -- Wait for part to load
+            wait(0.1)
             setNoclip(child)
         end
     end)
@@ -181,7 +489,6 @@ local function disableNoclip()
     
     noclipSystem.active = false
     
-    -- Restore original collision
     pcall(function()
         for part, _ in pairs(noclipSystem.originalCanCollide) do
             if part and part.Parent then
@@ -192,7 +499,6 @@ local function disableNoclip()
     
     noclipSystem.originalCanCollide = {}
     
-    -- Disconnect monitoring
     if noclipSystem.connections.childAdded then
         noclipSystem.connections.childAdded:Disconnect()
         noclipSystem.connections.childAdded = nil
@@ -229,7 +535,8 @@ local horseCatcher = {
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
-        lassoProtection = nil
+        lassoProtection = nil,
+        intelligentScanner = nil -- NEW: Intelligent scanner connection
     },
     
     capturedHorses = {},
@@ -248,6 +555,12 @@ local horseCatcher = {
             averageProgressToCapture = 0,
             fastestCapture = 999,
             slowestCapture = 0
+        },
+        scanningStats = { -- NEW: Scanning statistics
+            totalScans = 0,
+            horsesFoundByScanning = 0,
+            averageScanTime = 0,
+            lastScanEfficiency = 0
         }
     },
     
@@ -267,7 +580,12 @@ local horseCatcher = {
         attachmentOffset = 4,
         targetingRadius = 300,
         batchProcessing = true,
-        maxBatchSize = 5
+        maxBatchSize = 5,
+        
+        -- NEW: Scanning integration settings
+        autoScanWhenNoTargets = true,
+        pauseScanningWhenCatching = true,
+        preferScannedTargets = true
     },
     
     runtime = {
@@ -289,7 +607,11 @@ local horseCatcher = {
         forceDetach = false,
         targetingCount = 0,
         captureAttempts = 0,
-        currentIslandHorses = 0
+        currentIslandHorses = 0,
+        
+        -- NEW: Scanning integration runtime
+        lastAutoScanTime = 0,
+        isUsingScannedTarget = false
     },
     
     performance = {
@@ -388,6 +710,7 @@ local function isWildHorse(horse)
     return isWild
 end
 
+-- ENHANCED: Horse cache with intelligent scanning integration
 local function updateHorseCache()
     local currentTime = tick()
     if currentTime - Cache.lastUpdate < Cache.updateInterval then
@@ -418,11 +741,15 @@ local function updateHorseCache()
                         horseCount = horseCount + 1
                         localHorseCount = localHorseCount + 1
                         
+                        -- NEW: Mark if this horse was found by scanning
+                        local wasScanned = intelligentScanner.knownHorseLocations[child.Name] ~= nil
+                        
                         Cache.horses[horseCount] = {
                             horse = child,
                             island = islandName,
-                            priority = priority,
-                            distance = distance
+                            priority = wasScanned and (priority - 0.5) or priority, -- Scanned horses get higher priority
+                            distance = distance,
+                            wasScanned = wasScanned
                         }
                         
                         if horseCount >= Cache.maxCacheSize then
@@ -453,6 +780,31 @@ local function updateHorseCache()
             end
         end
     end)
+    
+    -- NEW: Add known horse locations from intelligent scanner
+    for horseId, locationData in pairs(intelligentScanner.knownHorseLocations) do
+        if currentTime - locationData.lastSeen < 180 then -- 3 minutes
+            if not horseCatcher.capturedHorses[horseId] then
+                local distance = (humanoidRootPart.Position - locationData.position).Magnitude
+                
+                if distance <= horseCatcher.settings.targetingRadius * 1.5 then
+                    horseCount = horseCount + 1
+                    
+                    Cache.horses[horseCount] = {
+                        horse = nil, -- Will be found when we get closer
+                        island = locationData.island .. " (Scanned)",
+                        priority = 0.5, -- Highest priority for scanned locations
+                        distance = distance,
+                        wasScanned = true,
+                        knownLocation = locationData
+                    }
+                end
+            end
+        else
+            -- Clean up old locations
+            intelligentScanner.knownHorseLocations[horseId] = nil
+        end
+    end
     
     table.sort(Cache.horses, function(a, b)
         if a.priority ~= b.priority then
@@ -565,6 +917,7 @@ local function protectLasso()
     end)
 end
 
+-- ENHANCED: Find optimal target with scanning integration
 local function findOptimalTarget()
     local horses = updateHorseCache()
     if #horses == 0 then return nil end
@@ -575,7 +928,37 @@ local function findOptimalTarget()
     
     for i = 1, math.min(#horses, horseCatcher.settings.maxBatchSize * 2) do
         local horseData = horses[i]
-        if horseData and horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
+        
+        -- Handle known locations from scanning
+        if horseData.knownLocation and not horseData.horse then
+            -- Try to find the actual horse object now that we're targeting it
+            local knownLoc = horseData.knownLocation
+            local distance = (playerPos - knownLoc.position).Magnitude
+            
+            if distance <= horseCatcher.settings.targetingRadius then
+                -- Teleport closer to try to load the horse
+                local targetPos = knownLoc.position + Vector3.new(0, 50, 0)
+                humanoidRootPart.CFrame = CFrame.new(targetPos)
+                wait(0.5) -- Wait for streaming
+                
+                -- Try to find the horse now
+                local currentIslandObj = Workspace.Islands:FindFirstChild(currentIsland)
+                if currentIslandObj then
+                    for _, child in pairs(currentIslandObj:GetChildren()) do
+                        if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
+                            local childDist = (knownLoc.position - child.HumanoidRootPart.Position).Magnitude
+                            if childDist < 100 then -- Close to known location
+                                horseData.horse = child
+                                horseCatcher.runtime.isUsingScannedTarget = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
             local horse = horseData.horse
             local horsePos = horse.HumanoidRootPart.Position
             local distance = (playerPos - horsePos).Magnitude
@@ -586,6 +969,11 @@ local function findOptimalTarget()
             end
             
             local score = 1000
+            
+            -- Enhanced scoring with scanning bonus
+            if horseData.wasScanned then
+                score = score + 300 -- Bonus for scanned horses
+            end
             
             if horseData.island == currentIsland then
                 score = score + 500
@@ -633,7 +1021,8 @@ local function findOptimalTarget()
                 distance = distance,
                 velocity = velocity,
                 island = horseData.island,
-                priority = horseData.priority
+                priority = horseData.priority,
+                wasScanned = horseData.wasScanned
             })
         end
     end
@@ -864,6 +1253,12 @@ local function isHorseCapturedOrComplete(horse)
         horseCatcher.statistics.successfulCaptures = horseCatcher.statistics.successfulCaptures + 1
         horseCatcher.runtime.lastSuccessfulCapture = tick()
         
+        -- NEW: Track if this was a scanned horse
+        if horseCatcher.runtime.isUsingScannedTarget then
+            horseCatcher.statistics.scanningStats.horsesFoundByScanning = horseCatcher.statistics.scanningStats.horsesFoundByScanning + 1
+            horseCatcher.runtime.isUsingScannedTarget = false
+        end
+        
         local captureTime = tick() - horseCatcher.runtime.currentTargetStartTime
         if captureTime < horseCatcher.statistics.progressStats.fastestCapture then
             horseCatcher.statistics.progressStats.fastestCapture = captureTime
@@ -887,10 +1282,19 @@ local function isHorseCapturedOrComplete(horse)
         
         Rayfield:Notify({
            Title = "🎉 " .. horseName .. " Captured!",
-           Content = "Island: " .. currentIsland .. " | Reason: " .. reason .. " | Time: " .. string.format("%.1f", captureTime) .. "s | Streak: " .. horseCatcher.statistics.currentStreak,
+           Content = "Island: " .. currentIsland .. " | Reason: " .. reason .. " | Time: " .. string.format("%.1f", captureTime) .. "s | Streak: " .. horseCatcher.statistics.currentStreak .. (horseCatcher.runtime.isUsingScannedTarget and " (Scanned)" or ""),
            Duration = 3,
            Image = 4483362458,
         })
+        
+        -- NEW: Resume scanning after capture if enabled
+        if intelligentScanner.settings.autoScan and not intelligentScanner.isScanning then
+            local currentTime = tick()
+            if currentTime - horseCatcher.runtime.lastAutoScanTime > 30 then -- Don't scan too frequently
+                horseCatcher.runtime.lastAutoScanTime = currentTime
+                startIntelligentScan()
+            end
+        end
     end
     
     return captured, reason
@@ -916,11 +1320,19 @@ local function cleanupSystem()
     
     updateCaptureProgressTracking()
     
+    -- NEW: Clean up old known horse locations
+    local currentTime = tick()
+    for horseId, data in pairs(intelligentScanner.knownHorseLocations) do
+        if currentTime - data.lastSeen > 600 then -- 10 minutes
+            intelligentScanner.knownHorseLocations[horseId] = nil
+        end
+    end
+    
     horseCatcher.runtime.lastCleanupTime = currentTime
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC
+-- ENHANCED MAIN LOGIC WITH INTELLIGENT SCANNING
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -957,6 +1369,8 @@ local function startHorseCatching()
     horseCatcher.runtime.lastIslandCheck = 0
     horseCatcher.runtime.lastProgressCheck = 0
     horseCatcher.runtime.lastLassoCheck = 0
+    horseCatcher.runtime.lastAutoScanTime = 0
+    horseCatcher.runtime.isUsingScannedTarget = false
     
     horseCatcher.runtime.currentTargetStartTime = 0
     horseCatcher.runtime.lastProgressChange = 0
@@ -973,9 +1387,14 @@ local function startHorseCatching()
         enableNoclip()
     end
     
+    -- NEW: Start auto scanning if enabled
+    if intelligentScanner.settings.autoScan then
+        startIntelligentScan()
+    end
+    
     Rayfield:Notify({
        Title = "🚀 Ultra Horse Catching Started!",
-       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or ""),
+       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or "") .. (intelligentScanner.settings.autoScan and " | Auto-Scan ON" or ""),
        Duration = 3,
        Image = 4483362458,
     })
@@ -1028,6 +1447,63 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
         if #horseCatcher.performance.progressCheckTimes > 100 then
             table.remove(horseCatcher.performance.progressCheckTimes, 1)
+        end
+    end)
+    
+    -- NEW: Intelligent scanner connection
+    horseCatcher.connections.intelligentScanner = RunService.Heartbeat:Connect(function()
+        if not horseCatcher.isRunning or not intelligentScanner.enabled then return end
+        
+        local currentTime = tick()
+        
+        -- Pause scanning when actively catching a horse
+        if horseCatcher.settings.pauseScanningWhenCatching and horseCatcher.currentTarget then
+            if intelligentScanner.isScanning and not intelligentScanner.isPaused then
+                intelligentScanner.isPaused = true
+            end
+            return
+        else
+            if intelligentScanner.isScanning and intelligentScanner.isPaused then
+                intelligentScanner.isPaused = false
+            end
+        end
+        
+        -- Auto-start scanning when no targets found
+        if horseCatcher.settings.autoScanWhenNoTargets and not horseCatcher.currentTarget then
+            if not intelligentScanner.isScanning and currentTime - horseCatcher.runtime.lastAutoScanTime > 60 then -- Every minute
+                horseCatcher.runtime.lastAutoScanTime = currentTime
+                startIntelligentScan()
+            end
+        end
+        
+        -- Continue scanning process
+        if intelligentScanner.isScanning and not intelligentScanner.isPaused then
+            if currentTime - intelligentScanner.runtime.lastScanTime >= intelligentScanner.settings.scanSpeed then
+                intelligentScanner.runtime.lastScanTime = currentTime
+                
+                if intelligentScanner.runtime.currentScanIndex < intelligentScanner.runtime.totalScanPoints then
+                    intelligentScanner.runtime.currentScanIndex = intelligentScanner.runtime.currentScanIndex + 1
+                    local scanPoint = intelligentScanner.runtime.currentScanPoints[intelligentScanner.runtime.currentScanIndex]
+                    
+                    if scanPoint then
+                        -- Teleport to scan point
+                        humanoidRootPart.CFrame = CFrame.new(scanPoint)
+                        
+                        -- Scan for horses
+                        spawn(function()
+                            wait(intelligentScanner.settings.scanSpeed * 0.5) -- Wait half the scan speed for streaming
+                            local foundHorses = scanHorsesAtPosition(scanPoint)
+                            intelligentScanner.runtime.horsesFoundThisScan = intelligentScanner.runtime.horsesFoundThisScan + table.getn(foundHorses)
+                            intelligentScanner.runtime.totalHorsesFound = intelligentScanner.runtime.totalHorsesFound + table.getn(foundHorses)
+                        end)
+                    end
+                else
+                    -- Scanning complete
+                    stopIntelligentScan()
+                    horseCatcher.statistics.scanningStats.totalScans = horseCatcher.statistics.scanningStats.totalScans + 1
+                    horseCatcher.statistics.scanningStats.lastScanEfficiency = intelligentScanner.runtime.horsesFoundThisScan / intelligentScanner.runtime.totalScanPoints
+                end
+            end
         end
     end)
     
@@ -1124,6 +1600,11 @@ end
 local function stopHorseCatching()
     horseCatcher.isRunning = false
     
+    -- Stop intelligent scanning
+    if intelligentScanner.isScanning then
+        stopIntelligentScan()
+    end
+    
     -- Disable noclip
     disableNoclip()
     
@@ -1131,6 +1612,13 @@ local function stopHorseCatching()
         if connection then
             connection:Disconnect()
             horseCatcher.connections[name] = nil
+        end
+    end
+    
+    for name, connection in pairs(intelligentScanner.connections) do
+        if connection then
+            connection:Disconnect()
+            intelligentScanner.connections[name] = nil
         end
     end
     
@@ -1146,7 +1634,7 @@ local function stopHorseCatching()
     
     Rayfield:Notify({
        Title = "🏁 Session Ended",
-       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Time: " .. minutes .. "m " .. seconds .. "s",
+       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Time: " .. minutes .. "m " .. seconds .. "s | Scanned: " .. horseCatcher.statistics.scanningStats.horsesFoundByScanning,
        Duration = 5,
        Image = 4483362458,
     })
@@ -1155,8 +1643,116 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- SIMPLIFIED UI
+-- ENHANCED UI WITH INTELLIGENT SCANNING
 -- =================================
+
+-- Intelligent Scanning Section
+local IntelligentScanningSection = parentTab:CreateSection("🧠 Intelligent Scanning System")
+
+local AutoScanToggle = parentTab:CreateToggle({
+   Name = "🔄 Auto Scanning",
+   CurrentValue = true,
+   Flag = "AutoScanningToggle",
+   Callback = function(Value)
+      intelligentScanner.settings.autoScan = Value
+   end,
+})
+
+local ScanTypeDropdown = parentTab:CreateDropdown({
+   Name = "🎯 Scan Type",
+   Options = {"terrain", "random"},
+   CurrentOption = {"terrain"},
+   MultipleOptions = false,
+   Flag = "ScanTypeDropdown",
+   Callback = function(Option)
+      intelligentScanner.settings.scanType = Option[1]
+      Rayfield:Notify({
+         Title = "🎯 Scan Type Updated",
+         Content = "Now using: " .. Option[1]:upper() .. " scanning",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local ScanSpeedSlider = parentTab:CreateSlider({
+   Name = "⚡ Scan Speed",
+   Range = {0.2, 2},
+   Increment = 0.1,
+   Suffix = "s",
+   CurrentValue = 0.5,
+   Flag = "ScanSpeedSlider",
+   Callback = function(Value)
+      intelligentScanner.settings.scanSpeed = Value
+   end,
+})
+
+local ScanPointsSlider = parentTab:CreateSlider({
+   Name = "📍 Scan Points",
+   Range = {4, 25},
+   Increment = 1,
+   Suffix = " points",
+   CurrentValue = 12,
+   Flag = "ScanPointsSlider",
+   Callback = function(Value)
+      intelligentScanner.settings.scanPoints = Value
+   end,
+})
+
+local LandOnlyToggle = parentTab:CreateToggle({
+   Name = "🌱 Land Only Scanning",
+   CurrentValue = true,
+   Flag = "LandOnlyScanningToggle",
+   Callback = function(Value)
+      intelligentScanner.settings.landOnly = Value
+   end,
+})
+
+local SmartTargetingToggle = parentTab:CreateToggle({
+   Name = "🎯 Smart Targeting (Use Scanned Locations)",
+   CurrentValue = true,
+   Flag = "SmartTargetingScanToggle",
+   Callback = function(Value)
+      intelligentScanner.settings.smartTargeting = Value
+   end,
+})
+
+-- Scanning Control Buttons
+local ScanControlSection = parentTab:CreateSection("🔧 Scan Control")
+
+local StartScanButton = parentTab:CreateButton({
+   Name = "🚀 Start Manual Scan",
+   Callback = function()
+      if not intelligentScanner.isScanning then
+         startIntelligentScan()
+      else
+         Rayfield:Notify({
+            Title = "⚠️ Already Scanning",
+            Content = "Scanning is already in progress",
+            Duration = 2,
+            Image = 4483362458,
+         })
+      end
+   end,
+})
+
+local StopScanButton = parentTab:CreateButton({
+   Name = "⏹️ Stop Scan",
+   Callback = function()
+      if intelligentScanner.isScanning then
+         stopIntelligentScan()
+      end
+   end,
+})
+
+local PauseScanButton = parentTab:CreateButton({
+   Name = "⏸️ Pause/Resume Scan",
+   Callback = function()
+      if intelligentScanner.isScanning then
+         toggleScanPause()
+      end
+   end,
+})
 
 -- CaptureProgress Control Section
 local CaptureProgressSection = parentTab:CreateSection("🎯 CaptureProgress System")
@@ -1207,6 +1803,36 @@ local MainToggle = parentTab:CreateToggle({
       else
          stopHorseCatching()
       end
+   end,
+})
+
+-- Scanning Integration Settings
+local ScanIntegrationSection = parentTab:CreateSection("🔗 Scanning Integration")
+
+local AutoScanNoTargetsToggle = parentTab:CreateToggle({
+   Name = "🔍 Auto Scan When No Targets",
+   CurrentValue = true,
+   Flag = "AutoScanNoTargetsToggle",
+   Callback = function(Value)
+      horseCatcher.settings.autoScanWhenNoTargets = Value
+   end,
+})
+
+local PauseScanCatchingToggle = parentTab:CreateToggle({
+   Name = "⏸️ Pause Scanning When Catching",
+   CurrentValue = true,
+   Flag = "PauseScanCatchingToggle",
+   Callback = function(Value)
+      horseCatcher.settings.pauseScanningWhenCatching = Value
+   end,
+})
+
+local PreferScannedToggle = parentTab:CreateToggle({
+   Name = "⭐ Prefer Scanned Targets",
+   CurrentValue = true,
+   Flag = "PreferScannedTargetsToggle",
+   Callback = function(Value)
+      horseCatcher.settings.preferScannedTargets = Value
    end,
 })
 
@@ -1277,7 +1903,7 @@ local CaptureCooldownSlider = parentTab:CreateSlider({
    end,
 })
 
-local SmartTargetingToggle = parentTab:CreateToggle({
+local SmartTargetingToggleMain = parentTab:CreateToggle({
    Name = "🧠 Smart Targeting",
    CurrentValue = true,
    Flag = "UltraHorseSmartTargetingToggle",
@@ -1295,10 +1921,11 @@ local AggressiveTargetingToggle = parentTab:CreateToggle({
    end,
 })
 
--- Simplified Status Section (only Island Information)
-local LiveStatusSection = parentTab:CreateSection("📊 Status")
+-- Enhanced Status Section
+local LiveStatusSection = parentTab:CreateSection("📊 Professional Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
+local ScanningStatus = parentTab:CreateParagraph({Title = "🧠 Scanning Status", Content = "Intelligent scanning ready"})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
 
 -- Quick Actions Section
@@ -1324,6 +1951,19 @@ local ClearCacheButton = parentTab:CreateButton({
    end,
 })
 
+local ClearScannedButton = parentTab:CreateButton({
+   Name = "🧠 Clear Scanned Locations",
+   Callback = function()
+      intelligentScanner.knownHorseLocations = {}
+      Rayfield:Notify({
+         Title = "🧠 Scanned Locations Cleared",
+         Content = "Known horse locations cleared",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
 local ResetCapturedButton = parentTab:CreateButton({
    Name = "🔄 Reset Captured List",
    Callback = function()
@@ -1337,14 +1977,15 @@ local ResetCapturedButton = parentTab:CreateButton({
    end,
 })
 
--- Statistics Section
-local StatisticsSection = parentTab:CreateSection("📈 Statistics")
+-- Enhanced Statistics Section
+local StatisticsSection = parentTab:CreateSection("📈 Advanced Statistics")
 
 local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for session"})
+local ScanningStats = parentTab:CreateParagraph({Title = "🧠 Scanning Statistics", Content = "No scanning data yet"})
 local IslandStats = parentTab:CreateParagraph({Title = "🏝️ Island Statistics", Content = "No island data yet"})
 
 -- =================================
--- SIMPLIFIED STATUS UPDATE SYSTEM
+-- ENHANCED STATUS UPDATE SYSTEM
 -- =================================
 spawn(function()
     while wait(1) do
@@ -1363,11 +2004,34 @@ spawn(function()
         
         islandText = islandText .. "🌍 Islands Scanned: " .. totalIslands .. "\n"
         islandText = islandText .. "📊 Total Horses: " .. totalHorses .. "\n"
+        islandText = islandText .. "🧠 Known Locations: " .. table.getn(intelligentScanner.knownHorseLocations) .. "\n"
         islandText = islandText .. "🔍 Auto-Scanning: ✅"
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
-        -- Target Information
+        -- Enhanced Scanning Status
+        local scanText = ""
+        if intelligentScanner.isScanning then
+            local progress = intelligentScanner.runtime.currentScanIndex / math.max(intelligentScanner.runtime.totalScanPoints, 1)
+            local scanTime = tick() - intelligentScanner.runtime.scanStartTime
+            
+            scanText = "🚀 Status: SCANNING" .. (intelligentScanner.isPaused and " (PAUSED)" or "") .. "\n"
+            scanText = scanText .. "📊 Progress: " .. intelligentScanner.runtime.currentScanIndex .. "/" .. intelligentScanner.runtime.totalScanPoints .. " (" .. string.format("%.1f", progress * 100) .. "%)\n"
+            scanText = scanText .. "🎯 Type: " .. intelligentScanner.settings.scanType:upper() .. "\n"
+            scanText = scanText .. "⚡ Speed: " .. intelligentScanner.settings.scanSpeed .. "s per point\n"
+            scanText = scanText .. "🐎 Found This Scan: " .. intelligentScanner.runtime.horsesFoundThisScan .. "\n"
+            scanText = scanText .. "⏱️ Scan Time: " .. string.format("%.1f", scanTime) .. "s"
+        else
+            scanText = "🎯 Status: " .. (intelligentScanner.settings.autoScan and "AUTO READY" or "MANUAL READY") .. "\n"
+            scanText = scanText .. "🧠 Known Locations: " .. table.getn(intelligentScanner.knownHorseLocations) .. "\n"
+            scanText = scanText .. "📊 Total Scans: " .. horseCatcher.statistics.scanningStats.totalScans .. "\n"
+            scanText = scanText .. "🎯 Horses Found: " .. intelligentScanner.runtime.totalHorsesFound .. "\n"
+            scanText = scanText .. "⚡ Last Efficiency: " .. string.format("%.1f", horseCatcher.statistics.scanningStats.lastScanEfficiency * 100) .. "%"
+        end
+        
+        ScanningStatus:Set({Title = "🧠 Scanning Status", Content = scanText})
+        
+        -- Enhanced Target Information
         local targetText = ""
         if horseCatcher.currentTarget then
             local targetName = getHorseName(horseCatcher.currentTarget)
@@ -1375,7 +2039,7 @@ spawn(function()
             local velocity = math.floor(horseCatcher.currentTarget.HumanoidRootPart.Velocity.Magnitude)
             local timeOnTarget = tick() - horseCatcher.runtime.currentTargetStartTime
             
-            targetText = "🐎 " .. targetName .. "\n"
+            targetText = "🐎 " .. targetName .. (horseCatcher.runtime.isUsingScannedTarget and " (Scanned)" or "") .. "\n"
             targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
             targetText = targetText .. "🏃 Speed: " .. velocity .. " studs/s\n"
             targetText = targetText .. "⏱️ Target Time: " .. string.format("%.1f", timeOnTarget) .. "s\n"
@@ -1396,11 +2060,11 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
-            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
+            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🧠 Using scanned data: " .. (horseCatcher.settings.preferScannedTargets and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
         
-        -- Session Statistics
+        -- Enhanced Session Statistics
         if horseCatcher.isRunning then
             local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
             local sessionMinutes = math.floor(sessionTime / 60)
@@ -1409,13 +2073,26 @@ spawn(function()
             local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
             sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
             sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
+            sessionText = sessionText .. "🧠 From Scanning: " .. horseCatcher.statistics.scanningStats.horsesFoundByScanning .. "\n"
             sessionText = sessionText .. "🏝️ Current Island: " .. currentIsland .. "\n"
             sessionText = sessionText .. "📊 Mode: " .. horseCatcher.settings.movementMode:upper() .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or "")
             
             SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
         else
-            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nCaptureProgress monitoring ready\n🚀 Auto-lasso & protection ready"})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nIntelligent scanning ready\n🚀 Auto-lasso & protection ready\n🧠 Smart scanning integration"})
         end
+        
+        -- Enhanced Scanning Statistics
+        local scanStatsText = "🧠 Total Scans: " .. horseCatcher.statistics.scanningStats.totalScans .. "\n"
+        scanStatsText = scanStatsText .. "🐎 Horses Found by Scanning: " .. horseCatcher.statistics.scanningStats.horsesFoundByScanning .. "\n"
+        scanStatsText = scanStatsText .. "🎯 Total Locations Known: " .. intelligentScanner.runtime.totalHorsesFound .. "\n"
+        if horseCatcher.statistics.scanningStats.lastScanEfficiency > 0 then
+            scanStatsText = scanStatsText .. "📊 Last Scan Efficiency: " .. string.format("%.1f", horseCatcher.statistics.scanningStats.lastScanEfficiency * 100) .. "%\n"
+        end
+        scanStatsText = scanStatsText .. "⚡ Scan Type: " .. intelligentScanner.settings.scanType:upper() .. "\n"
+        scanStatsText = scanStatsText .. "🔄 Auto Scan: " .. (intelligentScanner.settings.autoScan and "ON" or "OFF")
+        
+        ScanningStats:Set({Title = "🧠 Scanning Statistics", Content = scanStatsText})
         
         -- Island Statistics
         local islandStatsText = "🏝️ Per-Island Captures:\n"
@@ -1446,6 +2123,11 @@ player.CharacterAdded:Connect(function(newCharacter)
     
     disableNoclip()
     
+    -- Stop scanning on respawn
+    if intelligentScanner.isScanning then
+        stopIntelligentScan()
+    end
+    
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
     
@@ -1463,11 +2145,11 @@ player.CharacterAdded:Connect(function(newCharacter)
 end)
 
 -- =================================
--- INITIALIZATION
+-- ENHANCED INITIALIZATION
 -- =================================
 Rayfield:Notify({
    Title = "🚀 Ultra Horse Catcher Pro Loaded!",
-   Content = "CaptureProgress monitoring | Auto-lasso | Noclip smooth mode | Simplified interface",
+   Content = "Professional intelligent scanning | CaptureProgress monitoring | Auto-lasso | Noclip smooth mode",
    Duration = 5,
    Image = 4483362458,
 })
@@ -1476,15 +2158,15 @@ local initialIsland = detectCurrentIsland()
 
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
-       Title = "✅ System Ready!",
-       Content = "Island: " .. initialIsland .. " | CaptureProgress tracking | Auto-lasso protection | Noclip smooth mode!",
+       Title = "✅ Professional System Ready!",
+       Content = "Island: " .. initialIsland .. " | Intelligent scanning | CaptureProgress tracking | Auto-lasso protection!",
        Duration = 4,
        Image = 4483362458,
     })
 else
     Rayfield:Notify({
        Title = "⚠️ Performance Warning",
-       Content = "Network system issues detected | Island: " .. initialIsland,
+       Content = "Network system issues detected | Intelligent scanning may be limited | Island: " .. initialIsland,
        Duration = 4,
        Image = 4483362458,
     })
@@ -1495,8 +2177,8 @@ spawn(function()
     local detectedIsland = detectCurrentIsland()
     if detectedIsland ~= "Unknown" then
         Rayfield:Notify({
-           Title = "🎯 Ready!",
-           Content = "Island: " .. detectedIsland .. " | All systems operational!",
+           Title = "🎯 Professional System Ready!",
+           Content = "Island: " .. detectedIsland .. " | Intelligent scanning ready | All systems operational!",
            Duration = 3,
            Image = 4483362458,
         })
