@@ -1,6 +1,6 @@
--- Horse Attribute Manipulator - Fixed Horse Names Edition
--- by Iyxo - 2025-07-22 07:48:25
--- Revolutionary horse control with FIXED horse name detection
+-- Horse Attribute Manipulator - Ultra-Optimized with Auto Teleportation
+-- by Iyxo - 2025-07-22 08:01:25
+-- Revolutionary horse control with ultra-optimized continuous enforcement + auto teleportation
 
 local parentTab, Rayfield, Window = ...
 
@@ -11,6 +11,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
@@ -43,7 +44,8 @@ local horseManipulator = {
         manipulation = nil,
         enforcement = nil,
         scanning = nil,
-        cleanup = nil
+        cleanup = nil,
+        teleportation = nil
     },
     
     -- Optimized settings
@@ -57,13 +59,21 @@ local horseManipulator = {
         
         -- Performance optimization
         manipulationInterval = 1.5,
-        enforcementInterval = 0.25, -- Ultra-fast enforcement
+        enforcementInterval = 0.25,
         scanInterval = 2,
         cleanupInterval = 15,
         
+        -- Teleportation settings
+        autoTeleport = false,
+        teleportLoop = false,
+        teleportInterval = 3,
+        teleportRadius = 15,
+        teleportHeight = 5,
+        maxTeleportDistance = 500,
+        
         -- Advanced options
         continuousEnforcement = true,
-        globalManipulation = true, -- NO DISTANCE LIMITS!
+        globalManipulation = true,
         aggressiveEnforcement = true,
         batchProcessing = true,
         maxBatchSize = 15,
@@ -76,12 +86,15 @@ local horseManipulator = {
         lastEnforcementTime = 0,
         lastScanTime = 0,
         lastCleanupTime = 0,
+        lastTeleportTime = 0,
         manipulatedCount = 0,
         sessionStartTime = 0,
         enforcementCount = 0,
         scanCount = 0,
         batchCount = 0,
-        globalScanCount = 0
+        globalScanCount = 0,
+        teleportCount = 0,
+        horsesNearby = 0
     },
     
     -- Professional statistics
@@ -90,12 +103,14 @@ local horseManipulator = {
         totalEnforcements = 0,
         totalScans = 0,
         totalBatches = 0,
+        totalTeleports = 0,
         sessionsRun = 0,
         horsesControlled = 0,
         averageEnforcementTime = 0,
         peakHorsesControlled = 0,
         enforcementsPerSecond = 0,
-        globalCoverage = 0
+        globalCoverage = 0,
+        horsesNearbyPeak = 0
     },
     
     -- Performance monitoring
@@ -104,6 +119,7 @@ local horseManipulator = {
         manipulationTimes = {},
         scanTimes = {},
         batchTimes = {},
+        teleportTimes = {},
         maxEnforcementTime = 0,
         avgEnforcementTime = 0,
         maxBatchSize = 0
@@ -111,48 +127,74 @@ local horseManipulator = {
 }
 
 -- =================================
--- FIXED HORSE NAME FUNCTIONS - USING HORSE MONITOR LOGIC
+-- ENHANCED UTILITY FUNCTIONS WITH BETTER NAME DETECTION
 -- =================================
 
--- FIXED: Professional horse name getter using same logic as Horse Monitor
+-- FIXED: Enhanced horse name getter with better detection
 local function getHorseName(horse)
     if not horse then return "Unknown" end
     
-    -- Ultra-fast cache check
+    -- Check cache first
     local cached = Cache.horseData[horse.Name]
-    if cached and cached.name and cached.lastUpdate > tick() - 30 then
+    if cached and cached.name and cached.name ~= "Unknown" and cached.lastUpdate > tick() - 30 then
         return cached.name
     end
     
     local horseName = "Unknown"
-    local breedName = "Unknown"
+    local success = false
     
-    local success = pcall(function()
-        -- FIXED: Same logic as Horse Monitor
+    -- Enhanced name detection with multiple fallbacks
+    pcall(function()
         local overheadPart = horse:FindFirstChild("OverheadPart")
         if overheadPart then
             local overhead = overheadPart:FindFirstChild("Overhead")
             if overhead then
-                -- Get breed name first (this is the actual horse name)
+                -- First try: BreedLabel
                 local breedLabel = overhead:FindFirstChild("BreedLabel")
-                if breedLabel and breedLabel.Text and breedLabel.Text ~= "" then
-                    breedName = breedLabel.Text
-                    horseName = breedLabel.Text  -- Use breed as name
+                if breedLabel and breedLabel.Text and breedLabel.Text ~= "" and breedLabel.Text ~= " " then
+                    horseName = breedLabel.Text
+                    success = true
                 else
-                    -- Fallback to shortened ID
-                    horseName = horse.Name:sub(2, 9)
+                    -- Second try: Other labels
+                    for _, child in pairs(overhead:GetChildren()) do
+                        if child:IsA("TextLabel") and child.Text and child.Text ~= "" and child.Text ~= " " and child.Text ~= "Wild" then
+                            if child.Text:match("[A-Za-z]") then -- Contains letters
+                                horseName = child.Text
+                                success = true
+                                break
+                            end
+                        end
+                    end
                 end
             end
         end
+        
+        -- Third try: Check for any text-containing parts
+        if not success or horseName == "Unknown" then
+            for _, descendant in pairs(horse:GetDescendants()) do
+                if descendant:IsA("TextLabel") and descendant.Text and descendant.Text ~= "" and descendant.Text ~= " " and descendant.Text ~= "Wild" then
+                    if descendant.Text:match("[A-Za-z]") and descendant.Text:len() > 2 then
+                        horseName = descendant.Text
+                        success = true
+                        break
+                    end
+                end
+            end
+        end
+        
+        -- Fourth try: Use shortened ID as fallback
+        if not success or horseName == "Unknown" then
+            horseName = "Horse_" .. horse.Name:sub(2, 9)
+            success = true
+        end
     end)
     
-    -- Aggressive caching with FIXED data structure
+    -- Enhanced caching
     if success then
         Cache.horseData[horse.Name] = {
             name = horseName,
-            breed = breedName,
             lastUpdate = tick(),
-            isWild = nil -- Will be set by isWildHorse
+            isWild = nil
         }
     end
     
@@ -163,7 +205,6 @@ end
 local function isWildHorse(horse)
     if not horse then return false end
     
-    -- Ultra-fast cache check
     local cached = Cache.horseData[horse.Name]
     if cached and cached.isWild ~= nil and cached.lastUpdate > tick() - 30 then
         return cached.isWild
@@ -183,12 +224,10 @@ local function isWildHorse(horse)
         end
     end)
     
-    -- Aggressive caching
     if success then
         if not Cache.horseData[horse.Name] then
             Cache.horseData[horse.Name] = {
                 name = "Unknown",
-                breed = "Unknown",
                 lastUpdate = tick(),
                 isWild = isWild
             }
@@ -201,75 +240,7 @@ local function isWildHorse(horse)
     return isWild
 end
 
--- FIXED: Get comprehensive horse data like Horse Monitor
-local function getHorseData(horse)
-    if not horse then return nil end
-    
-    local horseData = {
-        id = horse.Name,
-        shortId = horse.Name:sub(2, 9),
-        name = "Unknown",
-        breed = "Unknown",
-        status = "Unknown",
-        distance = 0,
-        position = Vector3.new(0, 0, 0),
-        health = 0,
-        velocity = 0,
-        attributes = {},
-        isWild = false,
-        isValid = false
-    }
-    
-    pcall(function()
-        -- Basic data
-        if horse:FindFirstChild("HumanoidRootPart") then
-            horseData.position = horse.HumanoidRootPart.Position
-            horseData.distance = math.floor((humanoidRootPart.Position - horse.HumanoidRootPart.Position).Magnitude)
-            horseData.velocity = math.floor(horse.HumanoidRootPart.Velocity.Magnitude)
-            horseData.isValid = true
-        end
-        
-        if horse:FindFirstChild("Humanoid") then
-            horseData.health = math.floor(horse.Humanoid.Health)
-        end
-        
-        -- FIXED: Overhead data - same as Horse Monitor
-        local overheadPart = horse:FindFirstChild("OverheadPart")
-        if overheadPart then
-            local overhead = overheadPart:FindFirstChild("Overhead")
-            if overhead then
-                -- Name/Status
-                local nameLabel = overhead:FindFirstChild("NameLabel")
-                if nameLabel then
-                    horseData.status = nameLabel.Text
-                    horseData.isWild = (nameLabel.Text == "Wild")
-                end
-                
-                -- FIXED: Breed name (this is the actual horse name)
-                local breedLabel = overhead:FindFirstChild("BreedLabel")
-                if breedLabel and breedLabel.Text ~= "" then
-                    horseData.breed = breedLabel.Text
-                    horseData.name = breedLabel.Text  -- Use breed as name
-                else
-                    horseData.name = horseData.shortId
-                end
-            end
-        end
-        
-        -- Attributes
-        horseData.attributes = {
-            behaviour = horse:GetAttribute("behaviour") or "None",
-            followPlayer = horse:GetAttribute("followPlayer") or "None",
-            fleeDistance = horse:GetAttribute("fleeDistance") or "None",
-            lastPlayerToThrow = horse:GetAttribute("lastPlayerToThrowLasso") or "None",
-            species = horse:GetAttribute("species") or "Unknown"
-        }
-    end)
-    
-    return horseData
-end
-
--- ULTRA-OPTIMIZED GLOBAL HORSE SCANNING - NO DISTANCE LIMITS!
+-- ULTRA-OPTIMIZED GLOBAL HORSE SCANNING
 local function updateGlobalWildHorses()
     local currentTime = tick()
     if currentTime - Cache.lastWildUpdate < Cache.wildUpdateInterval then
@@ -280,7 +251,6 @@ local function updateGlobalWildHorses()
     Cache.wildHorses = {}
     local horseCount = 0
     
-    -- Ultra-optimized global scanning
     local function scanLocation(location, locationName)
         if not location then return end
         
@@ -288,24 +258,17 @@ local function updateGlobalWildHorses()
         for i = 1, #children do
             local child = children[i]
             
-            -- Ultra-fast filtering
             if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
                 local humanoid = child:FindFirstChild("Humanoid")
                 if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
                     if isWildHorse(child) and not horseManipulator.manipulatedHorses[child.Name] then
                         horseCount = horseCount + 1
-                        
-                        -- FIXED: Get comprehensive horse data
-                        local horseData = getHorseData(child)
                         Cache.wildHorses[horseCount] = {
                             horse = child,
                             location = locationName,
-                            distance = horseData.distance,
-                            name = horseData.name,  -- FIXED: Include name
-                            breed = horseData.breed -- FIXED: Include breed
+                            distance = (humanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude
                         }
                         
-                        -- Performance limit
                         if horseCount >= Cache.maxCacheSize then
                             break
                         end
@@ -315,7 +278,6 @@ local function updateGlobalWildHorses()
         end
     end
     
-    -- GLOBAL SCANNING - ALL LOCATIONS
     pcall(function()
         if Workspace.Islands then
             if Workspace.Islands.Mainland then
@@ -323,7 +285,6 @@ local function updateGlobalWildHorses()
             end
             scanLocation(Workspace.Islands, "Islands")
             
-            -- Scan additional locations if they exist
             for _, location in pairs(Workspace.Islands:GetChildren()) do
                 if location:IsA("Model") and location ~= Workspace.Islands.Mainland then
                     scanLocation(location, location.Name)
@@ -334,7 +295,6 @@ local function updateGlobalWildHorses()
     
     Cache.lastWildUpdate = currentTime
     
-    -- Performance tracking
     local scanTime = tick() - startTime
     table.insert(horseManipulator.performance.scanTimes, scanTime)
     if #horseManipulator.performance.scanTimes > 100 then
@@ -348,7 +308,7 @@ local function updateGlobalWildHorses()
     return Cache.wildHorses
 end
 
--- ULTRA-OPTIMIZED MANIPULATED HORSE TRACKING
+-- ENHANCED: Get manipulated horses with better tracking
 local function updateManipulatedHorses()
     local currentTime = tick()
     if currentTime - Cache.lastManipulatedUpdate < Cache.manipulatedUpdateInterval then
@@ -357,8 +317,9 @@ local function updateManipulatedHorses()
     
     Cache.manipulatedHorses = {}
     local manipulatedCount = 0
+    local nearbyCount = 0
+    local playerPos = humanoidRootPart.Position
     
-    -- Ultra-fast manipulated horse collection
     for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
         pcall(function()
             local horse = nil
@@ -366,7 +327,6 @@ local function updateManipulatedHorses()
                 horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
             end
             
-            -- Scan all locations for manipulated horses
             if not horse and Workspace.Islands then
                 for _, location in pairs(Workspace.Islands:GetChildren()) do
                     if location:IsA("Model") then
@@ -380,15 +340,119 @@ local function updateManipulatedHorses()
                 local humanoid = horse:FindFirstChild("Humanoid")
                 if humanoid and humanoid.Health > 0 then
                     manipulatedCount = manipulatedCount + 1
-                    Cache.manipulatedHorses[manipulatedCount] = horse
+                    
+                    local distance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
+                    if distance <= horseManipulator.settings.teleportRadius + 20 then
+                        nearbyCount = nearbyCount + 1
+                    end
+                    
+                    Cache.manipulatedHorses[manipulatedCount] = {
+                        horse = horse,
+                        distance = distance,
+                        name = horseData.name or getHorseName(horse)
+                    }
                 end
             end
         end)
     end
     
+    horseManipulator.runtime.horsesNearby = nearbyCount
+    if nearbyCount > horseManipulator.statistics.horsesNearbyPeak then
+        horseManipulator.statistics.horsesNearbyPeak = nearbyCount
+    end
+    
     Cache.lastManipulatedUpdate = currentTime
     return Cache.manipulatedHorses
 end
+
+-- =================================
+-- HORSE TELEPORTATION SYSTEM
+-- =================================
+
+-- Professional horse teleportation with smooth positioning
+local function teleportHorseToPlayer(horse, index)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local success = false
+    local startTime = tick()
+    
+    pcall(function()
+        local playerPos = humanoidRootPart.Position
+        local playerLook = humanoidRootPart.CFrame.LookVector
+        local playerRight = humanoidRootPart.CFrame.RightVector
+        
+        -- Calculate optimal position around player
+        local angle = (index - 1) * (math.pi * 2 / math.min(#Cache.manipulatedHorses, 8))
+        local radius = horseManipulator.settings.teleportRadius
+        
+        -- Create circular formation around player
+        local offsetX = math.cos(angle) * radius
+        local offsetZ = math.sin(angle) * radius
+        local targetPos = playerPos + Vector3.new(offsetX, horseManipulator.settings.teleportHeight, offsetZ)
+        
+        -- Advanced positioning for multiple horses
+        if #Cache.manipulatedHorses > 8 then
+            local ring = math.floor((index - 1) / 8)
+            radius = horseManipulator.settings.teleportRadius + (ring * 8)
+            offsetX = math.cos(angle) * radius
+            offsetZ = math.sin(angle) * radius
+            targetPos = playerPos + Vector3.new(offsetX, horseManipulator.settings.teleportHeight, offsetZ)
+        end
+        
+        -- Ensure horses don't teleport too far (performance optimization)
+        local currentDistance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
+        if currentDistance <= horseManipulator.settings.maxTeleportDistance then
+            -- Smooth teleportation
+            horse.HumanoidRootPart.CFrame = CFrame.lookAt(targetPos, playerPos)
+            
+            -- Optional: Add small upward velocity for more natural movement
+            if horse.HumanoidRootPart:FindFirstChild("BodyVelocity") then
+                horse.HumanoidRootPart.BodyVelocity:Destroy()
+            end
+            
+            success = true
+        end
+    end)
+    
+    -- Performance tracking
+    if success then
+        local teleportTime = tick() - startTime
+        table.insert(horseManipulator.performance.teleportTimes, teleportTime)
+        if #horseManipulator.performance.teleportTimes > 100 then
+            table.remove(horseManipulator.performance.teleportTimes, 1)
+        end
+        
+        horseManipulator.runtime.teleportCount = horseManipulator.runtime.teleportCount + 1
+        horseManipulator.statistics.totalTeleports = horseManipulator.statistics.totalTeleports + 1
+    end
+    
+    return success
+end
+
+-- Batch teleport all controlled horses
+local function batchTeleportControlledHorses()
+    if not horseManipulator.settings.autoTeleport then return 0 end
+    
+    local manipulatedHorses = updateManipulatedHorses()
+    local teleported = 0
+    
+    for i, horseData in pairs(manipulatedHorses) do
+        if horseData.horse and horseData.distance > horseManipulator.settings.teleportRadius then
+            if teleportHorseToPlayer(horseData.horse, i) then
+                teleported = teleported + 1
+            end
+        end
+        
+        -- Limit teleportations per batch for performance
+        if teleported >= 5 then break end
+    end
+    
+    return teleported
+end
+
+-- =================================
+-- ENHANCED ATTRIBUTE MANIPULATION
+-- =================================
 
 -- ULTRA-OPTIMIZED BATCH ATTRIBUTE ENFORCEMENT
 local function batchEnforceAttributes(horses)
@@ -399,17 +463,16 @@ local function batchEnforceAttributes(horses)
     local enforced = 0
     local totalChanges = 0
     
-    -- Ultra-fast batch processing
     for i = 1, batchSize do
-        local horse = horses[i]
+        local horseData = horses[i]
+        local horse = horseData.horse or horseData
+        
         if horse and horse.Parent then
             local changes = 0
             
             pcall(function()
-                -- Batch attribute operations for maximum performance
                 local attributesToSet = {}
                 
-                -- Check and prepare follower attributes
                 if horseManipulator.settings.enableFollower then
                     local currentBehaviour = horse:GetAttribute("behaviour")
                     if currentBehaviour ~= horseManipulator.settings.behaviour then
@@ -424,7 +487,6 @@ local function batchEnforceAttributes(horses)
                     end
                 end
                 
-                -- Check and prepare flee distance
                 if horseManipulator.settings.enableFleeDistance then
                     local currentFleeDistance = horse:GetAttribute("fleeDistance")
                     if currentFleeDistance ~= horseManipulator.settings.fleeDistance then
@@ -433,7 +495,6 @@ local function batchEnforceAttributes(horses)
                     end
                 end
                 
-                -- Check and prepare exclusive control
                 if horseManipulator.settings.enableLastPlayerToThrow then
                     local currentLastPlayer = horse:GetAttribute("lastPlayerToThrowLasso")
                     if currentLastPlayer ~= player.Name then
@@ -442,7 +503,6 @@ local function batchEnforceAttributes(horses)
                     end
                 end
                 
-                -- Ultra-fast batch attribute setting
                 for attribute, value in pairs(attributesToSet) do
                     horse:SetAttribute(attribute, value)
                 end
@@ -451,7 +511,6 @@ local function batchEnforceAttributes(horses)
                     enforced = enforced + 1
                     totalChanges = totalChanges + changes
                     
-                    -- Update enforcement metadata
                     if horseManipulator.manipulatedHorses[horse.Name] then
                         horseManipulator.manipulatedHorses[horse.Name].lastEnforcement = tick()
                         horseManipulator.manipulatedHorses[horse.Name].enforcementCount = 
@@ -462,7 +521,6 @@ local function batchEnforceAttributes(horses)
         end
     end
     
-    -- Performance tracking
     local batchTime = tick() - startTime
     table.insert(horseManipulator.performance.batchTimes, batchTime)
     if #horseManipulator.performance.batchTimes > 100 then
@@ -481,18 +539,15 @@ local function batchEnforceAttributes(horses)
     return enforced, totalChanges
 end
 
--- FIXED: PROFESSIONAL INITIAL MANIPULATION with proper name detection
+-- ENHANCED: Initial manipulation with better name detection
 local function manipulateHorseAttributes(horse)
     if not horse then return false end
     
     local startTime = tick()
     local success = false
-    
-    -- FIXED: Get proper horse name using same logic as Horse Monitor
-    local horseName = getHorseName(horse)
+    local horseName = getHorseName(horse) -- Using enhanced name detection
     
     pcall(function()
-        -- Ultra-fast initial setup with batch operations
         local attributesToSet = {}
         
         if horseManipulator.settings.enableFollower then
@@ -508,25 +563,23 @@ local function manipulateHorseAttributes(horse)
             attributesToSet.lastPlayerToThrowLasso = player.Name
         end
         
-        -- Batch set all attributes
         for attribute, value in pairs(attributesToSet) do
             horse:SetAttribute(attribute, value)
         end
         
-        -- FIXED: Add to manipulated list with enhanced metadata and PROPER NAME
+        -- Enhanced metadata with better name
         horseManipulator.manipulatedHorses[horse.Name] = {
-            name = horseName,  -- FIXED: Now contains actual horse name (Arabian, etc.)
+            name = horseName, -- Now uses proper horse name
             time = tick(),
             controlled = true,
             lastEnforcement = tick(),
             enforcementCount = 0,
-            location = "Unknown" -- Will be updated by scanning
+            location = "Unknown"
         }
         
         horseManipulator.runtime.manipulatedCount = horseManipulator.runtime.manipulatedCount + 1
         horseManipulator.statistics.totalManipulated = horseManipulator.statistics.totalManipulated + 1
         
-        -- Update peak statistics
         local currentControlled = 0
         for _ in pairs(horseManipulator.manipulatedHorses) do
             currentControlled = currentControlled + 1
@@ -539,14 +592,13 @@ local function manipulateHorseAttributes(horse)
         success = true
     end)
     
-    -- Performance tracking
     local manipulationTime = tick() - startTime
     table.insert(horseManipulator.performance.manipulationTimes, manipulationTime)
     if #horseManipulator.performance.manipulationTimes > 100 then
         table.remove(horseManipulator.performance.manipulationTimes, 1)
     end
     
-    return success, horseName  -- FIXED: Return actual horse name
+    return success, horseName
 end
 
 -- Professional cleanup system
@@ -557,7 +609,6 @@ local function cleanupDisconnectedHorses()
     for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
         local horseExists = false
         
-        -- Check if horse still exists in any location
         pcall(function()
             if Workspace.Islands then
                 if Workspace.Islands.Mainland then
@@ -570,7 +621,6 @@ local function cleanupDisconnectedHorses()
                     end
                 end
                 
-                -- Check other locations
                 if not horseExists then
                     for _, location in pairs(Workspace.Islands:GetChildren()) do
                         if location:IsA("Model") and location ~= Workspace.Islands.Mainland then
@@ -588,8 +638,7 @@ local function cleanupDisconnectedHorses()
             end
         end)
         
-        -- Remove if doesn't exist or too old
-        if not horseExists or (currentTime - horseData.time > 600) then -- 10 minutes cleanup
+        if not horseExists or (currentTime - horseData.time > 600) then
             horseManipulator.manipulatedHorses[horseId] = nil
             Cache.horseData[horseId] = nil
             cleaned = cleaned + 1
@@ -600,7 +649,7 @@ local function cleanupDisconnectedHorses()
 end
 
 -- =================================
--- ULTRA-OPTIMIZED MAIN LOGIC - GLOBAL MANIPULATION
+-- ULTRA-OPTIMIZED MAIN LOGIC WITH TELEPORTATION
 -- =================================
 local function startHorseManipulation()
     if horseManipulator.isRunning then return false end
@@ -613,15 +662,16 @@ local function startHorseManipulation()
     horseManipulator.runtime.scanCount = 0
     horseManipulator.runtime.batchCount = 0
     horseManipulator.runtime.globalScanCount = 0
+    horseManipulator.runtime.teleportCount = 0
     
     Rayfield:Notify({
        Title = "🚀 Ultra Horse Manipulation Started!",
-       Content = "Global enforcement active | No distance limits | FIXED horse names",
+       Content = "Global enforcement + Auto teleportation | Ultra-optimized system active",
        Duration = 4,
        Image = 4483362458,
     })
     
-    -- ULTRA-OPTIMIZED SCANNING CONNECTION
+    -- SCANNING CONNECTION
     horseManipulator.connections.scanning = RunService.Heartbeat:Connect(function()
         if not horseManipulator.isRunning then return end
         
@@ -630,12 +680,11 @@ local function startHorseManipulation()
             return
         end
         
-        -- Global horse cache update
         updateGlobalWildHorses()
         horseManipulator.runtime.lastScanTime = currentTime
     end)
     
-    -- PROFESSIONAL MANIPULATION CONNECTION
+    -- MANIPULATION CONNECTION
     horseManipulator.connections.manipulation = RunService.Heartbeat:Connect(function()
         if not horseManipulator.isRunning then return end
         
@@ -644,11 +693,9 @@ local function startHorseManipulation()
             return
         end
         
-        -- Get ALL wild horses globally (NO DISTANCE LIMITS!)
         local wildHorses = updateGlobalWildHorses()
         local manipulatedThisRound = 0
         
-        -- Process horses in optimized batches
         local batchSize = math.min(#wildHorses, horseManipulator.settings.maxBatchSize)
         for i = 1, batchSize do
             local horseData = wildHorses[i]
@@ -658,11 +705,10 @@ local function startHorseManipulation()
                 if success then
                     manipulatedThisRound = manipulatedThisRound + 1
                     
-                    -- FIXED: Show actual horse name in notifications
                     if manipulatedThisRound <= 3 then
                         Rayfield:Notify({
                            Title = "🎭 " .. horseName .. " Controlled!",
-                           Content = horseName .. " from " .. horseData.location .. " is now under control!",
+                           Content = "Location: " .. horseData.location .. " | Auto-teleport: " .. (horseManipulator.settings.autoTeleport and "✅" or "❌"),
                            Duration = 2,
                            Image = 4483362458,
                         })
@@ -674,7 +720,7 @@ local function startHorseManipulation()
         if manipulatedThisRound > 3 then
             Rayfield:Notify({
                Title = "🌍 Mass Global Control!",
-               Content = "Controlled " .. manipulatedThisRound .. " horses across all locations!",
+               Content = "Controlled " .. manipulatedThisRound .. " horses! Auto-teleport: " .. (horseManipulator.settings.autoTeleport and "Active" or "Disabled"),
                Duration = 3,
                Image = 4483362458,
             })
@@ -683,7 +729,7 @@ local function startHorseManipulation()
         horseManipulator.runtime.lastManipulationTime = currentTime
     end)
     
-    -- ULTRA-FAST CONTINUOUS ENFORCEMENT
+    -- ENFORCEMENT CONNECTION
     if horseManipulator.settings.continuousEnforcement then
         horseManipulator.connections.enforcement = RunService.Heartbeat:Connect(function()
             if not horseManipulator.isRunning then return end
@@ -693,14 +739,11 @@ local function startHorseManipulation()
                 return
             end
             
-            -- Get all manipulated horses for ultra-fast enforcement
             local manipulatedHorses = updateManipulatedHorses()
             
-            -- Ultra-fast batch enforcement
             if #manipulatedHorses > 0 then
                 local enforced, changes = batchEnforceAttributes(manipulatedHorses)
                 
-                -- Calculate enforcement rate
                 local sessionTime = currentTime - horseManipulator.runtime.sessionStartTime
                 if sessionTime > 0 then
                     horseManipulator.statistics.enforcementsPerSecond = horseManipulator.runtime.enforcementCount / sessionTime
@@ -711,7 +754,39 @@ local function startHorseManipulation()
         end)
     end
     
-    -- PROFESSIONAL CLEANUP CONNECTION
+    -- TELEPORTATION CONNECTION
+    if horseManipulator.settings.autoTeleport then
+        horseManipulator.connections.teleportation = RunService.Heartbeat:Connect(function()
+            if not horseManipulator.isRunning then return end
+            
+            local currentTime = tick()
+            
+            -- Different intervals for loop vs auto teleport
+            local teleportInterval = horseManipulator.settings.teleportLoop and horseManipulator.settings.teleportInterval or (horseManipulator.settings.teleportInterval * 2)
+            
+            if currentTime - horseManipulator.runtime.lastTeleportTime < teleportInterval then
+                return
+            end
+            
+            local teleported = batchTeleportControlledHorses()
+            
+            if teleported > 0 and horseManipulator.settings.teleportLoop then
+                -- Only show notifications for loop mode
+                if teleported >= 3 then
+                    Rayfield:Notify({
+                       Title = "🌀 Loop Teleport!",
+                       Content = "Teleported " .. teleported .. " horses to you!",
+                       Duration = 1.5,
+                       Image = 4483362458,
+                    })
+                end
+            end
+            
+            horseManipulator.runtime.lastTeleportTime = currentTime
+        end)
+    end
+    
+    -- CLEANUP CONNECTION
     horseManipulator.connections.cleanup = RunService.Heartbeat:Connect(function()
         if not horseManipulator.isRunning then return end
         
@@ -720,10 +795,8 @@ local function startHorseManipulation()
             return
         end
         
-        -- Performance cleanup
         local cleaned = cleanupDisconnectedHorses()
         
-        -- Cache cleanup for performance
         if #Cache.wildHorses > Cache.maxCacheSize * 0.8 then
             for i = Cache.maxCacheSize * 0.6, #Cache.wildHorses do
                 Cache.wildHorses[i] = nil
@@ -739,7 +812,6 @@ end
 local function stopHorseManipulation()
     horseManipulator.isRunning = false
     
-    -- Disconnect all connections professionally
     for name, connection in pairs(horseManipulator.connections) do
         if connection then
             connection:Disconnect()
@@ -751,41 +823,16 @@ local function stopHorseManipulation()
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
-    -- Calculate professional metrics
-    local avgEnforcementTime = 0
-    if #horseManipulator.performance.enforcementTimes > 0 then
-        local total = 0
-        for _, time in pairs(horseManipulator.performance.enforcementTimes) do
-            total = total + time
-        end
-        avgEnforcementTime = total / #horseManipulator.performance.enforcementTimes
-        horseManipulator.statistics.averageEnforcementTime = avgEnforcementTime
-    end
-    
-    -- Calculate global coverage
-    local totalWildHorses = #Cache.wildHorses
-    local controlledHorses = 0
-    for _ in pairs(horseManipulator.manipulatedHorses) do
-        controlledHorses = controlledHorses + 1
-    end
-    
-    if totalWildHorses > 0 then
-        horseManipulator.statistics.globalCoverage = (controlledHorses / totalWildHorses) * 100
-    end
-    
     Rayfield:Notify({
-       Title = "🏁 Ultra Manipulation Stopped",
-       Content = "Controlled: " .. horseManipulator.runtime.manipulatedCount .. " | Enforcements: " .. horseManipulator.runtime.enforcementCount .. " | Coverage: " .. string.format("%.1f", horseManipulator.statistics.globalCoverage) .. "%",
+       Title = "🏁 Ultra Session Ended",
+       Content = "Controlled: " .. horseManipulator.runtime.manipulatedCount .. " | Teleports: " .. horseManipulator.runtime.teleportCount .. " | Time: " .. minutes .. "m " .. seconds .. "s",
        Duration = 5,
        Image = 4483362458,
     })
 end
 
--- [RESZTA KODU POZOSTAJE TAK SAMA - UI SECTIONS, STATUS UPDATES, etc.]
--- Skopiować resztę z poprzedniej wersji, ale z poprawionymi nazwami
-
 -- =================================
--- PROFESSIONAL UI SECTIONS & CONTROLS
+-- ENHANCED UI WITH TELEPORTATION CONTROLS
 -- =================================
 
 -- 🎭 MAIN CONTROL SECTION
@@ -807,7 +854,440 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- [Kopiuj resztę UI z poprzedniej wersji...]
+-- 🌀 TELEPORTATION CONTROL SECTION
+local TeleportationControlSection = parentTab:CreateSection("🌀 Horse Teleportation")
+
+local AutoTeleportToggle = parentTab:CreateToggle({
+   Name = "🌀 Auto Teleport Controlled Horses",
+   CurrentValue = false,
+   Flag = "AutoTeleportToggle",
+   Callback = function(Value)
+      horseManipulator.settings.autoTeleport = Value
+      
+      -- Restart teleportation connection if needed
+      if horseManipulator.isRunning then
+         if horseManipulator.connections.teleportation then
+            horseManipulator.connections.teleportation:Disconnect()
+            horseManipulator.connections.teleportation = nil
+         end
+         
+         if Value then
+            horseManipulator.connections.teleportation = RunService.Heartbeat:Connect(function()
+               if not horseManipulator.isRunning then return end
+               
+               local currentTime = tick()
+               local teleportInterval = horseManipulator.settings.teleportLoop and horseManipulator.settings.teleportInterval or (horseManipulator.settings.teleportInterval * 2)
+               
+               if currentTime - horseManipulator.runtime.lastTeleportTime < teleportInterval then
+                  return
+               end
+               
+               local teleported = batchTeleportControlledHorses()
+               
+               if teleported > 0 and horseManipulator.settings.teleportLoop then
+                  if teleported >= 3 then
+                     Rayfield:Notify({
+                        Title = "🌀 Loop Teleport!",
+                        Content = "Teleported " .. teleported .. " horses to you!",
+                        Duration = 1.5,
+                        Image = 4483362458,
+                     })
+                  end
+               end
+               
+               horseManipulator.runtime.lastTeleportTime = currentTime
+            end)
+         end
+      end
+      
+      Rayfield:Notify({
+         Title = "🌀 Auto Teleport " .. (Value and "Enabled" or "Disabled"),
+         Content = Value and "Controlled horses will be teleported to you!" or "Auto teleportation disabled",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local TeleportLoopToggle = parentTab:CreateToggle({
+   Name = "🔄 Teleport Loop Mode",
+   CurrentValue = false,
+   Flag = "TeleportLoopToggle",
+   Callback = function(Value)
+      horseManipulator.settings.teleportLoop = Value
+      Rayfield:Notify({
+         Title = "🔄 Loop Mode " .. (Value and "Enabled" or "Disabled"),
+         Content = Value and "Horses will be continuously teleported!" or "Single teleport mode",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local TeleportRadiusSlider = parentTab:CreateSlider({
+   Name = "🌀 Teleport Radius",
+   Range = {8, 50},
+   Increment = 2,
+   Suffix = " studs",
+   CurrentValue = 15,
+   Flag = "TeleportRadiusSlider",
+   Callback = function(Value)
+      horseManipulator.settings.teleportRadius = Value
+   end,
+})
+
+local TeleportIntervalSlider = parentTab:CreateSlider({
+   Name = "⏱️ Teleport Interval",
+   Range = {1, 10},
+   Increment = 0.5,
+   Suffix = "s",
+   CurrentValue = 3,
+   Flag = "TeleportIntervalSlider",
+   Callback = function(Value)
+      horseManipulator.settings.teleportInterval = Value
+   end,
+})
+
+local TeleportHeightSlider = parentTab:CreateSlider({
+   Name = "📏 Teleport Height",
+   Range = {0, 15},
+   Increment = 1,
+   Suffix = " studs",
+   CurrentValue = 5,
+   Flag = "TeleportHeightSlider",
+   Callback = function(Value)
+      horseManipulator.settings.teleportHeight = Value
+   end,
+})
+
+local InstantTeleportButton = parentTab:CreateButton({
+   Name = "⚡ Instant Teleport All",
+   Callback = function()
+      local teleported = batchTeleportControlledHorses()
+      Rayfield:Notify({
+         Title = "⚡ Instant Teleport",
+         Content = "Teleported " .. teleported .. " controlled horses to you!",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- 🎛️ ULTRA SETTINGS SECTION
+local UltraSettingsSection = parentTab:CreateSection("🎛️ Ultra Optimization")
+
+local GlobalModeToggle = parentTab:CreateToggle({
+   Name = "🌍 Global Mode (No Distance Limits)",
+   CurrentValue = true,
+   Flag = "UltraGlobalModeToggle",
+   Callback = function(Value)
+      horseManipulator.settings.globalManipulation = Value
+   end,
+})
+
+local UltraModeToggle = parentTab:CreateToggle({
+   Name = "⚡ Ultra Performance Mode",
+   CurrentValue = true,
+   Flag = "UltraPerformanceModeToggle",
+   Callback = function(Value)
+      horseManipulator.settings.ultraMode = Value
+      if Value then
+         horseManipulator.settings.enforcementInterval = 0.25
+         horseManipulator.settings.maxBatchSize = 15
+      else
+         horseManipulator.settings.enforcementInterval = 0.5
+         horseManipulator.settings.maxBatchSize = 10
+      end
+   end,
+})
+
+local ManipulationIntervalSlider = parentTab:CreateSlider({
+   Name = "⏱️ Manipulation Interval",
+   Range = {0.5, 5},
+   Increment = 0.1,
+   Suffix = "s",
+   CurrentValue = 1.5,
+   Flag = "UltraManipulationIntervalSlider",
+   Callback = function(Value)
+      horseManipulator.settings.manipulationInterval = Value
+   end,
+})
+
+local EnforcementIntervalSlider = parentTab:CreateSlider({
+   Name = "🔒 Enforcement Interval",
+   Range = {0.1, 1},
+   Increment = 0.05,
+   Suffix = "s",
+   CurrentValue = 0.25,
+   Flag = "UltraEnforcementIntervalSlider",
+   Callback = function(Value)
+      horseManipulator.settings.enforcementInterval = Value
+   end,
+})
+
+local BatchSizeSlider = parentTab:CreateSlider({
+   Name = "📦 Ultra Batch Size",
+   Range = {5, 25},
+   Increment = 1,
+   Suffix = " horses",
+   CurrentValue = 15,
+   Flag = "UltraBatchSizeSlider",
+   Callback = function(Value)
+      horseManipulator.settings.maxBatchSize = Value
+   end,
+})
+
+local FleeDistanceSlider = parentTab:CreateSlider({
+   Name = "🏃 Flee Distance Override",
+   Range = {0, 100},
+   Increment = 5,
+   Suffix = " studs",
+   CurrentValue = 0,
+   Flag = "UltraFleeDistanceSlider",
+   Callback = function(Value)
+      horseManipulator.settings.fleeDistance = Value
+   end,
+})
+
+-- 🎯 ATTRIBUTE CONTROLS SECTION
+local AttributeControlsSection = parentTab:CreateSection("🎯 Attribute Controls")
+
+local ContinuousEnforcementToggle = parentTab:CreateToggle({
+   Name = "🔒 Continuous Enforcement",
+   CurrentValue = true,
+   Flag = "UltraContinuousEnforcementToggle",
+   Callback = function(Value)
+      horseManipulator.settings.continuousEnforcement = Value
+   end,
+})
+
+local FollowerToggle = parentTab:CreateToggle({
+   Name = "🐎 Follower Behaviour",
+   CurrentValue = true,
+   Flag = "UltraFollowerToggle",
+   Callback = function(Value)
+      horseManipulator.settings.enableFollower = Value
+   end,
+})
+
+local FleeDistanceToggle = parentTab:CreateToggle({
+   Name = "🏃 Flee Distance Control",
+   CurrentValue = true,
+   Flag = "UltraFleeDistanceToggle",
+   Callback = function(Value)
+      horseManipulator.settings.enableFleeDistance = Value
+   end,
+})
+
+local ExclusiveControlToggle = parentTab:CreateToggle({
+   Name = "🎯 Exclusive Control",
+   CurrentValue = true,
+   Flag = "UltraExclusiveControlToggle",
+   Callback = function(Value)
+      horseManipulator.settings.enableLastPlayerToThrow = Value
+   end,
+})
+
+-- 📊 ENHANCED STATUS SECTION
+local EnhancedStatusSection = parentTab:CreateSection("📊 Enhanced Status")
+
+local SystemStatus = parentTab:CreateParagraph({Title = "🚀 Ultra System Status", Content = "Ultra-optimized system ready"})
+local TeleportStatus = parentTab:CreateParagraph({Title = "🌀 Teleportation Status", Content = "Teleportation ready"})
+local GlobalStats = parentTab:CreateParagraph({Title = "🌍 Global Statistics", Content = "Global monitoring ready"})
+local PerformanceMetrics = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Ultra-performance monitoring"})
+
+-- ⚡ ENHANCED ACTIONS SECTION
+local EnhancedActionsSection = parentTab:CreateSection("⚡ Enhanced Actions")
+
+local GlobalInstantButton = parentTab:CreateButton({
+   Name = "🌍 Instant Global Manipulation",
+   Callback = function()
+      local wildHorses = updateGlobalWildHorses()
+      local manipulated = 0
+      
+      for _, horseData in pairs(wildHorses) do
+         if horseData.horse and not horseManipulator.manipulatedHorses[horseData.horse.Name] then
+            local success, horseName = manipulateHorseAttributes(horseData.horse)
+            if success then
+               manipulated = manipulated + 1
+            end
+         end
+      end
+      
+      Rayfield:Notify({
+         Title = "🌍 Global Manipulation Complete",
+         Content = "Instantly controlled " .. manipulated .. " horses globally!",
+         Duration = 5,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local UltraEnforceButton = parentTab:CreateButton({
+   Name = "🔒 Ultra Global Enforcement",
+   Callback = function()
+      local manipulatedHorses = updateManipulatedHorses()
+      local enforced, changes = batchEnforceAttributes(manipulatedHorses)
+      
+      Rayfield:Notify({
+         Title = "🔒 Ultra Enforcement Complete",
+         Content = "Ultra-enforced " .. enforced .. " horses with " .. changes .. " changes!",
+         Duration = 4,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local ResetStatsButton = parentTab:CreateButton({
+   Name = "📊 Reset Statistics",
+   Callback = function()
+      horseManipulator.statistics = {
+         totalManipulated = 0,
+         totalEnforcements = 0,
+         totalScans = 0,
+         totalBatches = 0,
+         totalTeleports = 0,
+         sessionsRun = 0,
+         horsesControlled = 0,
+         averageEnforcementTime = 0,
+         peakHorsesControlled = 0,
+         enforcementsPerSecond = 0,
+         globalCoverage = 0,
+         horsesNearbyPeak = 0
+      }
+      horseManipulator.runtime.manipulatedCount = 0
+      horseManipulator.runtime.enforcementCount = 0
+      horseManipulator.runtime.teleportCount = 0
+      
+      Rayfield:Notify({
+         Title = "📊 Stats Reset",
+         Content = "All statistics have been reset",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- 📈 ENHANCED STATISTICS SECTION
+local EnhancedStatisticsSection = parentTab:CreateSection("📈 Enhanced Statistics")
+
+local SessionMetrics = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Enhanced session ready"})
+local AllTimeMetrics = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
+local TeleportMetrics = parentTab:CreateParagraph({Title = "🌀 Teleportation Metrics", Content = "Teleport tracking ready"})
+
+-- =================================
+-- ENHANCED STATUS UPDATE SYSTEM WITH TELEPORTATION
+-- =================================
+spawn(function()
+    while wait(0.5) do
+        -- Enhanced System Status
+        local statusText = ""
+        if horseManipulator.isRunning then
+            local runtime = tick() - horseManipulator.runtime.sessionStartTime
+            local minutes = math.floor(runtime / 60)
+            local seconds = math.floor(runtime % 60)
+            
+            statusText = "🚀 ULTRA-ACTIVE (Global + Teleport)\n"
+            statusText = statusText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
+            statusText = statusText .. "🌍 Global: " .. (horseManipulator.settings.globalManipulation and "✅" or "❌") .. "\n"
+            statusText = statusText .. "🎭 Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            statusText = statusText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
+            statusText = statusText .. "🌀 Teleports: " .. horseManipulator.runtime.teleportCount
+        else
+            statusText = "🔴 STOPPED\n💤 Enhanced system ready\n🌍 Global manipulation available\n🌀 Auto teleportation ready\n⚡ Ultra-performance optimizations\n🚀 Maximum efficiency mode"
+        end
+        SystemStatus:Set({Title = "🚀 Ultra System Status", Content = statusText})
+        
+        -- Teleportation Status
+        local teleportText = ""
+        if horseManipulator.settings.autoTeleport then
+            teleportText = "🌀 AUTO-TELEPORT ACTIVE\n"
+            teleportText = teleportText .. "🔄 Loop Mode: " .. (horseManipulator.settings.teleportLoop and "✅" or "❌") .. "\n"
+            teleportText = teleportText .. "📏 Radius: " .. horseManipulator.settings.teleportRadius .. " studs\n"
+            teleportText = teleportText .. "⏱️ Interval: " .. horseManipulator.settings.teleportInterval .. "s\n"
+            teleportText = teleportText .. "📊 Horses Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
+            teleportText = teleportText .. "🌀 Total Teleports: " .. horseManipulator.runtime.teleportCount
+        else
+            teleportText = "🔴 TELEPORT DISABLED\n⚙️ Radius: " .. horseManipulator.settings.teleportRadius .. " studs\n⏱️ Interval: " .. horseManipulator.settings.teleportInterval .. "s\n🌀 Manual teleportation available\n📊 Nearby tracking active"
+        end
+        TeleportStatus:Set({Title = "🌀 Teleportation Status", Content = teleportText})
+        
+        -- Enhanced Global Statistics
+        local wildHorsesCount = #Cache.wildHorses
+        local manipulatedCount = 0
+        for _ in pairs(horseManipulator.manipulatedHorses) do
+            manipulatedCount = manipulatedCount + 1
+        end
+        
+        local globalCoverage = wildHorsesCount > 0 and (manipulatedCount / wildHorsesCount) * 100 or 0
+        
+        local globalText = "🌍 Horses Scanned: " .. wildHorsesCount .. "\n"
+        globalText = globalText .. "🎯 Controlled: " .. manipulatedCount .. "\n"
+        globalText = globalText .. "📊 Coverage: " .. string.format("%.1f", globalCoverage) .. "%\n"
+        globalText = globalText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
+        globalText = globalText .. "🌀 Horses Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
+        globalText = globalText .. "📈 Peak Nearby: " .. horseManipulator.statistics.horsesNearbyPeak
+        GlobalStats:Set({Title = "🌍 Global Statistics", Content = globalText})
+        
+        -- Enhanced Performance Metrics
+        local avgTeleportTime = 0
+        if #horseManipulator.performance.teleportTimes > 0 then
+            local total = 0
+            for _, time in pairs(horseManipulator.performance.teleportTimes) do
+                total = total + time
+            end
+            avgTeleportTime = total / #horseManipulator.performance.teleportTimes
+        end
+        
+        local performanceText = "⚡ Enforcement: " .. string.format("%.2f", horseManipulator.statistics.enforcementsPerSecond) .. "/s\n"
+        performanceText = performanceText .. "🌀 Avg Teleport: " .. string.format("%.3f", avgTeleportTime * 1000) .. "ms\n"
+        performanceText = performanceText .. "📦 Max Batch: " .. horseManipulator.performance.maxBatchSize .. "\n"
+        performanceText = performanceText .. "🔄 Cache: " .. wildHorsesCount .. " horses\n"
+        performanceText = performanceText .. "🚀 Status: ULTRA-OPTIMIZED"
+        PerformanceMetrics:Set({Title = "⚡ Performance Metrics", Content = performanceText})
+        
+        -- Enhanced Session Metrics
+        if horseManipulator.isRunning then
+            local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
+            local sessionMinutes = math.floor(sessionTime / 60)
+            local sessionSeconds = math.floor(sessionTime % 60)
+            
+            local manipulationRate = sessionTime > 0 and (horseManipulator.runtime.manipulatedCount / (sessionTime / 60)) or 0
+            local teleportRate = sessionTime > 0 and (horseManipulator.runtime.teleportCount / (sessionTime / 60)) or 0
+            
+            local sessionText = "⏱️ Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
+            sessionText = sessionText .. "🎭 Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            sessionText = sessionText .. "📈 Control Rate: " .. string.format("%.1f", manipulationRate) .. "/min\n"
+            sessionText = sessionText .. "🌀 Teleports: " .. horseManipulator.runtime.teleportCount .. "\n"
+            sessionText = sessionText .. "📊 Teleport Rate: " .. string.format("%.1f", teleportRate) .. "/min\n"
+            sessionText = sessionText .. "🌍 Coverage: " .. string.format("%.1f", globalCoverage) .. "%"
+            
+            SessionMetrics:Set({Title = "📈 Session Metrics", Content = sessionText})
+        else
+            SessionMetrics:Set({Title = "📈 Session Metrics", Content = "No session active\nEnhanced monitoring ready\n🌍 Global manipulation\n🌀 Auto teleportation\n🚀 Ultra-performance"})
+        end
+        
+        -- Enhanced All-Time Metrics
+        local allTimeText = "🎭 Total Manipulated: " .. horseManipulator.statistics.totalManipulated .. "\n"
+        allTimeText = allTimeText .. "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
+        allTimeText = allTimeText .. "🌀 Total Teleports: " .. horseManipulator.statistics.totalTeleports .. "\n"
+        allTimeText = allTimeText .. "🎮 Sessions: " .. horseManipulator.statistics.sessionsRun .. "\n"
+        allTimeText = allTimeText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
+        allTimeText = allTimeText .. "📊 Best Coverage: " .. string.format("%.1f", horseManipulator.statistics.globalCoverage) .. "%"
+        
+        AllTimeMetrics:Set({Title = "🏆 All-Time Records", Content = allTimeText})
+        
+        -- Teleportation Metrics
+        local teleportMetricsText = "🌀 Session Teleports: " .. horseManipulator.runtime.teleportCount .. "\n"
+        teleportMetricsText = teleportMetricsText .. "📊 Total Teleports: " .. horseManipulator.statistics.totalTeleports .. "\n"
+        teleportMetricsText = teleportMetricsText .. "⚡ Avg Time: " .. string.format("%.3f", avgTeleportTime * 1000) .. "ms\n"
+        teleportMetricsText = teleportMetricsText .. "🎯 Current Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
+        teleportMetricsText = teleportMetricsText .. "📈 Peak Nearby: " .. horseManipulator.statistics.horsesNearbyPeak .. "\n"
+        teleportMetricsText = teleportMetricsText .. "🌀 Mode: " .. (horseManipulator.settings.autoTeleport and "AUTO" or "MANUAL")
+        
+        TeleportMetrics:Set({Title = "🌀 Teleportation Metrics", Content = teleportMetricsText})
+    end
+end)
 
 -- =================================
 -- CHARACTER RESPAWN HANDLING
@@ -822,7 +1302,7 @@ player.CharacterAdded:Connect(function(newCharacter)
         
         Rayfield:Notify({
            Title = "🔄 Character Respawned",
-           Content = "Ultra manipulation stopped - restart when ready",
+           Content = "Enhanced manipulation stopped - restart when ready",
            Duration = 3,
            Image = 4483362458,
         })
@@ -830,24 +1310,24 @@ player.CharacterAdded:Connect(function(newCharacter)
 end)
 
 -- =================================
--- FIXED INITIALIZATION
+-- ENHANCED INITIALIZATION
 -- =================================
 Rayfield:Notify({
-   Title = "🚀 Ultra Horse Manipulator Loaded!",
-   Content = "FIXED horse names | Ultra-optimized global control | Professional grade",
+   Title = "🚀 Enhanced Horse Manipulator Loaded!",
+   Content = "Global control + Auto teleportation | Fixed horse names | Ultra-optimized!",
    Duration = 6,
    Image = 4483362458,
 })
 
 Rayfield:Notify({
-   Title = "🐎 Horse Names FIXED!",
-   Content = "Now showing real names: Arabian, Mustang, Friesian, etc.!",
-   Duration = 5,
+   Title = "🌀 Auto Teleportation Ready!",
+   Content = "Controlled horses can be automatically teleported to you!",
+   Duration = 4,
    Image = 4483362458,
 })
 
-print("🚀 Ultra Horse Attribute Manipulator - FIXED Names Edition Loaded!")
-print("🐎 FIXED: Now shows real horse names (Arabian, Mustang, etc.)")
-print("🌍 Features: Global unlimited control, proper name detection")
-print("⚡ Performance: Ultra-batch processing, intelligent caching")
-print("🔥 Ultra Grade: No limits, maximum efficiency, PROPER NAMES!")
+print("🚀 Enhanced Horse Attribute Manipulator - Global + Teleportation Edition Loaded!")
+print("🌍 Features: Global unlimited control, auto teleportation, fixed horse names")
+print("🌀 Teleportation: Auto-teleport controlled horses, loop mode, circular formation")
+print("⚡ Performance: Ultra-optimized, real-time tracking, professional analytics")
+print("🎯 Enhanced: Better name detection, comprehensive monitoring, maximum efficiency!")
