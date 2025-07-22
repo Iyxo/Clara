@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Ultra-Optimized with Lasso Exploits Edition
--- by Iyxo - 2025-07-22 08:48:41
--- Revolutionary horse catching with lasso exploits and optimized auto catching
+-- Horse Catcher Pro - Ultra-Optimized with Auto Lasso Edition
+-- by Iyxo - 2025-07-22 09:05:15
+-- Revolutionary horse catching with Remote Event + Auto Lasso Throw methods
 
 local parentTab, Rayfield, Window = ...
 
@@ -29,7 +29,7 @@ local Cache = {
 }
 
 -- =================================
--- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM WITH LASSO EXPLOITS
+-- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM
 -- =================================
 local horseCatcher = {
     -- Status
@@ -62,20 +62,10 @@ local horseCatcher = {
         autoLassoThrows = 0
     },
     
-    -- Enhanced settings with lasso exploits
+    -- Optimized settings
     settings = {
         -- Capture method selection
-        captureMethod = "autolasso", -- "autolasso" or "remoteevent"
-        
-        -- Lasso exploits
-        noLassoCooldown = true,
-        infiniteLassoRange = false,
-        autoLassoThrow = true,
-        lassoThroughWalls = false,
-        
-        -- Auto lasso settings
-        autoLassoInterval = 0.5, -- Zoptymalizowane - mniej lagów
-        autoLassoRange = 50, -- Zasięg auto lasso
+        captureMethod = "autolasso", -- "remoteevent" or "autolasso"
         
         -- Movement optimization
         movementMode = "attachment",
@@ -83,11 +73,16 @@ local horseCatcher = {
         pulseDistance = 8,
         
         -- Capture optimization
-        captureCooldown = 0.1, -- Ultra szybkie dla exploitów
+        captureCooldown = 0.4,
         maxAttemptsPerHorse = 12,
         maxStuckTime = 10,
         smartTargeting = true,
         aggressiveTargeting = true,
+        
+        -- Auto Lasso settings (optimized)
+        autoLassoInterval = 0.3, -- Optimized interval to reduce lag
+        autoLassoRange = 50, -- Reasonable range
+        autoLassoMaxThrows = 5, -- Limit throws per target to prevent spam
         
         -- Professional settings
         safeDistance = 5,
@@ -103,7 +98,7 @@ local horseCatcher = {
         lastPulseTime = 0,
         lastTargetingTime = 0,
         lastCleanupTime = 0,
-        lastAutoLassoTime = 0, -- Nowe dla auto lasso
+        lastAutoLassoTime = 0,
         currentAttempts = 0,
         retryCount = 0,
         targetStuckTime = 0,
@@ -113,7 +108,8 @@ local horseCatcher = {
         forceDetach = false,
         targetingCount = 0,
         captureAttempts = 0,
-        autoLassoAttempts = 0
+        autoLassoCount = 0,
+        targetThrowCount = {} -- Track throws per target
     },
     
     -- Performance monitoring
@@ -134,11 +130,10 @@ local gameSystem = {
     u3 = nil,
     available = false,
     remoteEvent = nil,
-    networkReady = false,
-    originalFunctions = {}
+    networkReady = false
 }
 
--- Initialize game system with lasso hijacking
+-- Initialize game system with error handling
 pcall(function()
     gameSystem.u1 = require(ReplicatedStorage.References)
     gameSystem.u2 = gameSystem.u1.Utilities
@@ -149,127 +144,7 @@ pcall(function()
 end)
 
 -- =================================
--- LASSO EXPLOIT SYSTEM
--- =================================
-
--- Hijack lasso functions for exploits
-local function initializeLassoExploits()
-    if not gameSystem.available or not gameSystem.networkReady then return end
-    
-    -- Store original network function
-    if not gameSystem.originalFunctions.FireServer then
-        gameSystem.originalFunctions.FireServer = gameSystem.u2.Network.FireServer
-        
-        -- Hijack FireServer for lasso exploits
-        gameSystem.u2.Network.FireServer = function(self, command, ...)
-            local args = {...}
-            
-            -- Intercept lasso equipment commands
-            if command == "Equipment" and args[2] == "Activate" then
-                -- Apply no cooldown exploit
-                if horseCatcher.settings.noLassoCooldown then
-                    -- Skip cooldown by resetting last capture time
-                    horseCatcher.runtime.lastCaptureTime = 0
-                end
-                
-                -- Apply infinite range exploit
-                if horseCatcher.settings.infiniteLassoRange then
-                    -- This could modify the target validation
-                    -- For now, we'll just log it
-                end
-                
-                -- Apply through walls exploit
-                if horseCatcher.settings.lassoThroughWalls then
-                    -- This would require additional modifications
-                    -- For now, we'll allow all throws regardless of obstacles
-                end
-            end
-            
-            -- Call original function
-            return gameSystem.originalFunctions.FireServer(self, command, ...)
-        end
-    end
-end
-
--- =================================
--- AUTO LASSO SYSTEM - OPTIMIZED
--- =================================
-
--- Find nearest horse for auto lasso (optimized for performance)
-local function findNearestHorseForLasso()
-    local nearestHorse = nil
-    local shortestDistance = math.huge
-    local playerPos = humanoidRootPart.Position
-    
-    -- Use cached horses for performance
-    local horses = Cache.horses
-    
-    for i = 1, math.min(#horses, 10) do -- Limit to first 10 for performance
-        local horse = horses[i]
-        if horse and horse:FindFirstChild("HumanoidRootPart") then
-            local distance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
-            
-            -- Check if within auto lasso range
-            if distance <= horseCatcher.settings.autoLassoRange and distance < shortestDistance then
-                -- Additional checks for valid target
-                local humanoid = horse:FindFirstChild("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    shortestDistance = distance
-                    nearestHorse = horse
-                end
-            end
-        end
-    end
-    
-    return nearestHorse, shortestDistance
-end
-
--- OPTIMIZED Auto lasso throwing (reduced lag)
-local function autoThrowLasso()
-    if not horseCatcher.settings.autoLassoThrow then return end
-    
-    local currentTime = tick()
-    
-    -- Optimized interval check - prevents lag
-    if currentTime - horseCatcher.runtime.lastAutoLassoTime < horseCatcher.settings.autoLassoInterval then
-        return
-    end
-    
-    local nearestHorse, distance = findNearestHorseForLasso()
-    if not nearestHorse then return end
-    
-    -- Skip if already captured
-    if horseCatcher.capturedHorses[nearestHorse.Name] then return end
-    
-    local startTime = tick()
-    local success = false
-    
-    pcall(function()
-        if gameSystem.available and gameSystem.networkReady and horseCatcher.currentLassoID then
-            gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", nearestHorse)
-            success = true
-            
-            horseCatcher.runtime.autoLassoAttempts = horseCatcher.runtime.autoLassoAttempts + 1
-            horseCatcher.statistics.autoLassoThrows = horseCatcher.statistics.autoLassoThrows + 1
-        end
-    end)
-    
-    if success then
-        horseCatcher.runtime.lastAutoLassoTime = currentTime
-        
-        -- Performance tracking
-        local lassoTime = tick() - startTime
-        table.insert(horseCatcher.performance.autoLassoTimes, lassoTime)
-        if #horseCatcher.performance.autoLassoTimes > 100 then
-            table.remove(horseCatcher.performance.autoLassoTimes, 1)
-        end
-    end
-    
-    return success
-end
-
--- =================================
--- ENHANCED HORSE FUNCTIONS
+-- ULTRA-OPTIMIZED HORSE FUNCTIONS
 -- =================================
 
 -- Professional horse name getter with caching
@@ -392,7 +267,7 @@ local function updateHorseCache()
     return Cache.horses
 end
 
--- Professional lasso detection with game system integration
+-- Professional lasso detection
 local function equipLasso()
     if horseCatcher.lassoEquipped and horseCatcher.currentLassoID then
         return true, horseCatcher.currentLassoID
@@ -445,6 +320,78 @@ local function equipLasso()
     
     return success, toolID
 end
+
+-- =================================
+-- AUTO LASSO SYSTEM - OPTIMIZED
+-- =================================
+
+-- Find nearest horse for Auto Lasso (optimized)
+local function findNearestHorseForAutoLasso()
+    local nearestHorse = nil
+    local shortestDistance = math.huge
+    local playerPos = humanoidRootPart.Position
+    
+    -- Use cached horses for performance
+    local horses = Cache.horses
+    for i = 1, math.min(#horses, 10) do -- Limit to first 10 for performance
+        local horse = horses[i]
+        if horse and horse:FindFirstChild("HumanoidRootPart") then
+            local distance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
+            
+            -- Check range and throw limits
+            if distance <= horseCatcher.settings.autoLassoRange and distance < shortestDistance then
+                local throwCount = horseCatcher.runtime.targetThrowCount[horse.Name] or 0
+                if throwCount < horseCatcher.settings.autoLassoMaxThrows then
+                    shortestDistance = distance
+                    nearestHorse = horse
+                end
+            end
+        end
+    end
+    
+    return nearestHorse
+end
+
+-- OPTIMIZED Auto Lasso Throw function
+local function autoLassoThrow()
+    if horseCatcher.settings.captureMethod ~= "autolasso" then return end
+    
+    local currentTime = tick()
+    if currentTime - horseCatcher.runtime.lastAutoLassoTime < horseCatcher.settings.autoLassoInterval then
+        return
+    end
+    
+    local startTime = tick()
+    local nearestHorse = findNearestHorseForAutoLasso()
+    
+    if nearestHorse and gameSystem.available and gameSystem.networkReady then
+        pcall(function()
+            local currentEquipment = horseCatcher.currentLassoID
+            if currentEquipment then
+                -- Fire the lasso
+                gameSystem.u2.Network:FireServer("Equipment", currentEquipment, "Activate", nearestHorse)
+                
+                -- Track throws per target
+                horseCatcher.runtime.targetThrowCount[nearestHorse.Name] = (horseCatcher.runtime.targetThrowCount[nearestHorse.Name] or 0) + 1
+                
+                horseCatcher.runtime.lastAutoLassoTime = currentTime
+                horseCatcher.runtime.autoLassoCount = horseCatcher.runtime.autoLassoCount + 1
+                horseCatcher.statistics.autoLassoThrows = horseCatcher.statistics.autoLassoThrows + 1
+            end
+        end)
+    end
+    
+    -- Performance tracking
+    local autoLassoTime = tick() - startTime
+    table.insert(horseCatcher.performance.autoLassoTimes, autoLassoTime)
+    if #horseCatcher.performance.autoLassoTimes > 100 then
+        table.remove(horseCatcher.performance.autoLassoTimes, 1)
+    end
+end
+
+-- =================================
+-- ORIGINAL CAPTURE METHODS
+-- =================================
 
 -- Ultra-optimized horse finding with intelligent scoring
 local function findOptimalTarget()
@@ -518,17 +465,14 @@ local function findOptimalTarget()
     return nil
 end
 
--- Enhanced capture function with method selection
-local function captureHorse(horse)
+-- Remote Event capture function
+local function captureHorseRemoteEvent(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") or not horseCatcher.currentLassoID then
         return false
     end
     
     local currentTime = tick()
-    
-    -- Apply no cooldown exploit
-    local cooldown = horseCatcher.settings.noLassoCooldown and 0.05 or horseCatcher.settings.captureCooldown
-    if currentTime - horseCatcher.runtime.lastCaptureTime < cooldown then
+    if currentTime - horseCatcher.runtime.lastCaptureTime < horseCatcher.settings.captureCooldown then
         return false
     end
     
@@ -536,15 +480,9 @@ local function captureHorse(horse)
     local success = false
     
     pcall(function()
-        if horseCatcher.settings.captureMethod == "autolasso" then
-            -- Use auto lasso method (just for tracking - actual throwing is handled by autoThrowLasso)
-            success = false -- Don't double throw
-        else
-            -- Use remote event method
-            if gameSystem.available and gameSystem.networkReady then
-                gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", horse)
-                success = true
-            end
+        if gameSystem.available and gameSystem.networkReady then
+            gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", horse)
+            success = true
         end
         
         horseCatcher.runtime.lastCaptureTime = currentTime
@@ -568,7 +506,7 @@ local function captureHorse(horse)
     return success
 end
 
--- Professional movement functions (same as before)
+-- Professional movement functions
 local function pulseTeleportToHorse(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -743,6 +681,9 @@ local function isHorseCaptured(horse)
         horseCatcher.statistics.successfulCaptures = horseCatcher.statistics.successfulCaptures + 1
         horseCatcher.runtime.lastSuccessfulCapture = tick()
         
+        -- Clear throw count for this horse
+        horseCatcher.runtime.targetThrowCount[horse.Name] = nil
+        
         if horseCatcher.statistics.currentStreak > horseCatcher.statistics.bestStreak then
             horseCatcher.statistics.bestStreak = horseCatcher.statistics.currentStreak
         end
@@ -752,7 +693,7 @@ local function isHorseCaptured(horse)
         
         Rayfield:Notify({
            Title = "🎉 " .. horseName .. " Captured!",
-           Content = "Streak: " .. horseCatcher.statistics.currentStreak .. " | Method: " .. horseCatcher.settings.captureMethod:upper(),
+           Content = "Method: " .. horseCatcher.settings.captureMethod:upper() .. " | Streak: " .. horseCatcher.statistics.currentStreak,
            Duration = 2.5,
            Image = 4483362458,
         })
@@ -779,11 +720,27 @@ local function cleanupSystem()
         end
     end
     
+    -- Clean up throw counts for non-existent horses
+    local cleanedThrows = {}
+    for horseName, count in pairs(horseCatcher.runtime.targetThrowCount) do
+        local horseExists = false
+        for _, horse in pairs(Cache.horses) do
+            if horse.Name == horseName then
+                horseExists = true
+                break
+            end
+        end
+        if horseExists then
+            cleanedThrows[horseName] = count
+        end
+    end
+    horseCatcher.runtime.targetThrowCount = cleanedThrows
+    
     horseCatcher.runtime.lastCleanupTime = currentTime
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC WITH AUTO LASSO
+-- MAIN LOGIC WITH DUAL METHODS
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -809,9 +766,6 @@ local function startHorseCatching()
         return false
     end
     
-    -- Initialize lasso exploits
-    initializeLassoExploits()
-    
     horseCatcher.isRunning = true
     horseCatcher.runtime.sessionStartTime = tick()
     horseCatcher.statistics.sessionsRun = horseCatcher.statistics.sessionsRun + 1
@@ -822,27 +776,30 @@ local function startHorseCatching()
     horseCatcher.runtime.lastPulseTime = 0
     horseCatcher.runtime.targetingCount = 0
     horseCatcher.runtime.captureAttempts = 0
-    horseCatcher.runtime.autoLassoAttempts = 0
+    horseCatcher.runtime.autoLassoCount = 0
     horseCatcher.runtime.lastAutoLassoTime = 0
+    horseCatcher.runtime.targetThrowCount = {}
     
-    local captureMethodText = horseCatcher.settings.captureMethod == "autolasso" and "Auto Lasso" or "Remote Event"
+    local methodText = horseCatcher.settings.captureMethod == "autolasso" and "Auto Lasso Throw" or "Remote Event"
+    local movementText = horseCatcher.settings.movementMode == "pulse" and "Pulse TP" or 
+                        horseCatcher.settings.movementMode == "attachment" and "Attachment" or "Smooth"
     
     Rayfield:Notify({
-       Title = "🚀 Enhanced Horse Catching Started!",
-       Content = "Method: " .. captureMethodText .. " | Lasso Exploits: " .. (horseCatcher.settings.noLassoCooldown and "✅" or "❌"),
-       Duration = 4,
+       Title = "🚀 Ultra Horse Catching Started!",
+       Content = "Method: " .. methodText .. " | Movement: " .. movementText,
+       Duration = 3,
        Image = 4483362458,
     })
     
-    -- AUTO LASSO CONNECTION (nowe)
+    -- AUTO LASSO CONNECTION (separate from main logic)
     if horseCatcher.settings.captureMethod == "autolasso" then
         horseCatcher.connections.autoLasso = RunService.Heartbeat:Connect(function()
             if not horseCatcher.isRunning then return end
-            autoThrowLasso()
+            autoLassoThrow()
         end)
     end
     
-    -- MAIN CAPTURE CONNECTION (dla remote event)
+    -- MAIN CAPTURE CONNECTION (for Remote Event method)
     if horseCatcher.settings.captureMethod == "remoteevent" then
         horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
             if not horseCatcher.isRunning then return end
@@ -896,6 +853,7 @@ local function startHorseCatching()
                     return
                 end
                 
+                -- Movement execution
                 if horseCatcher.settings.movementMode == "pulse" then
                     pulseTeleportToHorse(horseCatcher.currentTarget)
                 elseif horseCatcher.settings.movementMode == "attachment" then
@@ -906,7 +864,8 @@ local function startHorseCatching()
                     smoothFollow(horseCatcher.currentTarget)
                 end
                 
-                captureHorse(horseCatcher.currentTarget)
+                -- Capture attempt
+                captureHorseRemoteEvent(horseCatcher.currentTarget)
                 
                 if horseCatcher.runtime.currentAttempts > horseCatcher.settings.maxAttemptsPerHorse then
                     horseCatcher.runtime.retryCount = horseCatcher.runtime.retryCount + 1
@@ -961,18 +920,10 @@ local function stopHorseCatching()
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
-    local avgCaptureTime = 0
-    if #horseCatcher.performance.captureTimes > 0 then
-        local total = 0
-        for _, time in pairs(horseCatcher.performance.captureTimes) do
-            total = total + time
-        end
-        avgCaptureTime = total / #horseCatcher.performance.captureTimes
-        horseCatcher.statistics.averageCaptureTime = avgCaptureTime
-    end
+    local methodText = horseCatcher.settings.captureMethod == "autolasso" and "Auto Lasso" or "Remote Event"
     
     Rayfield:Notify({
-       Title = "🏁 Enhanced Session Ended",
+       Title = "🏁 Session Ended - " .. methodText,
        Content = "Captured: " .. horseCatcher.statistics.currentStreak .. " | Auto Throws: " .. horseCatcher.statistics.autoLassoThrows .. " | Time: " .. minutes .. "m " .. seconds .. "s",
        Duration = 5,
        Image = 4483362458,
@@ -982,16 +933,16 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- ENHANCED UI WITH LASSO EXPLOITS
+-- ENHANCED UI WITH CAPTURE METHOD SELECTION
 -- =================================
 
 -- 🎯 MAIN CONTROL SECTION
-local MainControlSection = parentTab:CreateSection("🎯 Enhanced Control")
+local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
 
 local MainToggle = parentTab:CreateToggle({
-   Name = "🚀 Enhanced Horse Catching",
+   Name = "🚀 Ultra Horse Catching",
    CurrentValue = false,
-   Flag = "EnhancedHorseCatchingMainToggle",
+   Flag = "UltraHorseCatchingMainToggle",
    Callback = function(Value)
       if Value then
          local success = startHorseCatching()
@@ -1015,63 +966,24 @@ local CaptureMethodDropdown = parentTab:CreateDropdown({
    Flag = "CaptureMethodDropdown",
    Callback = function(Option)
       horseCatcher.settings.captureMethod = Option[1]
+      
+      local methodText = Option[1] == "autolasso" and "Auto Lasso Throw (Optimized)" or "Remote Event (Classic)"
       Rayfield:Notify({
          Title = "🎯 Method Changed",
-         Content = "Now using: " .. (Option[1] == "autolasso" and "AUTO LASSO" or "REMOTE EVENT") .. " method",
+         Content = "Now using: " .. methodText,
          Duration = 3,
          Image = 4483362458,
       })
    end,
 })
 
--- ⚡ LASSO EXPLOITS SECTION
-local LassoExploitsSection = parentTab:CreateSection("⚡ Lasso Exploits")
-
-local NoLassoCooldownToggle = parentTab:CreateToggle({
-   Name = "🚀 No Lasso Cooldown",
-   CurrentValue = true,
-   Flag = "NoLassoCooldownToggle",
-   Callback = function(Value)
-      horseCatcher.settings.noLassoCooldown = Value
-   end,
-})
-
-local InfiniteLassoRangeToggle = parentTab:CreateToggle({
-   Name = "🎯 Infinite Lasso Range",
-   CurrentValue = false,
-   Flag = "InfiniteLassoRangeToggle",
-   Callback = function(Value)
-      horseCatcher.settings.infiniteLassoRange = Value
-   end,
-})
-
-local AutoLassoThrowToggle = parentTab:CreateToggle({
-   Name = "🤖 Auto Lasso Throw",
-   CurrentValue = true,
-   Flag = "AutoLassoThrowToggle",
-   Callback = function(Value)
-      horseCatcher.settings.autoLassoThrow = Value
-   end,
-})
-
-local LassoThroughWallsToggle = parentTab:CreateToggle({
-   Name = "👻 Lasso Through Walls",
-   CurrentValue = false,
-   Flag = "LassoThroughWallsToggle",
-   Callback = function(Value)
-      horseCatcher.settings.lassoThroughWalls = Value
-   end,
-})
-
--- 🎪 AUTO LASSO SETTINGS SECTION
-local AutoLassoSettingsSection = parentTab:CreateSection("🎪 Auto Lasso Settings")
-
+-- Auto Lasso Settings (only show when autolasso is selected)
 local AutoLassoIntervalSlider = parentTab:CreateSlider({
-   Name = "⏱️ Auto Lasso Interval",
-   Range = {0.2, 2},
-   Increment = 0.1,
+   Name = "⚡ Auto Lasso Interval",
+   Range = {0.2, 1},
+   Increment = 0.05,
    Suffix = "s",
-   CurrentValue = 0.5,
+   CurrentValue = 0.3,
    Flag = "AutoLassoIntervalSlider",
    Callback = function(Value)
       horseCatcher.settings.autoLassoInterval = Value
@@ -1079,14 +991,26 @@ local AutoLassoIntervalSlider = parentTab:CreateSlider({
 })
 
 local AutoLassoRangeSlider = parentTab:CreateSlider({
-   Name = "📏 Auto Lasso Range",
-   Range = {10, 100},
+   Name = "📏 Auto Lasso Range", 
+   Range = {20, 100},
    Increment = 5,
    Suffix = " studs",
    CurrentValue = 50,
    Flag = "AutoLassoRangeSlider",
    Callback = function(Value)
       horseCatcher.settings.autoLassoRange = Value
+   end,
+})
+
+local AutoLassoMaxThrowsSlider = parentTab:CreateSlider({
+   Name = "🎯 Max Throws per Horse",
+   Range = {3, 15},
+   Increment = 1,
+   Suffix = " throws",
+   CurrentValue = 5,
+   Flag = "AutoLassoMaxThrowsSlider",
+   Callback = function(Value)
+      horseCatcher.settings.autoLassoMaxThrows = Value
    end,
 })
 
@@ -1098,7 +1022,7 @@ local MovementDropdown = parentTab:CreateDropdown({
    Options = {"attachment", "pulse", "smooth"},
    CurrentOption = {"attachment"},
    MultipleOptions = false,
-   Flag = "EnhancedHorseMovementModeDropdown",
+   Flag = "UltraHorseMovementModeDropdown",
    Callback = function(Option)
       horseCatcher.settings.movementMode = Option[1]
       Rayfield:Notify({
@@ -1116,7 +1040,7 @@ local PulseIntervalSlider = parentTab:CreateSlider({
    Increment = 0.1,
    Suffix = "s",
    CurrentValue = 0.8,
-   Flag = "EnhancedHorsePulseIntervalSlider",
+   Flag = "UltraHorsePulseIntervalSlider",
    Callback = function(Value)
       horseCatcher.settings.pulseInterval = Value
    end,
@@ -1128,7 +1052,7 @@ local PulseDistanceSlider = parentTab:CreateSlider({
    Increment = 1,
    Suffix = " studs",
    CurrentValue = 8,
-   Flag = "EnhancedHorsePulseDistanceSlider",
+   Flag = "UltraHorsePulseDistanceSlider",
    Callback = function(Value)
       horseCatcher.settings.pulseDistance = Value
    end,
@@ -1136,11 +1060,11 @@ local PulseDistanceSlider = parentTab:CreateSlider({
 
 local CaptureCooldownSlider = parentTab:CreateSlider({
    Name = "⏱️ Capture Cooldown",
-   Range = {0.05, 1},
+   Range = {0.2, 1},
    Increment = 0.05,
    Suffix = "s",
-   CurrentValue = 0.1,
-   Flag = "EnhancedHorseCaptureCooldownSlider",
+   CurrentValue = 0.4,
+   Flag = "UltraHorseCaptureCooldownSlider",
    Callback = function(Value)
       horseCatcher.settings.captureCooldown = Value
    end,
@@ -1149,7 +1073,7 @@ local CaptureCooldownSlider = parentTab:CreateSlider({
 local SmartTargetingToggle = parentTab:CreateToggle({
    Name = "🧠 Smart Targeting",
    CurrentValue = true,
-   Flag = "EnhancedHorseSmartTargetingToggle",
+   Flag = "UltraHorseSmartTargetingToggle",
    Callback = function(Value)
       horseCatcher.settings.smartTargeting = Value
    end,
@@ -1158,7 +1082,7 @@ local SmartTargetingToggle = parentTab:CreateToggle({
 local AggressiveTargetingToggle = parentTab:CreateToggle({
    Name = "🎯 Aggressive Targeting",
    CurrentValue = true,
-   Flag = "EnhancedHorseAggressiveTargetingToggle",
+   Flag = "UltraHorseAggressiveTargetingToggle",
    Callback = function(Value)
       horseCatcher.settings.aggressiveTargeting = Value
    end,
@@ -1167,52 +1091,13 @@ local AggressiveTargetingToggle = parentTab:CreateToggle({
 -- 📊 ENHANCED STATUS SECTION
 local EnhancedStatusSection = parentTab:CreateSection("📊 Enhanced Status")
 
-local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Enhanced system ready"})
-local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Professional mode ready"})
-local LassoExploitStatus = parentTab:CreateParagraph({Title = "⚡ Lasso Exploit Status", Content = "Exploits ready"})
-local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
+local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Ultra-optimized system ready"})
+local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Ready for dual methods"})
+local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Target Information", Content = "No target selected"})
+local MethodMetrics = parentTab:CreateParagraph({Title = "🎪 Method Metrics", Content = "Monitoring ready"})
 
--- ⚙️ ADVANCED SETTINGS SECTION
-local AdvancedSettingsSection = parentTab:CreateSection("⚙️ Advanced Settings")
-
-local MaxAttemptsSlider = parentTab:CreateSlider({
-   Name = "🎯 Max Attempts per Horse",
-   Range = {6, 20},
-   Increment = 1,
-   Suffix = " attempts",
-   CurrentValue = 12,
-   Flag = "EnhancedHorseMaxAttemptsSlider",
-   Callback = function(Value)
-      horseCatcher.settings.maxAttemptsPerHorse = Value
-   end,
-})
-
-local StuckTimeSlider = parentTab:CreateSlider({
-   Name = "⏳ Max Stuck Time",
-   Range = {5, 20},
-   Increment = 1,
-   Suffix = "s",
-   CurrentValue = 10,
-   Flag = "EnhancedHorseStuckTimeSlider", 
-   Callback = function(Value)
-      horseCatcher.settings.maxStuckTime = Value
-   end,
-})
-
-local TargetingRadiusSlider = parentTab:CreateSlider({
-   Name = "🎯 Targeting Radius",
-   Range = {100, 500},
-   Increment = 25,
-   Suffix = " studs",
-   CurrentValue = 300,
-   Flag = "EnhancedHorseTargetingRadiusSlider",
-   Callback = function(Value)
-      horseCatcher.settings.targetingRadius = Value
-   end,
-})
-
--- ⚡ ENHANCED ACTIONS SECTION
-local EnhancedActionsSection = parentTab:CreateSection("⚡ Enhanced Actions")
+-- ⚡ QUICK ACTIONS SECTION
+local QuickActionsSection = parentTab:CreateSection("⚡ Professional Actions")
 
 local ClearCacheButton = parentTab:CreateButton({
    Name = "🗑️ Clear Performance Cache",
@@ -1224,10 +1109,11 @@ local ClearCacheButton = parentTab:CreateButton({
       horseCatcher.performance.targetingTimes = {}
       horseCatcher.performance.movementTimes = {}
       horseCatcher.performance.autoLassoTimes = {}
+      horseCatcher.runtime.targetThrowCount = {}
       
       Rayfield:Notify({
          Title = "🗑️ Cache Cleared",
-         Content = "Performance cache optimized",
+         Content = "Performance cache and throw counts reset",
          Duration = 2,
          Image = 4483362458,
       })
@@ -1238,9 +1124,10 @@ local ResetCapturedButton = parentTab:CreateButton({
    Name = "🔄 Reset Captured List",
    Callback = function()
       horseCatcher.capturedHorses = {}
+      horseCatcher.runtime.targetThrowCount = {}
       Rayfield:Notify({
          Title = "✅ List Reset",
-         Content = "Captured horses list cleared",
+         Content = "Captured horses and throw counts cleared",
          Duration = 2,
          Image = 4483362458,
       })
@@ -1270,12 +1157,12 @@ local ResetStatsButton = parentTab:CreateButton({
    end,
 })
 
--- 📈 ENHANCED STATISTICS SECTION
-local EnhancedStatisticsSection = parentTab:CreateSection("📈 Enhanced Statistics")
+-- 📈 STATISTICS SECTION
+local StatisticsSection = parentTab:CreateSection("📈 Professional Statistics")
 
 local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for enhanced session"})
 local AllTimeStats = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
-local LassoStats = parentTab:CreateParagraph({Title = "⚡ Lasso Statistics", Content = "Lasso tracking ready"})
+local MethodAnalytics = parentTab:CreateParagraph({Title = "🎪 Method Analytics", Content = "Dual method tracking ready"})
 
 -- =================================
 -- ENHANCED STATUS UPDATE SYSTEM
@@ -1285,9 +1172,9 @@ spawn(function()
         -- System Status
         local systemText = ""
         if gameSystem.available and gameSystem.networkReady then
-            systemText = "✅ Game System: Enhanced\n✅ Network: High-Performance\n✅ Lasso Exploits: " .. (horseCatcher.settings.noLassoCooldown and "Active" or "Inactive")
+            systemText = "✅ Game System: Ultra-Connected\n✅ Network (u2): High-Performance\n✅ Dual Methods: Ready"
         elseif gameSystem.available then
-            systemText = "⚠️ Game System: Connected\n❌ Network: Limited\n❌ Exploits Degraded"
+            systemText = "⚠️ Game System: Connected\n❌ Network (u2): Limited\n❌ Performance Degraded"
         else
             systemText = "❌ Game System: Disconnected\n❌ Network: Unavailable\n❌ System Failure"
         end
@@ -1299,42 +1186,51 @@ spawn(function()
             systemText = systemText .. "\n❌ Lasso: Not Found"
         end
         
+        local cacheSize = #Cache.horses
+        systemText = systemText .. "\n📦 Cache: " .. cacheSize .. " horses"
+        
         SystemStatus:Set({Title = "🔧 System Status", Content = systemText})
         
-        -- Catching Status
+        -- Enhanced Catching Status
         local catchingText = ""
         if horseCatcher.isRunning then
             local runtime = tick() - horseCatcher.runtime.sessionStartTime
             local minutes = math.floor(runtime / 60)
             local seconds = math.floor(runtime % 60)
             
-            catchingText = "🚀 ENHANCED-ACTIVE (" .. horseCatcher.settings.captureMethod:upper() .. ")\n"
+            local methodText = horseCatcher.settings.captureMethod == "autolasso" and "AUTO LASSO" or "REMOTE EVENT"
+            
+            catchingText = "🚀 ULTRA-ACTIVE (" .. methodText .. ")\n"
             catchingText = catchingText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
-            catchingText = catchingText .. "🎯 Method: " .. (horseCatcher.settings.captureMethod == "autolasso" and "Auto Lasso" or "Remote Event") .. "\n"
+            catchingText = catchingText .. "📍 Movement: " .. horseCatcher.settings.movementMode:upper() .. "\n"
             catchingText = catchingText .. "🧠 Smart: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n"
-            catchingText = catchingText .. "⚡ Exploits: " .. (horseCatcher.settings.noLassoCooldown and "✅" or "❌")
+            
+            if horseCatcher.settings.captureMethod == "autolasso" then
+                catchingText = catchingText .. "⚡ Auto Throws: " .. horseCatcher.runtime.autoLassoCount
+            else
+                catchingText = catchingText .. "🎯 Capture Attempts: " .. horseCatcher.runtime.captureAttempts
+            end
         else
-            catchingText = "🔴 STOPPED\n💤 Enhanced system ready\n⚙️ Method: " .. horseCatcher.settings.captureMethod:upper() .. "\n🔧 System: " .. (gameSystem.available and gameSystem.networkReady and "✅" or "❌") .. "\n⚡ Lasso exploits ready"
+            catchingText = "🔴 STOPPED\n💤 Dual method system ready\n🎪 Method: " .. horseCatcher.settings.captureMethod:upper() .. "\n⚙️ Movement: " .. horseCatcher.settings.movementMode:upper() .. "\n🚀 Ultra-performance ready"
         end
         CatchingStatus:Set({Title = "🎯 Catching Status", Content = catchingText})
         
-        -- Lasso Exploit Status
-        local exploitText = "⚡ LASSO EXPLOITS STATUS\n"
-        exploitText = exploitText .. "🚀 No Cooldown: " .. (horseCatcher.settings.noLassoCooldown and "✅" or "❌") .. "\n"
-        exploitText = exploitText .. "🎯 Infinite Range: " .. (horseCatcher.settings.infiniteLassoRange and "✅" or "❌") .. "\n"
-        exploitText = exploitText .. "🤖 Auto Throw: " .. (horseCatcher.settings.autoLassoThrow and "✅" or "❌") .. "\n"
-        exploitText = exploitText .. "👻 Through Walls: " .. (horseCatcher.settings.lassoThroughWalls and "✅" or "❌")
-        LassoExploitStatus:Set({Title = "⚡ Lasso Exploit Status", Content = exploitText})
-        
-        -- Target Info
+        -- Enhanced Target Info
         local targetText = ""
         if horseCatcher.settings.captureMethod == "autolasso" then
-            local nearestHorse, distance = findNearestHorseForLasso()
+            local nearestHorse = findNearestHorseForAutoLasso()
             if nearestHorse then
                 local targetName = getHorseName(nearestHorse)
-                targetText = "🎯 AUTO LASSO TARGET\n🐎 " .. targetName .. "\n📏 Distance: " .. math.floor(distance) .. " studs\n🎪 Auto Throws: " .. horseCatcher.runtime.autoLassoAttempts
+                local distance = math.floor((humanoidRootPart.Position - nearestHorse.HumanoidRootPart.Position).Magnitude)
+                local throwCount = horseCatcher.runtime.targetThrowCount[nearestHorse.Name] or 0
+                
+                targetText = "🎯 AUTO LASSO TARGET\n"
+                targetText = targetText .. "🐎 " .. targetName .. "\n"
+                targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
+                targetText = targetText .. "🎪 Throws: " .. throwCount .. "/" .. horseCatcher.settings.autoLassoMaxThrows .. "\n"
+                targetText = targetText .. "⚡ Next Throw: " .. string.format("%.1f", math.max(0, horseCatcher.settings.autoLassoInterval - (tick() - horseCatcher.runtime.lastAutoLassoTime))) .. "s"
             else
-                targetText = "🔍 AUTO LASSO SCANNING\n🐎 No targets in range (" .. horseCatcher.settings.autoLassoRange .. " studs)\n🎯 Waiting for horses..."
+                targetText = "🔍 AUTO LASSO SCANNING\n🐎 No targets in range\n📏 Range: " .. horseCatcher.settings.autoLassoRange .. " studs\n⚡ Interval: " .. horseCatcher.settings.autoLassoInterval .. "s"
             end
         else
             if horseCatcher.currentTarget then
@@ -1342,15 +1238,54 @@ spawn(function()
                 local distance = math.floor((humanoidRootPart.Position - horseCatcher.currentTarget.HumanoidRootPart.Position).Magnitude)
                 local velocity = math.floor(horseCatcher.currentTarget.HumanoidRootPart.Velocity.Magnitude)
                 
-                targetText = "🎯 REMOTE EVENT TARGET\n🐎 " .. targetName .. "\n📏 Distance: " .. distance .. " studs\n🏃 Speed: " .. velocity .. " studs/s\n🎯 Attempts: " .. horseCatcher.runtime.currentAttempts .. "/" .. horseCatcher.settings.maxAttemptsPerHorse
+                targetText = "🎯 REMOTE EVENT TARGET\n"
+                targetText = targetText .. "🐎 " .. targetName .. "\n"
+                targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
+                targetText = targetText .. "🏃 Speed: " .. velocity .. " studs/s\n"
+                targetText = targetText .. "🎯 Attempts: " .. horseCatcher.runtime.currentAttempts .. "/" .. horseCatcher.settings.maxAttemptsPerHorse
             else
                 local wildCount = #Cache.horses
-                targetText = "🔍 REMOTE EVENT SCANNING\n🐎 Wild horses cached: " .. wildCount .. "\n📊 Targeting radius: " .. horseCatcher.settings.targetingRadius .. " studs"
+                targetText = "🔍 REMOTE EVENT SCANNING\n🐎 Wild horses found: " .. wildCount .. "\n📊 Targeting radius: " .. horseCatcher.settings.targetingRadius .. " studs\n🧠 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "Active" or "Disabled")
             end
         end
-        TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
+        TargetInfo:Set({Title = "🐎 Target Information", Content = targetText})
         
-        -- Session Statistics
+        -- Method Metrics
+        local avgAutoLassoTime = 0
+        if #horseCatcher.performance.autoLassoTimes > 0 then
+            local total = 0
+            for _, time in pairs(horseCatcher.performance.autoLassoTimes) do
+                total = total + time
+            end
+            avgAutoLassoTime = total / #horseCatcher.performance.autoLassoTimes
+        end
+        
+        local metricsText = "🎪 Current Method: " .. horseCatcher.settings.captureMethod:upper() .. "\n"
+        
+        if horseCatcher.settings.captureMethod == "autolasso" then
+            metricsText = metricsText .. "⚡ Auto Throws: " .. horseCatcher.statistics.autoLassoThrows .. "\n"
+            metricsText = metricsText .. "📊 Avg Throw Time: " .. string.format("%.3f", avgAutoLassoTime * 1000) .. "ms\n"
+            metricsText = metricsText .. "🎯 Interval: " .. horseCatcher.settings.autoLassoInterval .. "s\n"
+            metricsText = metricsText .. "📏 Range: " .. horseCatcher.settings.autoLassoRange .. " studs"
+        else
+            local avgCaptureTime = 0
+            if #horseCatcher.performance.captureTimes > 0 then
+                local total = 0
+                for _, time in pairs(horseCatcher.performance.captureTimes) do
+                    total = total + time
+                end
+                avgCaptureTime = total / #horseCatcher.performance.captureTimes
+            end
+            
+            metricsText = metricsText .. "🎯 Remote Attempts: " .. horseCatcher.statistics.totalAttempts .. "\n"
+            metricsText = metricsText .. "📊 Avg Capture Time: " .. string.format("%.3f", avgCaptureTime * 1000) .. "ms\n"
+            metricsText = metricsText .. "⏱️ Cooldown: " .. horseCatcher.settings.captureCooldown .. "s\n"
+            metricsText = metricsText .. "📏 Radius: " .. horseCatcher.settings.targetingRadius .. " studs"
+        end
+        
+        MethodMetrics:Set({Title = "🎪 Method Metrics", Content = metricsText})
+        
+        -- Enhanced Session Stats
         if horseCatcher.isRunning then
             local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
             local sessionMinutes = math.floor(sessionTime / 60)
@@ -1359,20 +1294,20 @@ spawn(function()
             local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
             sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
             sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
-            sessionText = sessionText .. "🎯 Method: " .. horseCatcher.settings.captureMethod:upper() .. "\n"
+            sessionText = sessionText .. "🎪 Method: " .. horseCatcher.settings.captureMethod:upper() .. "\n"
             
             if horseCatcher.settings.captureMethod == "autolasso" then
-                sessionText = sessionText .. "⚡ Auto Throws: " .. horseCatcher.runtime.autoLassoAttempts
+                sessionText = sessionText .. "⚡ Auto Throws: " .. horseCatcher.runtime.autoLassoCount
             else
-                sessionText = sessionText .. "🎯 Manual Attempts: " .. horseCatcher.runtime.captureAttempts
+                sessionText = sessionText .. "🎯 Attempts: " .. horseCatcher.runtime.captureAttempts
             end
             
             SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
         else
-            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nEnhanced monitoring ready\n⚡ Lasso exploits available"})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nDual method monitoring ready\n🎪 Auto Lasso + Remote Event\n🚀 Ultra-performance tracking"})
         end
         
-        -- All-Time Statistics
+        -- Enhanced All-Time Stats
         local capturedCount = 0
         for _ in pairs(horseCatcher.capturedHorses) do
             capturedCount = capturedCount + 1
@@ -1387,29 +1322,19 @@ spawn(function()
         allTimeText = allTimeText .. "📈 Total Captured: " .. horseCatcher.statistics.totalCaptured .. "\n"
         allTimeText = allTimeText .. "🎮 Sessions Run: " .. horseCatcher.statistics.sessionsRun .. "\n"
         allTimeText = allTimeText .. "🎯 Success Rate: " .. successRate .. "%\n"
-        allTimeText = allTimeText .. "📝 Marked Horses: " .. capturedCount .. "\n"
-        allTimeText = allTimeText .. "⚡ Auto Throws: " .. horseCatcher.statistics.autoLassoThrows
+        allTimeText = allTimeText .. "⚡ Auto Lasso Throws: " .. horseCatcher.statistics.autoLassoThrows .. "\n"
+        allTimeText = allTimeText .. "📝 Marked Horses: " .. capturedCount
         
         AllTimeStats:Set({Title = "🏆 All-Time Records", Content = allTimeText})
         
-        -- Lasso Statistics
-        local avgAutoLassoTime = 0
-        if #horseCatcher.performance.autoLassoTimes > 0 then
-            local total = 0
-            for _, time in pairs(horseCatcher.performance.autoLassoTimes) do
-                total = total + time
-            end
-            avgAutoLassoTime = total / #horseCatcher.performance.autoLassoTimes
-        end
+        -- Method Analytics
+        local analyticsText = "🎪 DUAL METHOD SYSTEM\n"
+        analyticsText = analyticsText .. "⚡ Auto Lasso: Optimized for speed\n"
+        analyticsText = analyticsText .. "🎯 Remote Event: Precision targeting\n"
+        analyticsText = analyticsText .. "🔄 Cache Efficiency: " .. string.format("%.1f", (#Cache.horses / math.max(horseCatcher.runtime.targetingCount, 1)) * 100) .. "%\n"
+        analyticsText = analyticsText .. "🚀 System Status: DUAL-OPTIMIZED"
         
-        local lassoStatsText = "⚡ LASSO PERFORMANCE\n"
-        lassoStatsText = lassoStatsText .. "🎯 Total Auto Throws: " .. horseCatcher.statistics.autoLassoThrows .. "\n"
-        lassoStatsText = lassoStatsText .. "⏱️ Avg Throw Time: " .. string.format("%.3f", avgAutoLassoTime * 1000) .. "ms\n"
-        lassoStatsText = lassoStatsText .. "🔄 Throw Interval: " .. horseCatcher.settings.autoLassoInterval .. "s\n"
-        lassoStatsText = lassoStatsText .. "📏 Throw Range: " .. horseCatcher.settings.autoLassoRange .. " studs\n"
-        lassoStatsText = lassoStatsText .. "🚀 Exploits: " .. (horseCatcher.settings.noLassoCooldown and "ACTIVE" or "INACTIVE")
-        
-        LassoStats:Set({Title = "⚡ Lasso Statistics", Content = lassoStatsText})
+        MethodAnalytics:Set({Title = "🎪 Method Analytics", Content = analyticsText})
     end
 end)
 
@@ -1430,7 +1355,7 @@ player.CharacterAdded:Connect(function(newCharacter)
         
         Rayfield:Notify({
            Title = "🔄 Character Respawned",
-           Content = "Enhanced horse catching stopped - restart when ready",
+           Content = "Ultra horse catching stopped - restart when ready",
            Duration = 3,
            Image = 4483362458,
         })
@@ -1441,29 +1366,30 @@ end)
 -- ENHANCED INITIALIZATION
 -- =================================
 Rayfield:Notify({
-   Title = "🚀 Enhanced Horse Catcher Loaded!",
-   Content = "Lasso exploits + Auto lasso + Remote event | Professional optimizations",
-   Duration = 5,
+   Title = "🚀 Ultra Horse Catcher with Dual Methods!",
+   Content = "Auto Lasso Throw + Remote Event | Professional optimizations | Revolutionary system",
+   Duration = 6,
    Image = 4483362458,
 })
 
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
-       Title = "✅ Enhanced System Ready!",
-       Content = "Lasso exploits active | Auto lasso default | No lag optimizations!",
+       Title = "✅ Dual System Ready!",
+       Content = "Auto Lasso (optimized) + Remote Event (classic) | Maximum efficiency!",
        Duration = 4,
        Image = 4483362458,
     })
 else
     Rayfield:Notify({
-       Title = "⚠️ System Warning",
-       Content = "Network system issues detected - Exploits may be limited",
+       Title = "⚠️ Performance Warning",
+       Content = "Network system issues detected - Performance may be limited",
        Duration = 4,
        Image = 4483362458,
     })
 end
 
-print("🚀 Enhanced Horse Catcher Pro - Lasso Exploits Edition Loaded!")
-print("⚡ Features: Auto Lasso (default), Remote Event, Lasso Exploits")
-print("🎯 Optimizations: No lag auto throwing, smart targeting, professional caching")
-print("🔥 Exploits: No cooldown, infinite range, through walls, auto throw")
+print("🚀 Ultra Horse Catcher Pro - Dual Method Edition Loaded!")
+print("🎪 Features: Auto Lasso Throw (optimized) + Remote Event (classic)")
+print("⚡ Auto Lasso: Optimized intervals, throw limits, no lag")
+print("🎯 Remote Event: Original precision targeting system")
+print("🔥 Dual method system ready for maximum efficiency!")
