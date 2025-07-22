@@ -1,6 +1,6 @@
--- Horse Attribute Manipulator - Advanced Edition
--- by Iyxo - 2025-01-22
--- Revolutionary horse control system
+-- Horse Attribute Manipulator - Continuous Enforcement Edition
+-- by Iyxo - 2025-07-22
+-- Revolutionary horse control with continuous attribute enforcement
 
 local parentTab, Rayfield, Window = ...
 
@@ -26,6 +26,7 @@ local horseManipulator = {
     
     -- Connections
     manipulationConnection = nil,
+    enforcementConnection = nil,
     
     -- Settings
     settings = {
@@ -36,15 +37,19 @@ local horseManipulator = {
         enableFollower = true,
         enableFleeDistance = true,
         enableLastPlayerToThrow = true,
-        manipulationInterval = 2
+        manipulationInterval = 2,
+        enforcementInterval = 0.5, -- Częste wymuszanie
+        continuousEnforcement = true
     },
     
     -- Runtime data
     runtime = {
         lastManipulationTime = 0,
+        lastEnforcementTime = 0,
         manipulatedCount = 0,
         sessionStartTime = 0,
-        lastScanTime = 0
+        lastScanTime = 0,
+        enforcementCount = 0
     },
     
     -- Statistics
@@ -52,7 +57,8 @@ local horseManipulator = {
         totalManipulated = 0,
         sessionsRun = 0,
         horsesComing = 0,
-        horsesControlled = 0
+        horsesControlled = 0,
+        totalEnforcements = 0
     }
 }
 
@@ -143,7 +149,83 @@ local function findWildHorsesInRange()
     return wildHorses
 end
 
--- REVOLUTIONARY ATTRIBUTE MANIPULATION
+-- Get all manipulated horses (including those outside range)
+local function getAllManipulatedHorses()
+    local manipulatedHorses = {}
+    
+    pcall(function()
+        local function scanLocation(location)
+            for _, child in pairs(location:GetChildren()) do
+                if child.Name:match("%{[%w%-]+%}") and child:FindFirstChild("HumanoidRootPart") then
+                    local humanoid = child:FindFirstChild("Humanoid")
+                    if humanoid and not Players:GetPlayerFromCharacter(child) and humanoid.Health > 0 then
+                        -- Check if this horse is in our manipulated list
+                        if horseManipulator.manipulatedHorses[child.Name] then
+                            table.insert(manipulatedHorses, child)
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Scan all locations
+        if Workspace.Islands and Workspace.Islands.Mainland then
+            scanLocation(Workspace.Islands.Mainland)
+        end
+        if Workspace.Islands then
+            scanLocation(Workspace.Islands)
+        end
+    end)
+    
+    return manipulatedHorses
+end
+
+-- CONTINUOUS ATTRIBUTE ENFORCEMENT - This is the key!
+local function enforceHorseAttributes(horse)
+    if not horse then return false end
+    
+    local success = false
+    
+    pcall(function()
+        -- FORCE behaviour to Follower (if enabled)
+        if horseManipulator.settings.enableFollower then
+            local currentBehaviour = horse:GetAttribute("behaviour")
+            if currentBehaviour ~= horseManipulator.settings.behaviour then
+                horse:SetAttribute("behaviour", horseManipulator.settings.behaviour)
+            end
+            
+            local currentFollowPlayer = horse:GetAttribute("followPlayer")
+            if currentFollowPlayer ~= player.Name then
+                horse:SetAttribute("followPlayer", player.Name)
+            end
+        end
+        
+        -- FORCE flee distance to 0 (if enabled)
+        if horseManipulator.settings.enableFleeDistance then
+            local currentFleeDistance = horse:GetAttribute("fleeDistance")
+            if currentFleeDistance ~= horseManipulator.settings.fleeDistance then
+                horse:SetAttribute("fleeDistance", horseManipulator.settings.fleeDistance)
+            end
+        end
+        
+        -- FORCE last player to throw lasso (if enabled)
+        if horseManipulator.settings.enableLastPlayerToThrow then
+            local currentLastPlayer = horse:GetAttribute("lastPlayerToThrowLasso")
+            if currentLastPlayer ~= player.Name then
+                horse:SetAttribute("lastPlayerToThrowLasso", player.Name)
+            end
+        end
+        
+        horseManipulator.runtime.enforcementCount = horseManipulator.runtime.enforcementCount + 1
+        horseManipulator.statistics.totalEnforcements = horseManipulator.statistics.totalEnforcements + 1
+        
+        success = true
+    end)
+    
+    return success
+end
+
+-- INITIAL ATTRIBUTE MANIPULATION
 local function manipulateHorseAttributes(horse)
     if not horse then return false end
     
@@ -211,7 +293,7 @@ local function getHorseAttributeStatus(horse)
 end
 
 -- =================================
--- MAIN MANIPULATION LOGIC
+-- MAIN MANIPULATION LOGIC WITH CONTINUOUS ENFORCEMENT
 -- =================================
 local function startHorseManipulation()
     if horseManipulator.isRunning then return false end
@@ -220,14 +302,16 @@ local function startHorseManipulation()
     horseManipulator.runtime.sessionStartTime = tick()
     horseManipulator.statistics.sessionsRun = horseManipulator.statistics.sessionsRun + 1
     horseManipulator.runtime.manipulatedCount = 0
+    horseManipulator.runtime.enforcementCount = 0
     
     Rayfield:Notify({
        Title = "🎭 Horse Manipulation Started!",
-       Content = "Revolutionary control system active | Radius: " .. horseManipulator.settings.manipulationRadius,
+       Content = "Continuous enforcement active | Radius: " .. horseManipulator.settings.manipulationRadius,
        Duration = 4,
        Image = 4483362458,
     })
     
+    -- INITIAL MANIPULATION CONNECTION
     horseManipulator.manipulationConnection = RunService.Heartbeat:Connect(function()
         if not horseManipulator.isRunning then return end
         
@@ -270,6 +354,30 @@ local function startHorseManipulation()
         horseManipulator.runtime.lastManipulationTime = currentTime
     end)
     
+    -- CONTINUOUS ENFORCEMENT CONNECTION - This is the magic!
+    if horseManipulator.settings.continuousEnforcement then
+        horseManipulator.enforcementConnection = RunService.Heartbeat:Connect(function()
+            if not horseManipulator.isRunning then return end
+            
+            local currentTime = tick()
+            
+            -- Enforcement interval check
+            if currentTime - horseManipulator.runtime.lastEnforcementTime < horseManipulator.settings.enforcementInterval then
+                return
+            end
+            
+            -- Get all manipulated horses (regardless of distance)
+            local manipulatedHorses = getAllManipulatedHorses()
+            
+            -- Enforce attributes on all manipulated horses
+            for _, horse in pairs(manipulatedHorses) do
+                enforceHorseAttributes(horse)
+            end
+            
+            horseManipulator.runtime.lastEnforcementTime = currentTime
+        end)
+    end
+    
     return true
 end
 
@@ -281,13 +389,18 @@ local function stopHorseManipulation()
         horseManipulator.manipulationConnection = nil
     end
     
+    if horseManipulator.enforcementConnection then
+        horseManipulator.enforcementConnection:Disconnect()
+        horseManipulator.enforcementConnection = nil
+    end
+    
     local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
     Rayfield:Notify({
        Title = "🛑 Manipulation Stopped",
-       Content = "Controlled: " .. horseManipulator.runtime.manipulatedCount .. " horses | Time: " .. minutes .. "m " .. seconds .. "s",
+       Content = "Controlled: " .. horseManipulator.runtime.manipulatedCount .. " | Enforcements: " .. horseManipulator.runtime.enforcementCount,
        Duration = 4,
        Image = 4483362458,
     })
@@ -361,6 +474,18 @@ local IntervalSlider = parentTab:CreateSlider({
    end,
 })
 
+local EnforcementIntervalSlider = parentTab:CreateSlider({
+   Name = "🔒 Enforcement Interval",
+   Range = {0.1, 2},
+   Increment = 0.1,
+   Suffix = "s",
+   CurrentValue = 0.5,
+   Flag = "EnforcementIntervalSlider",
+   Callback = function(Value)
+      horseManipulator.settings.enforcementInterval = Value
+   end,
+})
+
 local FleeDistanceSlider = parentTab:CreateSlider({
    Name = "🏃 Flee Distance",
    Range = {0, 100},
@@ -375,6 +500,21 @@ local FleeDistanceSlider = parentTab:CreateSlider({
 
 -- 🎯 ATTRIBUTE TOGGLES SECTION
 local AttributeTogglesSection = parentTab:CreateSection("🎯 Attribute Controls")
+
+local ContinuousEnforcementToggle = parentTab:CreateToggle({
+   Name = "🔒 Continuous Enforcement",
+   CurrentValue = true,
+   Flag = "ContinuousEnforcementToggle",
+   Callback = function(Value)
+      horseManipulator.settings.continuousEnforcement = Value
+      Rayfield:Notify({
+         Title = "🔒 Enforcement " .. (Value and "Enabled" or "Disabled"),
+         Content = Value and "Attributes will be continuously enforced" or "One-time manipulation only",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
 
 local FollowerToggle = parentTab:CreateToggle({
    Name = "🐎 Enable Follower Behaviour",
@@ -409,6 +549,7 @@ local LiveStatusSection = parentTab:CreateSection("📊 Live Status")
 local ManipulationStatus = parentTab:CreateParagraph({Title = "🎭 Manipulation Status", Content = "Ready"})
 local NearbyHorses = parentTab:CreateParagraph({Title = "🐎 Nearby Horses", Content = "Scanning..."})
 local ControlledHorses = parentTab:CreateParagraph({Title = "🎯 Controlled Horses", Content = "None"})
+local EnforcementStats = parentTab:CreateParagraph({Title = "🔒 Enforcement Stats", Content = "Ready"})
 
 -- ⚡ QUICK ACTIONS SECTION
 local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
@@ -438,6 +579,27 @@ local ManipulateAllButton = parentTab:CreateButton({
    end,
 })
 
+local EnforceAllButton = parentTab:CreateButton({
+   Name = "🔒 Force Enforce All",
+   Callback = function()
+      local manipulatedHorses = getAllManipulatedHorses()
+      local enforced = 0
+      
+      for _, horse in pairs(manipulatedHorses) do
+         if enforceHorseAttributes(horse) then
+            enforced = enforced + 1
+         end
+      end
+      
+      Rayfield:Notify({
+         Title = "🔒 Force Enforcement",
+         Content = "Enforced attributes on " .. enforced .. " horses!",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
 local ResetControlButton = parentTab:CreateButton({
    Name = "🗑️ Reset Controlled List",
    Callback = function()
@@ -459,8 +621,10 @@ local ResetStatsButton = parentTab:CreateButton({
          totalManipulated = 0,
          sessionsRun = 0,
          horsesComing = 0,
-         horsesControlled = 0
+         horsesControlled = 0,
+         totalEnforcements = 0
       }
+      horseManipulator.runtime.enforcementCount = 0
       Rayfield:Notify({
          Title = "📊 Stats Reset",
          Content = "All statistics have been reset",
@@ -477,7 +641,7 @@ local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Statistics
 local AllTimeStats = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
 
 -- =================================
--- ENHANCED STATUS UPDATE SYSTEM
+-- ENHANCED STATUS UPDATE SYSTEM WITH ENFORCEMENT
 -- =================================
 spawn(function()
     while wait(1) do
@@ -488,12 +652,13 @@ spawn(function()
             local minutes = math.floor(runtime / 60)
             local seconds = math.floor(runtime % 60)
             
-            statusText = "🟢 ACTIVE (Revolutionary Control)\n"
+            statusText = "🟢 ACTIVE (Continuous Enforcement)\n"
             statusText = statusText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
             statusText = statusText .. "📍 Radius: " .. horseManipulator.settings.manipulationRadius .. " studs\n"
-            statusText = statusText .. "🎭 Manipulated: " .. horseManipulator.runtime.manipulatedCount
+            statusText = statusText .. "🎭 Manipulated: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            statusText = statusText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount
         else
-            statusText = "🔴 STOPPED\n💤 Ready to start\n🎭 Revolutionary horse control system\n⚡ Instant manipulation available"
+            statusText = "🔴 STOPPED\n💤 Ready to start\n🎭 Continuous enforcement system\n🔒 Attributes will be constantly enforced\n⚡ Instant manipulation available"
         end
         ManipulationStatus:Set({Title = "🎭 Manipulation Status", Content = statusText})
         
@@ -533,8 +698,15 @@ spawn(function()
         else
             controlledText = controlledText .. "📋 No horses controlled yet"
         end
-        controlledText = controlledText .. "\n🎭 System: Revolutionary Control"
+        controlledText = controlledText .. "\n🔒 Continuous Enforcement: " .. (horseManipulator.settings.continuousEnforcement and "✅" or "❌")
         ControlledHorses:Set({Title = "🎯 Controlled Horses", Content = controlledText})
+        
+        -- Enforcement Stats
+        local enforcementText = "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
+        enforcementText = enforcementText .. "⚡ Session Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
+        enforcementText = enforcementText .. "⏱️ Enforcement Interval: " .. horseManipulator.settings.enforcementInterval .. "s\n"
+        enforcementText = enforcementText .. "🎯 System: " .. (horseManipulator.settings.continuousEnforcement and "Continuous" or "One-time")
+        EnforcementStats:Set({Title = "🔒 Enforcement Stats", Content = enforcementText})
         
         -- Session Statistics
         if horseManipulator.isRunning then
@@ -544,19 +716,21 @@ spawn(function()
             
             local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
             sessionText = sessionText .. "🎭 Horses Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            sessionText = sessionText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
             sessionText = sessionText .. "📍 Current Radius: " .. horseManipulator.settings.manipulationRadius .. " studs\n"
-            sessionText = sessionText .. "🔄 Interval: " .. horseManipulator.settings.manipulationInterval .. "s"
+            sessionText = sessionText .. "🔄 Enforcement: " .. horseManipulator.settings.enforcementInterval .. "s interval"
             
             SessionStats:Set({Title = "📈 Session Statistics", Content = sessionText})
         else
-            SessionStats:Set({Title = "📈 Session Statistics", Content = "No active session\nStart manipulation to see stats\n🎭 Revolutionary system ready"})
+            SessionStats:Set({Title = "📈 Session Statistics", Content = "No active session\nStart manipulation to see stats\n🔒 Continuous enforcement ready"})
         end
         
         -- All-Time Statistics
         local allTimeText = "🎭 Total Manipulated: " .. horseManipulator.statistics.totalManipulated .. "\n"
+        allTimeText = allTimeText .. "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
         allTimeText = allTimeText .. "🎮 Sessions Run: " .. horseManipulator.statistics.sessionsRun .. "\n"
         allTimeText = allTimeText .. "🎯 Currently Controlled: " .. controlledCount .. "\n"
-        allTimeText = allTimeText .. "⚡ System: Attribute Manipulation\n"
+        allTimeText = allTimeText .. "⚡ System: Continuous Enforcement\n"
         allTimeText = allTimeText .. "🔧 Features: Follower, No Flee, Exclusive"
         
         AllTimeStats:Set({Title = "🏆 All-Time Records", Content = allTimeText})
@@ -589,18 +763,18 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "🎭 Horse Manipulator Loaded!",
-   Content = "Revolutionary attribute control system | Make horses come to YOU!",
+   Content = "Continuous enforcement system | Attributes constantly enforced!",
    Duration = 5,
    Image = 4483362458,
 })
 
 Rayfield:Notify({
-   Title = "🎯 System Features",
-   Content = "✅ Follower Behaviour ✅ No Flee Distance ✅ Exclusive Control",
+   Title = "🔒 Continuous Enforcement",
+   Content = "Game can't override your attributes anymore!",
    Duration = 4,
    Image = 4483362458,
 })
 
-print("🎭 Horse Attribute Manipulator - Revolutionary Edition Loaded!")
-print("🎯 Features: behaviour=Follower, followPlayer=" .. player.Name .. ", fleeDistance=0")
-print("⚡ Revolutionary: Horses come to YOU, no more chasing!")
+print("🎭 Horse Attribute Manipulator - Continuous Enforcement Edition Loaded!")
+print("🔒 Features: Continuous enforcement prevents game from overriding attributes")
+print("⚡ Revolutionary: fleeDistance=0 enforced every 0.5s, no more running away!")
