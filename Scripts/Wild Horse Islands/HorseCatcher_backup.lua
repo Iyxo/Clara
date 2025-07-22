@@ -1263,9 +1263,6 @@ local ResetCapturedButton = parentTab:CreateButton({
    end,
 })
 
-}
-}
-
 -- =================================
 -- SIMPLIFIED STATUS UPDATE SYSTEM
 -- =================================
