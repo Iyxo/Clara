@@ -1,4 +1,4 @@
--- Horse Catcher Pro - Direct Loadstring
+-- Horse Catcher Pro - Organized Loadstring
 -- by Iyxo - 2025-07-22
 -- Gets tab, rayfield, and window as parameters
 
@@ -60,7 +60,8 @@ local horseCatcher = {
         -- Safety
         maxRetries = 3,
         safeDistance = 5,
-        avoidPlayers = true
+        avoidPlayers = true,
+        playerAvoidanceDistance = 30
     },
     
     -- Runtime data
@@ -95,13 +96,13 @@ pcall(function()
 end)
 
 -- =================================
--- UI SECTIONS
+-- UI SECTIONS - ORGANIZED
 -- =================================
 local ControlSection = parentTab:CreateSection("🎯 Main Control")
-local SettingsSection = parentTab:CreateSection("⚙️ Movement & Settings")
-local StatusSection = parentTab:CreateSection("📊 Live Status & Statistics")
-local AdvancedSection = parentTab:CreateSection("🔧 Advanced Settings")
-local ActionsSection = parentTab:CreateSection("⚡ Quick Actions")
+local MovementSection = parentTab:CreateSection("📍 Movement & Settings")
+local SafetySection = parentTab:CreateSection("🛡️ Safety & Advanced")
+local StatusSection = parentTab:CreateSection("📊 Live Status")
+local ActionsSection = parentTab:CreateSection("⚡ Quick Actions & Debug")
 
 -- =================================
 -- CORE FUNCTIONS
@@ -164,19 +165,28 @@ local function equipLasso()
     return success, toolID
 end
 
--- Advanced horse detection
-local function findWildHorses()
-    local wildHorses = {}
+-- ENHANCED player avoidance system
+local function getPlayerPositions()
     local playerPositions = {}
     
-    -- Get player positions for avoidance
     if horseCatcher.settings.avoidPlayers then
         for _, plr in pairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                table.insert(playerPositions, plr.Character.HumanoidRootPart.Position)
+                table.insert(playerPositions, {
+                    position = plr.Character.HumanoidRootPart.Position,
+                    name = plr.Name
+                })
             end
         end
     end
+    
+    return playerPositions
+end
+
+-- Advanced horse detection with enhanced player avoidance
+local function findWildHorses()
+    local wildHorses = {}
+    local playerPositions = getPlayerPositions()
     
     pcall(function()
         local function scanLocation(location)
@@ -193,11 +203,12 @@ local function findWildHorses()
                                 if nameLabel and nameLabel.Text == "Wild" then
                                     -- Check if not already processed
                                     if not horseCatcher.capturedHorses[child.Name] then
-                                        -- Check player avoidance
+                                        -- Enhanced player avoidance check
                                         local tooCloseToPlayer = false
                                         if horseCatcher.settings.avoidPlayers then
-                                            for _, playerPos in pairs(playerPositions) do
-                                                if (child.HumanoidRootPart.Position - playerPos).Magnitude < 30 then
+                                            for _, playerData in pairs(playerPositions) do
+                                                local distance = (child.HumanoidRootPart.Position - playerData.position).Magnitude
+                                                if distance < horseCatcher.settings.playerAvoidanceDistance then
                                                     tooCloseToPlayer = true
                                                     break
                                                 end
@@ -362,6 +373,7 @@ local function pulseTeleport(horse)
     return true
 end
 
+-- ENHANCED attach function with better safe distance
 local function attachToHorse(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -381,7 +393,7 @@ local function attachToHorse(horse)
         weld.Parent = humanoidRootPart
         weld.Name = "HorseAttachment"
         
-        -- Optimal positioning
+        -- Enhanced positioning with configurable safe distance
         local sideOffset = horseRoot.CFrame.RightVector * horseCatcher.settings.safeDistance
         local heightOffset = Vector3.new(0, 3, 0)
         
@@ -467,6 +479,91 @@ local function isHorseCaptured(horse)
     end
     
     return captured
+end
+
+-- ENHANCED force detach function
+local function forceDetach()
+    pcall(function()
+        -- Remove all horse attachments
+        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
+            if attachment.Name == "HorseAttachment" or attachment:IsA("WeldConstraint") then
+                attachment:Destroy()
+            end
+        end
+        
+        -- Reset horse catcher states
+        horseCatcher.isAttached = false
+        horseCatcher.currentTarget = nil
+        horseCatcher.runtime.currentAttempts = 0
+        horseCatcher.runtime.targetStuckTime = 0
+        
+        -- Stop any tweens
+        for _, tween in pairs(TweenService:GetTweensOnObject(humanoidRootPart)) do
+            tween:Cancel()
+        end
+        
+        Rayfield:Notify({
+           Title = "🔓 Force Detached",
+           Content = "All attachments removed and target cleared",
+           Duration = 2,
+           Image = 4483362458,
+        })
+    end)
+end
+
+-- ENHANCED test system function
+local function testSystem()
+    local results = {}
+    
+    -- Test 1: Game System
+    if gameSystem.available then
+        table.insert(results, "✅ Game System: Connected")
+    else
+        table.insert(results, "❌ Game System: Failed")
+    end
+    
+    -- Test 2: Network
+    if gameSystem.u2 then
+        table.insert(results, "✅ Network (u2): Available")
+    else
+        table.insert(results, "❌ Network (u2): Missing")
+    end
+    
+    -- Test 3: Lasso
+    local lassoReady, lassoID = equipLasso()
+    if lassoReady then
+        table.insert(results, "✅ Lasso: Ready (" .. (lassoID and lassoID:sub(1,8) or "Unknown") .. "...)")
+    else
+        table.insert(results, "❌ Lasso: Not Found")
+    end
+    
+    -- Test 4: Wild Horses
+    local wildHorses = findWildHorses()
+    if #wildHorses > 0 then
+        table.insert(results, "✅ Wild Horses: " .. #wildHorses .. " found")
+    else
+        table.insert(results, "⚠️ Wild Horses: None found")
+    end
+    
+    -- Test 5: Player Avoidance
+    local playerPositions = getPlayerPositions()
+    if horseCatcher.settings.avoidPlayers then
+        table.insert(results, "✅ Player Avoidance: Active (" .. #playerPositions .. " players)")
+    else
+        table.insert(results, "⚠️ Player Avoidance: Disabled")
+    end
+    
+    -- Show results
+    local allGood = not string.find(table.concat(results, "\n"), "❌")
+    
+    Rayfield:Notify({
+       Title = allGood and "✅ System Test: PASSED" or "⚠️ System Test: ISSUES",
+       Content = table.concat(results, "\n"),
+       Duration = 6,
+       Image = 4483362458,
+    })
+    
+    return allGood
 end
 
 -- =================================
@@ -593,16 +690,7 @@ local function stopHorseCatching()
     end
     
     -- Cleanup
-    pcall(function()
-        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
-            if attachment.Name == "HorseAttachment" and attachment:IsA("WeldConstraint") then
-                attachment:Destroy()
-            end
-        end
-    end)
-    
-    horseCatcher.isAttached = false
-    horseCatcher.currentTarget = nil
+    forceDetach()
     
     local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
     local minutes = math.floor(sessionTime / 60)
@@ -619,10 +707,12 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- UI CONTROLS
+-- UI CONTROLS - ORGANIZED BY SECTIONS
 -- =================================
 
--- MAIN CONTROL
+-- ==========================================
+-- 🎯 MAIN CONTROL SECTION
+-- ==========================================
 local MainToggle = parentTab:CreateToggle({
    Name = "🐎 Auto Horse Catching",
    CurrentValue = false,
@@ -639,34 +729,18 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
-local TestSystemButton = parentTab:CreateButton({
-   Name = "🧪 Test System",
-   Callback = function()
-      local lassoReady, lassoID = equipLasso()
-      if gameSystem.available and gameSystem.u2 and lassoReady then
-         Rayfield:Notify({
-            Title = "✅ System Ready",
-            Content = "Network: ✅ | Lasso: ✅ | Ready to catch!",
-            Duration = 3,
-            Image = 4483362458,
-         })
-      else
-         local issues = {}
-         if not gameSystem.available then table.insert(issues, "Game System") end
-         if not gameSystem.u2 then table.insert(issues, "Network") end
-         if not lassoReady then table.insert(issues, "Lasso") end
-         
-         Rayfield:Notify({
-            Title = "❌ System Issues",
-            Content = "Problems: " .. table.concat(issues, ", "),
-            Duration = 4,
-            Image = 4483362458,
-         })
-      end
+local SmartTargetingToggle = parentTab:CreateToggle({
+   Name = "🧠 Smart Targeting",
+   CurrentValue = true,
+   Flag = "HorseSmartTargetingToggle",
+   Callback = function(Value)
+      horseCatcher.settings.smartTargeting = Value
    end,
 })
 
--- SETTINGS
+-- ==========================================
+-- 📍 MOVEMENT & SETTINGS SECTION
+-- ==========================================
 local MovementDropdown = parentTab:CreateDropdown({
    Name = "📍 Movement Mode",
    Options = {"attachment", "pulse", "smooth"},
@@ -696,6 +770,18 @@ local PulseIntervalSlider = parentTab:CreateSlider({
    end,
 })
 
+local PulseDistanceSlider = parentTab:CreateSlider({
+   Name = "📏 Pulse Distance", 
+   Range = {3, 15},
+   Increment = 1,
+   Suffix = " studs",
+   CurrentValue = 6,
+   Flag = "HorsePulseDistanceSlider",
+   Callback = function(Value)
+      horseCatcher.settings.pulseDistance = Value
+   end,
+})
+
 local CaptureCooldownSlider = parentTab:CreateSlider({
    Name = "⏱️ Capture Cooldown",
    Range = {0.2, 1.5},
@@ -708,22 +794,42 @@ local CaptureCooldownSlider = parentTab:CreateSlider({
    end,
 })
 
-local SmartTargetingToggle = parentTab:CreateToggle({
-   Name = "🧠 Smart Targeting",
+-- ==========================================
+-- 🛡️ SAFETY & ADVANCED SECTION
+-- ==========================================
+local AvoidPlayersToggle = parentTab:CreateToggle({
+   Name = "👥 Avoid Other Players",
    CurrentValue = true,
-   Flag = "HorseSmartTargetingToggle",
+   Flag = "HorseAvoidPlayersToggle",
    Callback = function(Value)
-      horseCatcher.settings.smartTargeting = Value
+      horseCatcher.settings.avoidPlayers = Value
    end,
 })
 
--- STATUS
-local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Initializing..."})
-local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Ready"})
-local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "None"})
-local Statistics = parentTab:CreateParagraph({Title = "📊 Session Statistics", Content = "Ready to start"})
+local PlayerAvoidanceSlider = parentTab:CreateSlider({
+   Name = "👥 Player Avoidance Distance",
+   Range = {15, 60},
+   Increment = 5,
+   Suffix = " studs",
+   CurrentValue = 30,
+   Flag = "HorsePlayerAvoidanceSlider",
+   Callback = function(Value)
+      horseCatcher.settings.playerAvoidanceDistance = Value
+   end,
+})
 
--- ADVANCED SETTINGS
+local SafeDistanceSlider = parentTab:CreateSlider({
+   Name = "🛡️ Safe Distance",
+   Range = {2, 12},
+   Increment = 1,
+   Suffix = " studs",
+   CurrentValue = 5,
+   Flag = "HorseSafeDistanceSlider",
+   Callback = function(Value)
+      horseCatcher.settings.safeDistance = Value
+   end,
+})
+
 local MaxAttemptsSlider = parentTab:CreateSlider({
    Name = "🎯 Max Attempts per Horse",
    Range = {10, 35},
@@ -748,40 +854,31 @@ local StuckTimeSlider = parentTab:CreateSlider({
    end,
 })
 
-local PulseDistanceSlider = parentTab:CreateSlider({
-   Name = "📏 Pulse Distance", 
-   Range = {3, 15},
-   Increment = 1,
-   Suffix = " studs",
-   CurrentValue = 6,
-   Flag = "HorsePulseDistanceSlider",
-   Callback = function(Value)
-      horseCatcher.settings.pulseDistance = Value
+-- ==========================================
+-- 📊 LIVE STATUS SECTION
+-- ==========================================
+local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Initializing..."})
+local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Ready"})
+local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "None"})
+local Statistics = parentTab:CreateParagraph({Title = "📊 Session Statistics", Content = "Ready to start"})
+
+-- ==========================================
+-- ⚡ QUICK ACTIONS & DEBUG SECTION
+-- ==========================================
+local TestSystemButton = parentTab:CreateButton({
+   Name = "🧪 Test System",
+   Callback = function()
+      testSystem()
    end,
 })
 
-local SafeDistanceSlider = parentTab:CreateSlider({
-   Name = "🛡️ Safe Distance",
-   Range = {2, 10},
-   Increment = 1,
-   Suffix = " studs",
-   CurrentValue = 5,
-   Flag = "HorseSafeDistanceSlider",
-   Callback = function(Value)
-      horseCatcher.settings.safeDistance = Value
+local ForceDetachButton = parentTab:CreateButton({
+   Name = "🔓 Force Detach",
+   Callback = function()
+      forceDetach()
    end,
 })
 
-local AvoidPlayersToggle = parentTab:CreateToggle({
-   Name = "👥 Avoid Other Players",
-   CurrentValue = true,
-   Flag = "HorseAvoidPlayersToggle",
-   Callback = function(Value)
-      horseCatcher.settings.avoidPlayers = Value
-   end,
-})
-
--- QUICK ACTIONS
 local ResetCapturedButton = parentTab:CreateButton({
    Name = "🗑️ Reset Captured List",
    Callback = function()
@@ -792,21 +889,6 @@ local ResetCapturedButton = parentTab:CreateButton({
          Duration = 2,
          Image = 4483362458,
       })
-   end,
-})
-
-local DetachButton = parentTab:CreateButton({
-   Name = "🔓 Force Detach",
-   Callback = function()
-      pcall(function()
-         for _, attachment in pairs(humanoidRootPart:GetChildren()) do
-            if attachment.Name == "HorseAttachment" and attachment:IsA("WeldConstraint") then
-               attachment:Destroy()
-            end
-         end
-      end)
-      horseCatcher.isAttached = false
-      horseCatcher.currentTarget = nil
    end,
 })
 
@@ -847,7 +929,7 @@ spawn(function()
         
         local lassoReady, lassoID = equipLasso()
         if lassoReady then
-            systemText = systemText .. "\n✅ Lasso: Ready (" .. (lassoID and lassoID:sub(1,10) or "Unknown") .. "...)"
+            systemText = systemText .. "\n✅ Lasso: Ready (" .. (lassoID and lassoID:sub(1,8) or "Unknown") .. "...)"
         else
             systemText = systemText .. "\n❌ Lasso: Not Found"
         end
@@ -890,7 +972,8 @@ spawn(function()
             end
         else
             local wildCount = #findWildHorses()
-            targetText = "🔍 Searching for targets...\n🐎 Wild horses found: " .. wildCount .. "\n📊 Available targets in area"
+            local playerPositions = getPlayerPositions()
+            targetText = "🔍 Searching for targets...\n🐎 Wild horses found: " .. wildCount .. "\n👥 Players nearby: " .. #playerPositions .. "\n🛡️ Avoidance: " .. (horseCatcher.settings.avoidPlayers and "✅" or "❌")
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
         
@@ -947,7 +1030,7 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "🐎 Horse Catcher Pro Loaded!",
-   Content = "All features loaded via loadstring | Working remote confirmed",
+   Content = "All features organized and ready | Enhanced safety systems",
    Duration = 4,
    Image = 4483362458,
 })
@@ -968,6 +1051,6 @@ else
     })
 end
 
-print("🐎 Horse Catcher Pro Loadstring Executed Successfully!")
-print("✅ Confirmed working remote: Equipment protocol")
-print("📊 All features loaded directly into tab")
+print("🐎 Horse Catcher Pro - Organized Edition Loaded!")
+print("✅ Enhanced: Player avoidance, safe distance, force detach, test system")
+print("📊 Organized UI: 5 logical sections with proper grouping")
