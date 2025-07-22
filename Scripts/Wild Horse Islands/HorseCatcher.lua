@@ -1,5 +1,5 @@
--- Horse Catcher Pro - CaptureProgress Tracking Edition
--- by Iyxo - 2025-07-22 17:04:52
+-- Horse Catcher Pro - Simplified CaptureProgress Edition
+-- by Iyxo - 2025-07-22 17:56:13
 -- Revolutionary horse catching with professional CaptureProgress monitoring
 
 local parentTab, Rayfield, Window = ...
@@ -140,7 +140,67 @@ local function updateCaptureProgressTracking()
 end
 
 -- =================================
--- PROFESSIONAL CACHING SYSTEM (ENHANCED)
+-- NOCLIP SYSTEM FOR SMOOTH MODE
+-- =================================
+local noclipSystem = {
+    active = false,
+    originalCanCollide = {},
+    connections = {}
+}
+
+local function enableNoclip()
+    if noclipSystem.active then return end
+    
+    noclipSystem.active = true
+    
+    local function setNoclip(object)
+        if object:IsA("BasePart") and object.CanCollide then
+            noclipSystem.originalCanCollide[object] = true
+            object.CanCollide = false
+        end
+    end
+    
+    -- Apply to current character
+    pcall(function()
+        for _, part in pairs(character:GetChildren()) do
+            setNoclip(part)
+        end
+    end)
+    
+    -- Monitor for new parts
+    noclipSystem.connections.childAdded = character.ChildAdded:Connect(function(child)
+        if noclipSystem.active then
+            wait(0.1) -- Wait for part to load
+            setNoclip(child)
+        end
+    end)
+end
+
+local function disableNoclip()
+    if not noclipSystem.active then return end
+    
+    noclipSystem.active = false
+    
+    -- Restore original collision
+    pcall(function()
+        for part, _ in pairs(noclipSystem.originalCanCollide) do
+            if part and part.Parent then
+                part.CanCollide = true
+            end
+        end
+    end)
+    
+    noclipSystem.originalCanCollide = {}
+    
+    -- Disconnect monitoring
+    if noclipSystem.connections.childAdded then
+        noclipSystem.connections.childAdded:Disconnect()
+        noclipSystem.connections.childAdded = nil
+    end
+end
+
+-- =================================
+-- PROFESSIONAL CACHING SYSTEM
 -- =================================
 local Cache = {
     horses = {},
@@ -152,7 +212,7 @@ local Cache = {
 }
 
 -- =================================
--- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM (ENHANCED WITH CAPTURE PROGRESS)
+-- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM
 -- =================================
 local horseCatcher = {
     isRunning = false,
@@ -161,7 +221,6 @@ local horseCatcher = {
     isAttached = false,
     lassoEquipped = false,
     currentLassoID = nil,
-    lassoProtectionActive = false, -- NEW: Lasso protection
     
     connections = {
         capture = nil,
@@ -170,7 +229,7 @@ local horseCatcher = {
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
-        lassoProtection = nil -- NEW: Lasso protection connection
+        lassoProtection = nil
     },
     
     capturedHorses = {},
@@ -204,9 +263,6 @@ local horseCatcher = {
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
         
-        autoEquipLasso = true, -- NEW: Auto equip lasso
-        protectLasso = true, -- NEW: Protect lasso from unequipping
-        
         safeDistance = 5,
         attachmentOffset = 4,
         targetingRadius = 300,
@@ -221,7 +277,7 @@ local horseCatcher = {
         lastCleanupTime = 0,
         lastIslandCheck = 0,
         lastProgressCheck = 0,
-        lastLassoCheck = 0, -- NEW: Lasso check timing
+        lastLassoCheck = 0,
         
         currentTargetStartTime = 0,
         lastProgressChange = 0,
@@ -247,7 +303,7 @@ local horseCatcher = {
     }
 }
 
--- Game System Detection - Enhanced
+-- Game System Detection
 local gameSystem = {
     u1 = nil,
     u2 = nil, 
@@ -267,7 +323,7 @@ pcall(function()
 end)
 
 -- =================================
--- ULTRA-OPTIMIZED HORSE FUNCTIONS (ENHANCED WITH CAPTURE PROGRESS)
+-- ULTRA-OPTIMIZED HORSE FUNCTIONS
 -- =================================
 
 local function getHorseName(horse)
@@ -332,7 +388,6 @@ local function isWildHorse(horse)
     return isWild
 end
 
--- 🔥 ENHANCED: Fixed horse cache to scan ALL islands properly
 local function updateHorseCache()
     local currentTime = tick()
     if currentTime - Cache.lastUpdate < Cache.updateInterval then
@@ -381,13 +436,10 @@ local function updateHorseCache()
         Cache.islandHorses[islandName] = localHorseCount
     end
     
-    -- 🔥 FIXED: Enhanced scanning with proper island detection
     pcall(function()
         if Workspace.Islands then
-            -- Priority 1: Current island (highest priority)
             local currentIslandPriority = 1
             
-            -- Scan all islands, prioritizing current one
             for _, island in pairs(Workspace.Islands:GetChildren()) do
                 if island:IsA("Model") and island.Name ~= "Islands" then
                     local priority = (island.Name == currentIsland) and currentIslandPriority or 2
@@ -395,7 +447,6 @@ local function updateHorseCache()
                 end
             end
             
-            -- Special handling for Mainland if it exists separately
             if Workspace.Islands:FindFirstChild("Mainland") then
                 local priority = (currentIsland == "Mainland") and currentIslandPriority or 2
                 scanLocation(Workspace.Islands.Mainland, "Mainland", priority)
@@ -403,7 +454,6 @@ local function updateHorseCache()
         end
     end)
     
-    -- Sort horses by island priority and distance
     table.sort(Cache.horses, function(a, b)
         if a.priority ~= b.priority then
             return a.priority < b.priority
@@ -430,7 +480,7 @@ local function updateHorseCache()
     return Cache.horses
 end
 
--- 🔥 ENHANCED: Auto-equip and protect lasso system
+-- Auto-equip and protect lasso system (always active)
 local function equipLasso()
     if horseCatcher.lassoEquipped and horseCatcher.currentLassoID then
         return true, horseCatcher.currentLassoID
@@ -439,14 +489,12 @@ local function equipLasso()
     local success = false
     local toolID = nil
     
-    -- Method 1: Game system detection with auto-equip
     if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
         local lastEquipped = gameSystem.u3.GetLocal({"lastEquippedLasso"})
         if lastEquipped then
             local inventoryItem = gameSystem.u3.GetLocal({"inventory", lastEquipped})
             if inventoryItem then
                 pcall(function()
-                    -- Check if already equipped
                     local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
                     if currentlyEquipped ~= lastEquipped then
                         gameSystem.u2.Network:FireServer("Inventory", "Use", lastEquipped)
@@ -456,27 +504,23 @@ local function equipLasso()
                 end)
             end
         else
-            -- Auto-find lasso in inventory if none equipped
-            if horseCatcher.settings.autoEquipLasso then
-                pcall(function()
-                    local inventory = gameSystem.u3.GetLocal({"inventory"}) or {}
-                    for itemId, itemData in pairs(inventory) do
-                        if itemId:find("{") and itemData.id then
-                            local itemInfo = gameSystem.u1.Items.GetInfo(itemData.id)
-                            if itemInfo and itemInfo.name and itemInfo.name:lower():find("lasso") then
-                                gameSystem.u2.Network:FireServer("Inventory", "Use", itemId)
-                                success = true
-                                toolID = itemId
-                                break
-                            end
+            pcall(function()
+                local inventory = gameSystem.u3.GetLocal({"inventory"}) or {}
+                for itemId, itemData in pairs(inventory) do
+                    if itemId:find("{") and itemData.id then
+                        local itemInfo = gameSystem.u1.Items.GetInfo(itemData.id)
+                        if itemInfo and itemInfo.name and itemInfo.name:lower():find("lasso") then
+                            gameSystem.u2.Network:FireServer("Inventory", "Use", itemId)
+                            success = true
+                            toolID = itemId
+                            break
                         end
                     end
-                end)
-            end
+                end
+            end)
         end
     end
     
-    -- Method 2: Fallback
     if not success then
         toolID = "{60769f1f-cade-463b-ae32-adaacc91116f}"
         success = true
@@ -490,14 +534,14 @@ local function equipLasso()
     return success, toolID
 end
 
--- 🔥 NEW: Lasso protection system
+-- Lasso protection system (always active)
 local function protectLasso()
-    if not horseCatcher.settings.protectLasso or not horseCatcher.isRunning then
+    if not horseCatcher.isRunning then
         return
     end
     
     local currentTime = tick()
-    if currentTime - horseCatcher.runtime.lastLassoCheck < 1 then -- Check every second
+    if currentTime - horseCatcher.runtime.lastLassoCheck < 1 then
         return
     end
     
@@ -507,14 +551,12 @@ local function protectLasso()
         if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
             local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
             
-            -- If no equipment equipped or wrong equipment, re-equip lasso
             if not currentlyEquipped or currentlyEquipped ~= horseCatcher.currentLassoID then
                 if horseCatcher.currentLassoID then
                     local inventoryItem = gameSystem.u3.GetLocal({"inventory", horseCatcher.currentLassoID})
                     if inventoryItem then
                         gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
                     else
-                        -- Lasso not found, try to find new one
                         equipLasso()
                     end
                 end
@@ -545,7 +587,6 @@ local function findOptimalTarget()
             
             local score = 1000
             
-            -- Enhanced island priority
             if horseData.island == currentIsland then
                 score = score + 500
             elseif horseData.priority == 1 then
@@ -644,7 +685,7 @@ local function captureHorse(horse)
     return success
 end
 
--- Movement functions (same as before)
+-- Movement functions
 local function pulseTeleportToHorse(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -723,6 +764,7 @@ local function attachToHorse(horse)
     return true
 end
 
+-- Enhanced smooth follow with noclip
 local function smoothFollow(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -878,12 +920,11 @@ local function cleanupSystem()
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC WITH CAPTURE PROGRESS MONITORING
+-- ENHANCED MAIN LOGIC
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
     
-    -- 🔥 ENHANCED: Auto-equip lasso on start
     local lassoReady, lassoID = equipLasso()
     if not lassoReady then
         Rayfield:Notify({
@@ -906,7 +947,6 @@ local function startHorseCatching()
     end
     
     horseCatcher.isRunning = true
-    horseCatcher.lassoProtectionActive = true
     horseCatcher.runtime.sessionStartTime = tick()
     horseCatcher.statistics.sessionsRun = horseCatcher.statistics.sessionsRun + 1
     horseCatcher.statistics.currentStreak = 0
@@ -928,14 +968,18 @@ local function startHorseCatching()
     
     local currentIsland = detectCurrentIsland()
     
+    -- Enable noclip for smooth mode
+    if horseCatcher.settings.movementMode == "smooth" then
+        enableNoclip()
+    end
+    
     Rayfield:Notify({
        Title = "🚀 Ultra Horse Catching Started!",
-       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. " | Lasso protected",
+       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or ""),
        Duration = 3,
        Image = 4483362458,
     })
     
-    -- Island monitoring connection
     horseCatcher.connections.islandMonitor = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         
@@ -948,13 +992,11 @@ local function startHorseCatching()
         horseCatcher.runtime.lastIslandCheck = currentTime
     end)
     
-    -- 🔥 NEW: Lasso protection connection
     horseCatcher.connections.lassoProtection = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         protectLasso()
     end)
     
-    -- CaptureProgress monitoring connection
     horseCatcher.connections.progressMonitor = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning or not horseCatcher.currentTarget then return end
         
@@ -989,7 +1031,6 @@ local function startHorseCatching()
         end
     end)
     
-    -- MAIN CAPTURE CONNECTION
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         
@@ -1082,7 +1123,9 @@ end
 
 local function stopHorseCatching()
     horseCatcher.isRunning = false
-    horseCatcher.lassoProtectionActive = false
+    
+    -- Disable noclip
+    disableNoclip()
     
     for name, connection in pairs(horseCatcher.connections) do
         if connection then
@@ -1099,21 +1142,11 @@ local function stopHorseCatching()
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
-    local avgCaptureTime = 0
-    if #horseCatcher.performance.captureTimes > 0 then
-        local total = 0
-        for _, time in pairs(horseCatcher.performance.captureTimes) do
-            total = total + time
-        end
-        avgCaptureTime = total / #horseCatcher.performance.captureTimes
-        horseCatcher.statistics.averageCaptureTime = avgCaptureTime
-    end
-    
     local currentIsland = detectCurrentIsland()
     
     Rayfield:Notify({
-       Title = "🏁 CaptureProgress Session Ended",
-       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Progress Hits: " .. horseCatcher.statistics.progressStats.totalProgressHits,
+       Title = "🏁 Session Ended",
+       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Time: " .. minutes .. "m " .. seconds .. "s",
        Duration = 5,
        Image = 4483362458,
     })
@@ -1122,10 +1155,10 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- ENHANCED UI WITH CAPTURE PROGRESS FEATURES
+-- SIMPLIFIED UI
 -- =================================
 
--- 🔥 CaptureProgress Control Section
+-- CaptureProgress Control Section
 local CaptureProgressSection = parentTab:CreateSection("🎯 CaptureProgress System")
 
 local ProgressMonitoringToggle = parentTab:CreateToggle({
@@ -1158,27 +1191,7 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
    end,
 })
 
--- 🔥 Enhanced Lasso Control Section
-local LassoControlSection = parentTab:CreateSection("🎯 Lasso Management")
-
-local AutoEquipLassoToggle = parentTab:CreateToggle({
-   Name = "🚀 Auto-Equip Lasso",
-   CurrentValue = true,
-   Flag = "AutoEquipLassoToggle",
-   Callback = function(Value)
-      horseCatcher.settings.autoEquipLasso = Value
-   end,
-})
-
-local ProtectLassoToggle = parentTab:CreateToggle({
-   Name = "🛡️ Protect Lasso (Anti-Unequip)",
-   CurrentValue = true,
-   Flag = "ProtectLassoToggle",
-   Callback = function(Value)
-      horseCatcher.settings.protectLasso = Value
-   end,
-})
-
+-- Main Control Section
 local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
 
 local MainToggle = parentTab:CreateToggle({
@@ -1197,6 +1210,7 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
+-- Movement Settings Section
 local MovementSettingsSection = parentTab:CreateSection("📍 Movement & Optimization")
 
 local MovementDropdown = parentTab:CreateDropdown({
@@ -1206,10 +1220,21 @@ local MovementDropdown = parentTab:CreateDropdown({
    MultipleOptions = false,
    Flag = "UltraHorseMovementModeDropdown",
    Callback = function(Option)
+      local oldMode = horseCatcher.settings.movementMode
       horseCatcher.settings.movementMode = Option[1]
+      
+      -- Handle noclip for smooth mode
+      if horseCatcher.isRunning then
+          if Option[1] == "smooth" and oldMode ~= "smooth" then
+              enableNoclip()
+          elseif Option[1] ~= "smooth" and oldMode == "smooth" then
+              disableNoclip()
+          end
+      end
+      
       Rayfield:Notify({
          Title = "📍 Movement Updated",
-         Content = "Now using: " .. Option[1]:upper() .. " mode (CaptureProgress)",
+         Content = "Now using: " .. Option[1]:upper() .. " mode" .. (Option[1] == "smooth" and " (Noclip)" or ""),
          Duration = 2,
          Image = 4483362458,
       })
@@ -1270,24 +1295,59 @@ local AggressiveTargetingToggle = parentTab:CreateToggle({
    end,
 })
 
--- 📊 STATUS SECTION
-local LiveStatusSection = parentTab:CreateSection("📊 Professional Status")
+-- Simplified Status Section (only Island Information)
+local LiveStatusSection = parentTab:CreateSection("📊 Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
-local CaptureProgressInfo = parentTab:CreateParagraph({Title = "🎯 CaptureProgress Status", Content = "No target selected"})
-local LassoStatus = parentTab:CreateParagraph({Title = "🎯 Lasso Status", Content = "Lasso monitoring ready"})
-local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Ultra-optimized system ready"})
-local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Professional mode ready"})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
-local PerformanceMetrics = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Monitoring ready"})
 
--- ... (rest of UI similar)
+-- Quick Actions Section
+local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
+
+local ClearCacheButton = parentTab:CreateButton({
+   Name = "🗑️ Clear Cache",
+   Callback = function()
+      Cache.horses = {}
+      Cache.horsesById = {}
+      Cache.islandHorses = {}
+      Cache.lastUpdate = 0
+      horseCatcher.performance.captureTimes = {}
+      horseCatcher.performance.targetingTimes = {}
+      horseCatcher.performance.movementTimes = {}
+      
+      Rayfield:Notify({
+         Title = "🗑️ Cache Cleared",
+         Content = "Performance cache optimized",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local ResetCapturedButton = parentTab:CreateButton({
+   Name = "🔄 Reset Captured List",
+   Callback = function()
+      horseCatcher.capturedHorses = {}
+      Rayfield:Notify({
+         Title = "✅ List Reset",
+         Content = "Captured horses list cleared",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- Statistics Section
+local StatisticsSection = parentTab:CreateSection("📈 Statistics")
+
+local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for session"})
+local IslandStats = parentTab:CreateParagraph({Title = "🏝️ Island Statistics", Content = "No island data yet"})
 
 -- =================================
--- ENHANCED STATUS UPDATE SYSTEM
+-- SIMPLIFIED STATUS UPDATE SYSTEM
 -- =================================
 spawn(function()
-    while wait(0.8) do
+    while wait(1) do
         local currentIsland = detectCurrentIsland()
         
         -- Island Information
@@ -1307,62 +1367,7 @@ spawn(function()
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
-        -- 🔥 NEW: Lasso Status
-        local lassoText = ""
-        if horseCatcher.isRunning then
-            local currentlyEquipped = "Unknown"
-            pcall(function()
-                if gameSystem.available and gameSystem.u3 then
-                    local equipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
-                    currentlyEquipped = equipped and equipped:sub(1, 8) .. "..." or "None"
-                end
-            end)
-            
-            lassoText = "🎯 Current Lasso: " .. (horseCatcher.currentLassoID and horseCatcher.currentLassoID:sub(1, 8) .. "..." or "Unknown") .. "\n"
-            lassoText = lassoText .. "⚙️ Currently Equipped: " .. currentlyEquipped .. "\n"
-            lassoText = lassoText .. "🛡️ Protection: " .. (horseCatcher.settings.protectLasso and "✅" or "❌") .. "\n"
-            lassoText = lassoText .. "🚀 Auto-Equip: " .. (horseCatcher.settings.autoEquipLasso and "✅" or "❌") .. "\n"
-            lassoText = lassoText .. "🔄 Status: " .. (horseCatcher.lassoProtectionActive and "PROTECTED" or "INACTIVE")
-        else
-            lassoText = "🎯 Lasso protection ready\n🚀 Auto-equip: " .. (horseCatcher.settings.autoEquipLasso and "✅" or "❌") .. "\n🛡️ Protection: " .. (horseCatcher.settings.protectLasso and "✅" or "❌") .. "\n🔄 Status: STANDBY"
-        end
-        
-        LassoStatus:Set({Title = "🎯 Lasso Status", Content = lassoText})
-        
-        -- CaptureProgress Information
-        local progressText = ""
-        if horseCatcher.currentTarget and horseCatcher.currentTargetProgress then
-            local progressData = horseCatcher.currentTargetProgress
-            local timeOnTarget = tick() - horseCatcher.runtime.currentTargetStartTime
-            local timeSinceProgress = tick() - horseCatcher.runtime.lastProgressChange
-            
-            progressText = "🎯 Current Progress: " .. (progressData.text or "Unknown") .. "\n"
-            progressText = progressText .. "⏱️ Time on Target: " .. string.format("%.1f", timeOnTarget) .. "s\n"
-            progressText = progressText .. "🔄 Last Progress: " .. string.format("%.1f", timeSinceProgress) .. "s ago\n"
-            progressText = progressText .. "📊 Progress Hits: " .. horseCatcher.statistics.progressStats.totalProgressHits .. "\n"
-            
-            if progressData.max > 0 then
-                local percentage = (progressData.current / progressData.max) * 100
-                progressText = progressText .. "📈 Completion: " .. string.format("%.1f", percentage) .. "%"
-            else
-                progressText = progressText .. "📈 Completion: Unknown"
-            end
-            
-            if horseCatcher.settings.abandonOnStuckProgress then
-                local timeLeft = horseCatcher.settings.maxStuckProgressTime - timeSinceProgress
-                if timeLeft > 0 then
-                    progressText = progressText .. "\n⏳ Abandon in: " .. string.format("%.1f", timeLeft) .. "s"
-                else
-                    progressText = progressText .. "\n⚠️ Should abandon soon..."
-                end
-            end
-        else
-            progressText = "🎯 No active target\n📊 Progress monitoring ready\n⏱️ Max stuck time: " .. horseCatcher.settings.maxStuckProgressTime .. "s\n🔄 Monitoring: " .. (horseCatcher.settings.progressMonitoring and "✅" or "❌") .. "\n⏭️ Auto abandon: " .. (horseCatcher.settings.abandonOnStuckProgress and "✅" or "❌")
-        end
-        
-        CaptureProgressInfo:Set({Title = "🎯 CaptureProgress Status", Content = progressText})
-        
-        -- Enhanced Target Info with progress data
+        -- Target Information
         local targetText = ""
         if horseCatcher.currentTarget then
             local targetName = getHorseName(horseCatcher.currentTarget)
@@ -1387,40 +1392,46 @@ spawn(function()
                 local nextPulse = math.max(0, horseCatcher.settings.pulseInterval - (tick() - horseCatcher.runtime.lastPulseTime))
                 targetText = targetText .. "\n⚡ Next Pulse: " .. string.format("%.1f", nextPulse) .. "s"
             else
-                targetText = targetText .. "\n🌊 Smooth Follow: Ultra-Active"
+                targetText = targetText .. "\n🌊 Smooth Follow: ✅ (Noclip)"
             end
         else
             local wildCount = #Cache.horses
-            targetText = "🔍 Scanning for optimal targets...\n🐎 Wild horses cached: " .. wildCount .. "\n📊 Targeting radius: " .. horseCatcher.settings.targetingRadius .. " studs\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "Active" or "Disabled") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
+            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
         
-        -- Enhanced Performance Metrics
-        local avgCaptureTime = 0
-        if #horseCatcher.performance.captureTimes > 0 then
-            local total = 0
-            for _, time in pairs(horseCatcher.performance.captureTimes) do
-                total = total + time
-            end
-            avgCaptureTime = total / #horseCatcher.performance.captureTimes
+        -- Session Statistics
+        if horseCatcher.isRunning then
+            local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+            local sessionMinutes = math.floor(sessionTime / 60)
+            local sessionSeconds = math.floor(sessionTime % 60)
+            
+            local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
+            sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
+            sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
+            sessionText = sessionText .. "🏝️ Current Island: " .. currentIsland .. "\n"
+            sessionText = sessionText .. "📊 Mode: " .. horseCatcher.settings.movementMode:upper() .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or "")
+            
+            SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
+        else
+            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nCaptureProgress monitoring ready\n🚀 Auto-lasso & protection ready"})
         end
         
-        local avgProgressCheckTime = 0
-        if #horseCatcher.performance.progressCheckTimes > 0 then
-            local total = 0
-            for _, time in pairs(horseCatcher.performance.progressCheckTimes) do
-                total = total + time
-            end
-            avgProgressCheckTime = total / #horseCatcher.performance.progressCheckTimes
+        -- Island Statistics
+        local islandStatsText = "🏝️ Per-Island Captures:\n"
+        local hasStats = false
+        for islandName, captures in pairs(horseCatcher.statistics.islandStats) do
+            islandStatsText = islandStatsText .. "• " .. islandName .. ": " .. captures .. " horses\n"
+            hasStats = true
         end
         
-        local performanceText = "⚡ Avg Capture: " .. string.format("%.3f", avgCaptureTime * 1000) .. "ms\n"
-        performanceText = performanceText .. "🎯 Avg Progress Check: " .. string.format("%.3f", avgProgressCheckTime * 1000) .. "ms\n"
-        performanceText = performanceText .. "📊 Progress Hits: " .. horseCatcher.statistics.progressStats.totalProgressHits .. "\n"
-        performanceText = performanceText .. "⚡ Fastest Capture: " .. string.format("%.1f", horseCatcher.statistics.progressStats.fastestCapture) .. "s\n"
-        performanceText = performanceText .. "🐌 Slowest Capture: " .. string.format("%.1f", horseCatcher.statistics.progressStats.slowestCapture) .. "s\n"
-        performanceText = performanceText .. "🎯 Capture Attempts: " .. horseCatcher.runtime.captureAttempts
-        PerformanceMetrics:Set({Title = "⚡ Performance Metrics", Content = performanceText})
+        if not hasStats then
+            islandStatsText = islandStatsText .. "No captures yet"
+        else
+            islandStatsText = islandStatsText .. "\n🌍 Total Islands: " .. totalIslands
+        end
+        
+        IslandStats:Set({Title = "🏝️ Island Statistics", Content = islandStatsText})
     end
 end)
 
@@ -1432,7 +1443,8 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.isAttached = false
     horseCatcher.lassoEquipped = false
     horseCatcher.currentLassoID = nil
-    horseCatcher.lassoProtectionActive = false
+    
+    disableNoclip()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1451,11 +1463,11 @@ player.CharacterAdded:Connect(function(newCharacter)
 end)
 
 -- =================================
--- ENHANCED INITIALIZATION
+-- INITIALIZATION
 -- =================================
 Rayfield:Notify({
    Title = "🚀 Ultra Horse Catcher Pro Loaded!",
-   Content = "CaptureProgress monitoring | Auto-lasso | Island detection | Revolutionary catching system",
+   Content = "CaptureProgress monitoring | Auto-lasso | Noclip smooth mode | Simplified interface",
    Duration = 5,
    Image = 4483362458,
 })
@@ -1464,15 +1476,15 @@ local initialIsland = detectCurrentIsland()
 
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
-       Title = "✅ CaptureProgress System Ready!",
-       Content = "Island: " .. initialIsland .. " | Real-time progress tracking | Auto-lasso protection!",
+       Title = "✅ System Ready!",
+       Content = "Island: " .. initialIsland .. " | CaptureProgress tracking | Auto-lasso protection | Noclip smooth mode!",
        Duration = 4,
        Image = 4483362458,
     })
 else
     Rayfield:Notify({
        Title = "⚠️ Performance Warning",
-       Content = "Network system issues detected - CaptureProgress may be limited | Island: " .. initialIsland,
+       Content = "Network system issues detected | Island: " .. initialIsland,
        Duration = 4,
        Image = 4483362458,
     })
@@ -1483,8 +1495,8 @@ spawn(function()
     local detectedIsland = detectCurrentIsland()
     if detectedIsland ~= "Unknown" then
         Rayfield:Notify({
-           Title = "🎯 CaptureProgress Ready!",
-           Content = "Island: " .. detectedIsland .. " | Professional progress monitoring active!",
+           Title = "🎯 Ready!",
+           Content = "Island: " .. detectedIsland .. " | All systems operational!",
            Duration = 3,
            Image = 4483362458,
         })
