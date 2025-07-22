@@ -1,124 +1,123 @@
--- Horse Manipulator Ultimate Edition - Catch Aura + Optimized
+-- Horse Attribute Manipulator - Professional Optimized Edition
 -- by Iyxo - 2025-07-22
--- The most OP horse exploit ever created - Unlimited range + Catch Aura
+-- Revolutionary horse control with professional optimizations
 
 local parentTab, Rayfield, Window = ...
 
 -- =================================
--- SERVICES
+-- SERVICES & OPTIMIZATION
 -- =================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- ULTIMATE HORSE SYSTEM
+-- PROFESSIONAL CACHING SYSTEM
 -- =================================
-local ultimateHorseSystem = {
+local Cache = {
+    horses = {},
+    horsesById = {},
+    lastUpdate = 0,
+    updateInterval = 1, -- Cache update every 1 second
+    maxCacheSize = 1000
+}
+
+-- =================================
+-- HORSE MANIPULATOR SYSTEM - OPTIMIZED
+-- =================================
+local horseManipulator = {
     -- Status
-    manipulationRunning = false,
-    catchAuraRunning = false,
+    isRunning = false,
     manipulatedHorses = {},
     
-    -- Connections
-    manipulationConnection = nil,
-    enforcementConnection = nil,
-    catchAuraConnection = nil,
+    -- High-performance connections
+    connections = {
+        manipulation = nil,
+        enforcement = nil,
+        scanning = nil,
+        cleanup = nil
+    },
     
-    -- Settings
+    -- Optimized settings
     settings = {
-        -- Manipulation settings
+        -- Core attributes
+        fleeDistance = 0,
+        behaviour = "Follower",
         enableFollower = true,
         enableFleeDistance = true,
         enableLastPlayerToThrow = true,
-        continuousEnforcement = true,
-        fleeDistance = 0,
-        behaviour = "Follower",
-        
-        -- Catch Aura settings
-        catchAuraEnabled = true,
-        catchAuraRadius = 150,
-        catchCooldown = 0.4,
-        autoTargetNearest = true,
         
         -- Performance settings
         manipulationInterval = 1.5,
-        enforcementInterval = 0.3,
-        catchAuraInterval = 0.5,
-        maxProcessPerFrame = 5,
+        enforcementInterval = 0.3, -- Super fast enforcement
+        scanInterval = 2,
+        cleanupInterval = 10,
         
-        -- Advanced
-        unlimitedRange = false,
-        smartTargeting = true,
-        onlyWildHorses = true
+        -- Advanced options
+        continuousEnforcement = true,
+        globalManipulation = true, -- No distance limits!
+        aggressiveEnforcement = true,
+        batchProcessing = true,
+        maxBatchSize = 10
     },
     
-    -- Runtime data
+    -- Runtime optimization data
     runtime = {
         lastManipulationTime = 0,
         lastEnforcementTime = 0,
-        lastCatchTime = 0,
+        lastScanTime = 0,
+        lastCleanupTime = 0,
         manipulatedCount = 0,
-        catchAttempts = 0,
         sessionStartTime = 0,
         enforcementCount = 0,
-        successfulCatches = 0,
-        currentTarget = nil
+        scanCount = 0,
+        batchCount = 0
     },
     
-    -- Statistics
+    -- Professional statistics
     statistics = {
         totalManipulated = 0,
         totalEnforcements = 0,
-        totalCatchAttempts = 0,
-        successfulCatches = 0,
+        totalScans = 0,
+        totalBatches = 0,
         sessionsRun = 0,
-        bestCatchStreak = 0,
-        currentCatchStreak = 0
+        horsesControlled = 0,
+        averageEnforcementTime = 0,
+        peakHorsesControlled = 0
     },
     
-    -- Cache for performance
-    cache = {
-        wildHorses = {},
-        manipulatedHorses = {},
-        lastCacheUpdate = 0,
-        cacheInterval = 2
+    -- Performance monitoring
+    performance = {
+        enforcementTimes = {},
+        manipulationTimes = {},
+        scanTimes = {},
+        maxEnforcementTime = 0,
+        avgEnforcementTime = 0
     }
 }
 
--- Game System Detection
-local gameSystem = {
-    u1 = nil,
-    u2 = nil, 
-    u3 = nil,
-    available = false,
-    remoteEvent = nil
-}
-
--- Initialize game system
-pcall(function()
-    gameSystem.u1 = require(ReplicatedStorage.References)
-    gameSystem.u2 = gameSystem.u1.Utilities
-    gameSystem.u3 = require(gameSystem.u1.PlayerScripts.Priority.Data)
-    gameSystem.available = true
-    gameSystem.remoteEvent = ReplicatedStorage.Communication.Events['']
-end)
-
 -- =================================
--- OPTIMIZED CORE FUNCTIONS
+-- PROFESSIONAL UTILITY FUNCTIONS
 -- =================================
 
--- Get real horse name from BreedLabel (cached)
+-- High-performance horse name getter with caching
 local function getHorseName(horse)
     if not horse then return "Unknown" end
     
+    -- Check cache first
+    local cached = Cache.horsesById[horse.Name]
+    if cached and cached.name then
+        return cached.name
+    end
+    
     local horseName = "Unknown"
-    pcall(function()
+    local success = pcall(function()
         local overheadPart = horse:FindFirstChild("OverheadPart")
         if overheadPart then
             local overhead = overheadPart:FindFirstChild("Overhead")
@@ -127,21 +126,33 @@ local function getHorseName(horse)
                 if breedLabel and breedLabel.Text and breedLabel.Text ~= "" then
                     horseName = breedLabel.Text
                 else
-                    horseName = horse.Name:sub(2, 9) -- Better ID display
+                    horseName = horse.Name:sub(2, 9) -- Optimized ID extraction
                 end
             end
         end
     end)
     
+    -- Cache the result
+    if success then
+        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+        Cache.horsesById[horse.Name].name = horseName
+    end
+    
     return horseName
 end
 
--- Check if horse is wild (optimized)
+-- Ultra-fast wild horse checker
 local function isWildHorse(horse)
     if not horse then return false end
     
+    -- Check cache first
+    local cached = Cache.horsesById[horse.Name]
+    if cached and cached.isWild ~= nil then
+        return cached.isWild
+    end
+    
     local isWild = false
-    pcall(function()
+    local success = pcall(function()
         local overheadPart = horse:FindFirstChild("OverheadPart")
         if overheadPart then
             local overhead = overheadPart:FindFirstChild("Overhead")
@@ -154,531 +165,479 @@ local function isWildHorse(horse)
         end
     end)
     
+    -- Cache the result
+    if success then
+        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+        Cache.horsesById[horse.Name].isWild = isWild
+    end
+    
     return isWild
 end
 
--- Get lasso ID (optimized)
-local function getLassoID()
-    local lassoID = "{60769f1f-cade-463b-ae32-adaacc91116f}" -- Default fallback
-    
-    if gameSystem.available and gameSystem.u3 then
-        pcall(function()
-            local lastEquipped = gameSystem.u3.GetLocal({"lastEquippedLasso"})
-            if lastEquipped then
-                lassoID = lastEquipped
-            end
-        end)
-    end
-    
-    return lassoID
-end
-
--- OPTIMIZED: Get all horses with caching system
+-- Professional cache management
 local function updateHorseCache()
     local currentTime = tick()
-    if currentTime - ultimateHorseSystem.cache.lastCacheUpdate < ultimateHorseSystem.cache.cacheInterval then
-        return
+    if currentTime - Cache.lastUpdate < Cache.updateInterval then
+        return Cache.horses
     end
     
-    local wildHorses = {}
-    local manipulatedHorses = {}
-    local playerPos = humanoidRootPart.Position
+    local startTime = tick()
+    Cache.horses = {}
+    local horseCount = 0
     
-    pcall(function()
-        local function scanLocation(location)
-            for _, child in pairs(location:GetChildren()) do
-                if child.Name:match("%{[%w%-]+%}") and child:FindFirstChild("HumanoidRootPart") then
-                    local humanoid = child:FindFirstChild("Humanoid")
-                    if humanoid and not Players:GetPlayerFromCharacter(child) and humanoid.Health > 0 then
-                        local distance = (playerPos - child.HumanoidRootPart.Position).Magnitude
+    -- Optimized scanning with early returns
+    local function scanLocation(location)
+        if not location then return end
+        
+        local children = location:GetChildren()
+        for i = 1, #children do
+            local child = children[i]
+            
+            -- Fast filtering
+            if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
+                local humanoid = child:FindFirstChild("Humanoid")
+                if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
+                    if isWildHorse(child) then
+                        horseCount = horseCount + 1
+                        Cache.horses[horseCount] = child
                         
-                        if ultimateHorseSystem.settings.onlyWildHorses and isWildHorse(child) then
-                            table.insert(wildHorses, {
-                                horse = child,
-                                distance = distance,
-                                name = getHorseName(child),
-                                velocity = child.HumanoidRootPart.Velocity.Magnitude
-                            })
-                        end
-                        
-                        -- Check if manipulated
-                        if ultimateHorseSystem.manipulatedHorses[child.Name] then
-                            table.insert(manipulatedHorses, child)
+                        -- Performance limit
+                        if horseCount >= Cache.maxCacheSize then
+                            break
                         end
                     end
                 end
             end
         end
-        
-        -- Scan all locations
-        if Workspace.Islands and Workspace.Islands.Mainland then
-            scanLocation(Workspace.Islands.Mainland)
-        end
+    end
+    
+    -- Scan optimized locations
+    pcall(function()
         if Workspace.Islands then
+            if Workspace.Islands.Mainland then
+                scanLocation(Workspace.Islands.Mainland)
+            end
             scanLocation(Workspace.Islands)
         end
     end)
     
-    -- Sort by distance for catch aura
-    table.sort(wildHorses, function(a, b) return a.distance < b.distance end)
+    Cache.lastUpdate = currentTime
     
-    ultimateHorseSystem.cache.wildHorses = wildHorses
-    ultimateHorseSystem.cache.manipulatedHorses = manipulatedHorses
-    ultimateHorseSystem.cache.lastCacheUpdate = currentTime
-end
-
--- Get filtered horses based on settings
-local function getFilteredHorses()
-    updateHorseCache()
-    
-    local filtered = {}
-    
-    for _, horseData in pairs(ultimateHorseSystem.cache.wildHorses) do
-        local include = true
-        
-        -- Range filter (unless unlimited)
-        if not ultimateHorseSystem.settings.unlimitedRange then
-            if horseData.distance > ultimateHorseSystem.settings.catchAuraRadius then
-                include = false
-            end
-        end
-        
-        -- Skip already manipulated
-        if ultimateHorseSystem.manipulatedHorses[horseData.horse.Name] then
-            include = false
-        end
-        
-        if include then
-            table.insert(filtered, horseData)
-        end
+    -- Performance tracking
+    local scanTime = tick() - startTime
+    table.insert(horseManipulator.performance.scanTimes, scanTime)
+    if #horseManipulator.performance.scanTimes > 100 then
+        table.remove(horseManipulator.performance.scanTimes, 1)
     end
     
-    return filtered
+    horseManipulator.runtime.scanCount = horseManipulator.runtime.scanCount + 1
+    horseManipulator.statistics.totalScans = horseManipulator.statistics.totalScans + 1
+    
+    return Cache.horses
 end
 
--- =================================
--- ATTRIBUTE MANIPULATION (OPTIMIZED)
--- =================================
-
--- CONTINUOUS ATTRIBUTE ENFORCEMENT (SUPER FAST)
+-- Ultra-optimized attribute enforcement
 local function enforceHorseAttributes(horse)
-    if not horse then return false end
+    if not horse or not horse.Parent then return false end
     
+    local startTime = tick()
     local success = false
+    local changes = 0
     
     pcall(function()
-        local changed = false
+        -- Batch attribute operations for performance
+        local attributesToSet = {}
         
-        -- FORCE behaviour to Follower (if enabled)
-        if ultimateHorseSystem.settings.enableFollower then
-            if horse:GetAttribute("behaviour") ~= ultimateHorseSystem.settings.behaviour then
-                horse:SetAttribute("behaviour", ultimateHorseSystem.settings.behaviour)
-                changed = true
+        -- Check and prepare follower attributes
+        if horseManipulator.settings.enableFollower then
+            local currentBehaviour = horse:GetAttribute("behaviour")
+            if currentBehaviour ~= horseManipulator.settings.behaviour then
+                attributesToSet.behaviour = horseManipulator.settings.behaviour
+                changes = changes + 1
             end
             
-            if horse:GetAttribute("followPlayer") ~= player.Name then
-                horse:SetAttribute("followPlayer", player.Name)
-                changed = true
+            local currentFollowPlayer = horse:GetAttribute("followPlayer")
+            if currentFollowPlayer ~= player.Name then
+                attributesToSet.followPlayer = player.Name
+                changes = changes + 1
             end
         end
         
-        -- FORCE flee distance to 0 (if enabled)
-        if ultimateHorseSystem.settings.enableFleeDistance then
-            if horse:GetAttribute("fleeDistance") ~= ultimateHorseSystem.settings.fleeDistance then
-                horse:SetAttribute("fleeDistance", ultimateHorseSystem.settings.fleeDistance)
-                changed = true
+        -- Check and prepare flee distance
+        if horseManipulator.settings.enableFleeDistance then
+            local currentFleeDistance = horse:GetAttribute("fleeDistance")
+            if currentFleeDistance ~= horseManipulator.settings.fleeDistance then
+                attributesToSet.fleeDistance = horseManipulator.settings.fleeDistance
+                changes = changes + 1
             end
         end
         
-        -- FORCE last player to throw lasso (if enabled)
-        if ultimateHorseSystem.settings.enableLastPlayerToThrow then
-            if horse:GetAttribute("lastPlayerToThrowLasso") ~= player.Name then
-                horse:SetAttribute("lastPlayerToThrowLasso", player.Name)
-                changed = true
+        -- Check and prepare exclusive control
+        if horseManipulator.settings.enableLastPlayerToThrow then
+            local currentLastPlayer = horse:GetAttribute("lastPlayerToThrowLasso")
+            if currentLastPlayer ~= player.Name then
+                attributesToSet.lastPlayerToThrowLasso = player.Name
+                changes = changes + 1
             end
         end
         
-        if changed then
-            ultimateHorseSystem.runtime.enforcementCount = ultimateHorseSystem.runtime.enforcementCount + 1
-            ultimateHorseSystem.statistics.totalEnforcements = ultimateHorseSystem.statistics.totalEnforcements + 1
+        -- Batch set all attributes (performance optimization)
+        for attribute, value in pairs(attributesToSet) do
+            horse:SetAttribute(attribute, value)
+        end
+        
+        if changes > 0 then
+            horseManipulator.runtime.enforcementCount = horseManipulator.runtime.enforcementCount + 1
+            horseManipulator.statistics.totalEnforcements = horseManipulator.statistics.totalEnforcements + 1
         end
         
         success = true
     end)
     
-    return success
+    -- Performance tracking
+    local enforcementTime = tick() - startTime
+    table.insert(horseManipulator.performance.enforcementTimes, enforcementTime)
+    if #horseManipulator.performance.enforcementTimes > 1000 then
+        table.remove(horseManipulator.performance.enforcementTimes, 1)
+    end
+    
+    -- Update performance stats
+    if enforcementTime > horseManipulator.performance.maxEnforcementTime then
+        horseManipulator.performance.maxEnforcementTime = enforcementTime
+    end
+    
+    return success, changes
 end
 
--- INITIAL ATTRIBUTE MANIPULATION
+-- Professional batch processing
+local function batchEnforceAttributes(horses)
+    if not horses or #horses == 0 then return 0 end
+    
+    local batchSize = math.min(#horses, horseManipulator.settings.maxBatchSize)
+    local enforced = 0
+    local totalChanges = 0
+    
+    for i = 1, batchSize do
+        local horse = horses[i]
+        if horse and horse.Parent then
+            local success, changes = enforceHorseAttributes(horse)
+            if success then
+                enforced = enforced + 1
+                totalChanges = totalChanges + changes
+            end
+        end
+    end
+    
+    horseManipulator.runtime.batchCount = horseManipulator.runtime.batchCount + 1
+    horseManipulator.statistics.totalBatches = horseManipulator.statistics.totalBatches + 1
+    
+    return enforced, totalChanges
+end
+
+-- Initial horse manipulation
 local function manipulateHorseAttributes(horse)
     if not horse then return false end
     
+    local startTime = tick()
     local success = false
     local horseName = getHorseName(horse)
     
     pcall(function()
-        -- Set all attributes at once
-        if ultimateHorseSystem.settings.enableFollower then
-            horse:SetAttribute("behaviour", ultimateHorseSystem.settings.behaviour)
+        -- Aggressive initial setup
+        if horseManipulator.settings.enableFollower then
+            horse:SetAttribute("behaviour", horseManipulator.settings.behaviour)
             horse:SetAttribute("followPlayer", player.Name)
         end
         
-        if ultimateHorseSystem.settings.enableFleeDistance then
-            horse:SetAttribute("fleeDistance", ultimateHorseSystem.settings.fleeDistance)
+        if horseManipulator.settings.enableFleeDistance then
+            horse:SetAttribute("fleeDistance", horseManipulator.settings.fleeDistance)
         end
         
-        if ultimateHorseSystem.settings.enableLastPlayerToThrow then
+        if horseManipulator.settings.enableLastPlayerToThrow then
             horse:SetAttribute("lastPlayerToThrowLasso", player.Name)
         end
         
-        -- Mark as manipulated
-        ultimateHorseSystem.manipulatedHorses[horse.Name] = {
+        -- Add to manipulated list with metadata
+        horseManipulator.manipulatedHorses[horse.Name] = {
             name = horseName,
             time = tick(),
-            controlled = true
+            controlled = true,
+            lastEnforcement = tick(),
+            enforcementCount = 0
         }
         
-        ultimateHorseSystem.runtime.manipulatedCount = ultimateHorseSystem.runtime.manipulatedCount + 1
-        ultimateHorseSystem.statistics.totalManipulated = ultimateHorseSystem.statistics.totalManipulated + 1
+        horseManipulator.runtime.manipulatedCount = horseManipulator.runtime.manipulatedCount + 1
+        horseManipulator.statistics.totalManipulated = horseManipulator.statistics.totalManipulated + 1
+        
+        -- Update peak
+        local currentControlled = 0
+        for _ in pairs(horseManipulator.manipulatedHorses) do
+            currentControlled = currentControlled + 1
+        end
+        
+        if currentControlled > horseManipulator.statistics.peakHorsesControlled then
+            horseManipulator.statistics.peakHorsesControlled = currentControlled
+        end
         
         success = true
     end)
     
+    -- Performance tracking
+    local manipulationTime = tick() - startTime
+    table.insert(horseManipulator.performance.manipulationTimes, manipulationTime)
+    if #horseManipulator.performance.manipulationTimes > 100 then
+        table.remove(horseManipulator.performance.manipulationTimes, 1)
+    end
+    
     return success, horseName
 end
 
--- =================================
--- CATCH AURA SYSTEM - THE MAGIC!
--- =================================
-
--- ULTIMATE CATCH AURA - Auto catches nearest horse
-local function performCatchAura()
-    if not ultimateHorseSystem.catchAuraRunning then return end
-    if not gameSystem.available or not gameSystem.u2 then return end
-    
+-- Professional cleanup system
+local function cleanupDisconnectedHorses()
     local currentTime = tick()
-    if currentTime - ultimateHorseSystem.runtime.lastCatchTime < ultimateHorseSystem.settings.catchCooldown then
-        return
-    end
+    local cleaned = 0
     
-    local horses = getFilteredHorses()
-    if #horses == 0 then return end
-    
-    -- Get target based on settings
-    local target = nil
-    if ultimateHorseSystem.settings.autoTargetNearest then
-        target = horses[1] -- Already sorted by distance
-    else
-        target = ultimateHorseSystem.runtime.currentTarget and 
-                 {horse = ultimateHorseSystem.runtime.currentTarget} or horses[1]
-    end
-    
-    if not target or not target.horse then return end
-    
-    local horse = target.horse
-    local lassoID = getLassoID()
-    
-    pcall(function()
-        -- CONFIRMED WORKING CATCH METHOD
-        gameSystem.u2.Network:FireServer("Equipment", lassoID, "Activate", horse)
-        
-        ultimateHorseSystem.runtime.lastCatchTime = currentTime
-        ultimateHorseSystem.runtime.catchAttempts = ultimateHorseSystem.runtime.catchAttempts + 1
-        ultimateHorseSystem.statistics.totalCatchAttempts = ultimateHorseSystem.statistics.totalCatchAttempts + 1
-        ultimateHorseSystem.runtime.currentTarget = horse
-        
-        -- Check if caught (simple check)
-        spawn(function()
-            wait(1)
-            if isHorseCaptured(horse) then
-                ultimateHorseSystem.runtime.successfulCatches = ultimateHorseSystem.runtime.successfulCatches + 1
-                ultimateHorseSystem.statistics.successfulCatches = ultimateHorseSystem.statistics.successfulCatches + 1
-                ultimateHorseSystem.statistics.currentCatchStreak = ultimateHorseSystem.statistics.currentCatchStreak + 1
-                
-                if ultimateHorseSystem.statistics.currentCatchStreak > ultimateHorseSystem.statistics.bestCatchStreak then
-                    ultimateHorseSystem.statistics.bestCatchStreak = ultimateHorseSystem.statistics.currentCatchStreak
+    for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
+        -- Check if horse still exists
+        local horseExists = false
+        pcall(function()
+            if Workspace.Islands and Workspace.Islands.Mainland then
+                local horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
+                if horse and horse:FindFirstChild("HumanoidRootPart") then
+                    local humanoid = horse:FindFirstChild("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        horseExists = true
+                    end
                 end
-                
-                Rayfield:Notify({
-                   Title = "🎯 Horse Caught!",
-                   Content = getHorseName(horse) .. " | Streak: " .. ultimateHorseSystem.statistics.currentCatchStreak,
-                   Duration = 2,
-                   Image = 4483362458,
-                })
             end
         end)
-    end)
-end
-
--- Check if horse was captured
-local function isHorseCaptured(horse)
-    if not horse or not horse.Parent then return true end
-    
-    local captured = false
-    pcall(function()
-        local overheadPart = horse:FindFirstChild("OverheadPart")
-        if overheadPart then
-            local overhead = overheadPart:FindFirstChild("Overhead")
-            if overhead then
-                local nameLabel = overhead:FindFirstChild("NameLabel")
-                if nameLabel and nameLabel.Text ~= "Wild" then
-                    captured = true
-                end
-            end
-        end
         
-        local humanoid = horse:FindFirstChild("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then
-            captured = true
+        -- Remove if doesn't exist or too old
+        if not horseExists or (currentTime - horseData.time > 300) then -- 5 minutes cleanup
+            horseManipulator.manipulatedHorses[horseId] = nil
+            Cache.horsesById[horseId] = nil
+            cleaned = cleaned + 1
         end
-    end)
+    end
     
-    return captured
+    return cleaned
 end
 
 -- =================================
--- MAIN SYSTEM LOGIC - OPTIMIZED & ULTIMATE
+-- PROFESSIONAL MAIN LOGIC - NO DISTANCE LIMITS
 -- =================================
-local function startUltimateSystem()
-    if ultimateHorseSystem.manipulationRunning then return false end
+local function startHorseManipulation()
+    if horseManipulator.isRunning then return false end
     
-    ultimateHorseSystem.manipulationRunning = true
-    ultimateHorseSystem.runtime.sessionStartTime = tick()
-    ultimateHorseSystem.statistics.sessionsRun = ultimateHorseSystem.statistics.sessionsRun + 1
-    ultimateHorseSystem.runtime.manipulatedCount = 0
-    ultimateHorseSystem.runtime.enforcementCount = 0
-    ultimateHorseSystem.runtime.catchAttempts = 0
-    ultimateHorseSystem.runtime.successfulCatches = 0
-    ultimateHorseSystem.statistics.currentCatchStreak = 0
+    horseManipulator.isRunning = true
+    horseManipulator.runtime.sessionStartTime = tick()
+    horseManipulator.statistics.sessionsRun = horseManipulator.statistics.sessionsRun + 1
+    horseManipulator.runtime.manipulatedCount = 0
+    horseManipulator.runtime.enforcementCount = 0
+    horseManipulator.runtime.scanCount = 0
+    horseManipulator.runtime.batchCount = 0
     
     Rayfield:Notify({
-       Title = "🚀 Ultimate Horse System Started!",
-       Content = "Manipulation + Catch Aura active | Range: " .. (ultimateHorseSystem.settings.unlimitedRange and "UNLIMITED" or ultimateHorseSystem.settings.catchAuraRadius),
+       Title = "🎭 Professional Horse Control Started!",
+       Content = "Global manipulation active | No distance limits | Ultra-optimized",
        Duration = 4,
        Image = 4483362458,
     })
     
-    -- MANIPULATION CONNECTION (Optimized)
-    ultimateHorseSystem.manipulationConnection = RunService.Heartbeat:Connect(function()
-        if not ultimateHorseSystem.manipulationRunning then return end
+    -- PROFESSIONAL SCANNING CONNECTION
+    horseManipulator.connections.scanning = RunService.Heartbeat:Connect(function()
+        if not horseManipulator.isRunning then return end
         
         local currentTime = tick()
-        if currentTime - ultimateHorseSystem.runtime.lastManipulationTime < ultimateHorseSystem.settings.manipulationInterval then
+        if currentTime - horseManipulator.runtime.lastScanTime < horseManipulator.settings.scanInterval then
             return
         end
         
-        local horses = getFilteredHorses()
-        local manipulated = 0
+        -- Update horse cache
+        updateHorseCache()
+        horseManipulator.runtime.lastScanTime = currentTime
+    end)
+    
+    -- PROFESSIONAL MANIPULATION CONNECTION
+    horseManipulator.connections.manipulation = RunService.Heartbeat:Connect(function()
+        if not horseManipulator.isRunning then return end
         
-        for i, horseData in pairs(horses) do
-            if manipulated >= ultimateHorseSystem.settings.maxProcessPerFrame then break end
+        local currentTime = tick()
+        if currentTime - horseManipulator.runtime.lastManipulationTime < horseManipulator.settings.manipulationInterval then
+            return
+        end
+        
+        -- Get all horses (NO DISTANCE LIMITS!)
+        local horses = updateHorseCache()
+        local manipulatedThisRound = 0
+        
+        -- Process horses in batches for performance
+        for i = 1, math.min(#horses, horseManipulator.settings.maxBatchSize) do
+            local horse = horses[i]
             
-            local horse = horseData.horse
-            if not ultimateHorseSystem.manipulatedHorses[horse.Name] then
+            if horse and not horseManipulator.manipulatedHorses[horse.Name] then
                 local success, horseName = manipulateHorseAttributes(horse)
+                
                 if success then
-                    manipulated = manipulated + 1
+                    manipulatedThisRound = manipulatedThisRound + 1
+                    
+                    if manipulatedThisRound <= 2 then -- Limit notifications for performance
+                        Rayfield:Notify({
+                           Title = "🎭 Horse Controlled!",
+                           Content = horseName .. " under global control!",
+                           Duration = 1.5,
+                           Image = 4483362458,
+                        })
+                    end
                 end
             end
         end
         
-        ultimateHorseSystem.runtime.lastManipulationTime = currentTime
+        if manipulatedThisRound > 2 then
+            Rayfield:Notify({
+               Title = "🎭 Mass Control!",
+               Content = "Controlled " .. manipulatedThisRound .. " horses globally!",
+               Duration = 2,
+               Image = 4483362458,
+            })
+        end
+        
+        horseManipulator.runtime.lastManipulationTime = currentTime
     end)
     
-    -- ENFORCEMENT CONNECTION (Super fast)
-    if ultimateHorseSystem.settings.continuousEnforcement then
-        ultimateHorseSystem.enforcementConnection = RunService.Heartbeat:Connect(function()
-            if not ultimateHorseSystem.manipulationRunning then return end
+    -- ULTRA-FAST CONTINUOUS ENFORCEMENT
+    if horseManipulator.settings.continuousEnforcement then
+        horseManipulator.connections.enforcement = RunService.Heartbeat:Connect(function()
+            if not horseManipulator.isRunning then return end
             
             local currentTime = tick()
-            if currentTime - ultimateHorseSystem.runtime.lastEnforcementTime < ultimateHorseSystem.settings.enforcementInterval then
+            if currentTime - horseManipulator.runtime.lastEnforcementTime < horseManipulator.settings.enforcementInterval then
                 return
             end
             
-            local processed = 0
-            for _, horse in pairs(ultimateHorseSystem.cache.manipulatedHorses) do
-                if processed >= ultimateHorseSystem.settings.maxProcessPerFrame then break end
-                enforceHorseAttributes(horse)
-                processed = processed + 1
+            -- Get all manipulated horses for enforcement
+            local horsesToEnforce = {}
+            for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
+                pcall(function()
+                    local horse = nil
+                    if Workspace.Islands and Workspace.Islands.Mainland then
+                        horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
+                    end
+                    
+                    if horse and horse:FindFirstChild("HumanoidRootPart") then
+                        table.insert(horsesToEnforce, horse)
+                    end
+                end)
             end
             
-            ultimateHorseSystem.runtime.lastEnforcementTime = currentTime
+            -- Batch enforce for maximum performance
+            if #horsesToEnforce > 0 then
+                local enforced, changes = batchEnforceAttributes(horsesToEnforce)
+                
+                -- Update enforcement metadata
+                for _, horse in pairs(horsesToEnforce) do
+                    if horseManipulator.manipulatedHorses[horse.Name] then
+                        horseManipulator.manipulatedHorses[horse.Name].lastEnforcement = currentTime
+                        horseManipulator.manipulatedHorses[horse.Name].enforcementCount = 
+                            (horseManipulator.manipulatedHorses[horse.Name].enforcementCount or 0) + 1
+                    end
+                end
+            end
+            
+            horseManipulator.runtime.lastEnforcementTime = currentTime
         end)
     end
     
-    return true
-end
-
-local function startCatchAura()
-    if ultimateHorseSystem.catchAuraRunning then return false end
-    
-    ultimateHorseSystem.catchAuraRunning = true
-    
-    Rayfield:Notify({
-       Title = "🎯 Catch Aura Started!",
-       Content = "Auto-catching enabled | Range: " .. (ultimateHorseSystem.settings.unlimitedRange and "UNLIMITED" or ultimateHorseSystem.settings.catchAuraRadius),
-       Duration = 3,
-       Image = 4483362458,
-    })
-    
-    -- CATCH AURA CONNECTION
-    ultimateHorseSystem.catchAuraConnection = RunService.Heartbeat:Connect(function()
-        if not ultimateHorseSystem.catchAuraRunning then return end
+    -- PROFESSIONAL CLEANUP CONNECTION
+    horseManipulator.connections.cleanup = RunService.Heartbeat:Connect(function()
+        if not horseManipulator.isRunning then return end
         
         local currentTime = tick()
-        if currentTime - ultimateHorseSystem.runtime.lastCatchTime >= ultimateHorseSystem.settings.catchAuraInterval then
-            performCatchAura()
+        if currentTime - horseManipulator.runtime.lastCleanupTime < horseManipulator.settings.cleanupInterval then
+            return
         end
+        
+        local cleaned = cleanupDisconnectedHorses()
+        horseManipulator.runtime.lastCleanupTime = currentTime
     end)
     
     return true
 end
 
-local function stopUltimateSystem()
-    ultimateHorseSystem.manipulationRunning = false
+local function stopHorseManipulation()
+    horseManipulator.isRunning = false
     
-    if ultimateHorseSystem.manipulationConnection then
-        ultimateHorseSystem.manipulationConnection:Disconnect()
-        ultimateHorseSystem.manipulationConnection = nil
+    -- Disconnect all connections professionally
+    for name, connection in pairs(horseManipulator.connections) do
+        if connection then
+            connection:Disconnect()
+            horseManipulator.connections[name] = nil
+        end
     end
     
-    if ultimateHorseSystem.enforcementConnection then
-        ultimateHorseSystem.enforcementConnection:Disconnect()
-        ultimateHorseSystem.enforcementConnection = nil
-    end
-    
-    local sessionTime = tick() - ultimateHorseSystem.runtime.sessionStartTime
+    local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
-    Rayfield:Notify({
-       Title = "🛑 Ultimate System Stopped",
-       Content = "Manipulated: " .. ultimateHorseSystem.runtime.manipulatedCount .. " | Enforcements: " .. ultimateHorseSystem.runtime.enforcementCount,
-       Duration = 4,
-       Image = 4483362458,
-    })
-end
-
-local function stopCatchAura()
-    ultimateHorseSystem.catchAuraRunning = false
-    
-    if ultimateHorseSystem.catchAuraConnection then
-        ultimateHorseSystem.catchAuraConnection:Disconnect()
-        ultimateHorseSystem.catchAuraConnection = nil
+    -- Calculate average enforcement time
+    local avgEnforcementTime = 0
+    if #horseManipulator.performance.enforcementTimes > 0 then
+        local total = 0
+        for _, time in pairs(horseManipulator.performance.enforcementTimes) do
+            total = total + time
+        end
+        avgEnforcementTime = total / #horseManipulator.performance.enforcementTimes
+        horseManipulator.statistics.averageEnforcementTime = avgEnforcementTime
     end
     
     Rayfield:Notify({
-       Title = "🛑 Catch Aura Stopped",
-       Content = "Caught: " .. ultimateHorseSystem.runtime.successfulCatches .. " | Attempts: " .. ultimateHorseSystem.runtime.catchAttempts,
-       Duration = 3,
+       Title = "🛑 Professional Control Stopped",
+       Content = "Controlled: " .. horseManipulator.runtime.manipulatedCount .. " | Enforcements: " .. horseManipulator.runtime.enforcementCount .. " | Avg: " .. string.format("%.3f", avgEnforcementTime) .. "ms",
+       Duration = 5,
        Image = 4483362458,
     })
 end
 
 -- =================================
--- UI SECTIONS & CONTROLS - ULTIMATE EDITION
+-- PROFESSIONAL UI SECTIONS & CONTROLS
 -- =================================
 
--- 🚀 ULTIMATE CONTROL SECTION
-local UltimateControlSection = parentTab:CreateSection("🚀 Ultimate Control")
+-- 🎭 MAIN CONTROL SECTION
+local MainControlSection = parentTab:CreateSection("🎭 Professional Horse Control")
 
-local UltimateToggle = parentTab:CreateToggle({
-   Name = "🚀 Ultimate Horse System",
+local MainToggle = parentTab:CreateToggle({
+   Name = "🎭 Global Horse Manipulation",
    CurrentValue = false,
-   Flag = "UltimateHorseSystemToggle",
+   Flag = "ProfessionalHorseManipulationToggle",
    Callback = function(Value)
       if Value then
-         local success = startUltimateSystem()
+         local success = startHorseManipulation()
          if not success then
-            UltimateToggle:Set(false)
+            MainToggle:Set(false)
          end
       else
-         stopUltimateSystem()
+         stopHorseManipulation()
       end
    end,
 })
 
-local CatchAuraToggle = parentTab:CreateToggle({
-   Name = "🎯 Catch Aura",
-   CurrentValue = false,
-   Flag = "CatchAuraToggle",
+local GlobalModeToggle = parentTab:CreateToggle({
+   Name = "🌍 Global Mode (No Distance Limits)",
+   CurrentValue = true,
+   Flag = "GlobalModeToggle",
    Callback = function(Value)
-      if Value then
-         local success = startCatchAura()
-         if not success then
-            CatchAuraToggle:Set(false)
-         end
-      else
-         stopCatchAura()
-      end
-   end,
-})
-
-local UnlimitedRangeToggle = parentTab:CreateToggle({
-   Name = "♾️ Unlimited Range",
-   CurrentValue = false,
-   Flag = "UnlimitedRangeToggle",
-   Callback = function(Value)
-      ultimateHorseSystem.settings.unlimitedRange = Value
+      horseManipulator.settings.globalManipulation = Value
       Rayfield:Notify({
-         Title = "♾️ Range " .. (Value and "UNLIMITED" or "Limited"),
-         Content = Value and "All horses on the map!" or "Range limited to radius",
-         Duration = 2,
+         Title = "🌍 Global Mode " .. (Value and "Enabled" or "Disabled"),
+         Content = Value and "No distance limits - control ALL horses!" or "Distance limits restored",
+         Duration = 3,
          Image = 4483362458,
       })
    end,
 })
 
--- 🎯 CATCH AURA SETTINGS SECTION
-local CatchAuraSettingsSection = parentTab:CreateSection("🎯 Catch Aura Settings")
-
-local CatchAuraRadiusSlider = parentTab:CreateSlider({
-   Name = "📍 Catch Aura Radius",
-   Range = {25, 500},
-   Increment = 5,
-   Suffix = " studs",
-   CurrentValue = 150,
-   Flag = "CatchAuraRadiusSlider",
-   Callback = function(Value)
-      ultimateHorseSystem.settings.catchAuraRadius = Value
-   end,
-})
-
-local CatchCooldownSlider = parentTab:CreateSlider({
-   Name = "⏱️ Catch Cooldown",
-   Range = {0.1, 2},
-   Increment = 0.1,
-   Suffix = "s",
-   CurrentValue = 0.4,
-   Flag = "CatchCooldownSlider",
-   Callback = function(Value)
-      ultimateHorseSystem.settings.catchCooldown = Value
-   end,
-})
-
-local CatchAuraIntervalSlider = parentTab:CreateSlider({
-   Name = "🔄 Catch Interval",
-   Range = {0.1, 2},
-   Increment = 0.1,
-   Suffix = "s",
-   CurrentValue = 0.5,
-   Flag = "CatchAuraIntervalSlider",
-   Callback = function(Value)
-      ultimateHorseSystem.settings.catchAuraInterval = Value
-   end,
-})
-
-local AutoTargetToggle = parentTab:CreateToggle({
-   Name = "🎯 Auto Target Nearest",
-   CurrentValue = true,
-   Flag = "AutoTargetToggle",
-   Callback = function(Value)
-      ultimateHorseSystem.settings.autoTargetNearest = Value
-   end,
-})
-
--- 🎛️ MANIPULATION SETTINGS SECTION
-local ManipulationSettingsSection = parentTab:CreateSection("🎛️ Manipulation Settings")
+-- 🎛️ PROFESSIONAL SETTINGS SECTION
+local ProfessionalSettingsSection = parentTab:CreateSection("🎛️ Professional Settings")
 
 local ManipulationIntervalSlider = parentTab:CreateSlider({
    Name = "⏱️ Manipulation Interval",
@@ -686,9 +645,9 @@ local ManipulationIntervalSlider = parentTab:CreateSlider({
    Increment = 0.1,
    Suffix = "s",
    CurrentValue = 1.5,
-   Flag = "ManipulationIntervalSlider",
+   Flag = "ProfessionalManipulationIntervalSlider",
    Callback = function(Value)
-      ultimateHorseSystem.settings.manipulationInterval = Value
+      horseManipulator.settings.manipulationInterval = Value
    end,
 })
 
@@ -698,290 +657,303 @@ local EnforcementIntervalSlider = parentTab:CreateSlider({
    Increment = 0.05,
    Suffix = "s",
    CurrentValue = 0.3,
-   Flag = "EnforcementIntervalSlider",
+   Flag = "ProfessionalEnforcementIntervalSlider",
    Callback = function(Value)
-      ultimateHorseSystem.settings.enforcementInterval = Value
+      horseManipulator.settings.enforcementInterval = Value
    end,
 })
 
-local MaxProcessSlider = parentTab:CreateSlider({
-   Name = "⚡ Max Process Per Frame",
-   Range = {1, 10},
+local BatchSizeSlider = parentTab:CreateSlider({
+   Name = "📦 Batch Processing Size",
+   Range = {5, 50},
    Increment = 1,
    Suffix = " horses",
-   CurrentValue = 5,
-   Flag = "MaxProcessSlider",
+   CurrentValue = 10,
+   Flag = "BatchSizeSlider",
    Callback = function(Value)
-      ultimateHorseSystem.settings.maxProcessPerFrame = Value
+      horseManipulator.settings.maxBatchSize = Value
    end,
 })
 
--- 🎯 ATTRIBUTE TOGGLES SECTION
-local AttributeTogglesSection = parentTab:CreateSection("🎯 Attribute Controls")
+local FleeDistanceSlider = parentTab:CreateSlider({
+   Name = "🏃 Flee Distance Override",
+   Range = {0, 100},
+   Increment = 5,
+   Suffix = " studs",
+   CurrentValue = 0,
+   Flag = "ProfessionalFleeDistanceSlider",
+   Callback = function(Value)
+      horseManipulator.settings.fleeDistance = Value
+   end,
+})
+
+-- 🎯 ADVANCED TOGGLES SECTION
+local AdvancedTogglesSection = parentTab:CreateSection("🎯 Advanced Controls")
 
 local ContinuousEnforcementToggle = parentTab:CreateToggle({
    Name = "🔒 Continuous Enforcement",
    CurrentValue = true,
-   Flag = "ContinuousEnforcementToggle",
+   Flag = "ProfessionalContinuousEnforcementToggle",
    Callback = function(Value)
-      ultimateHorseSystem.settings.continuousEnforcement = Value
+      horseManipulator.settings.continuousEnforcement = Value
+   end,
+})
+
+local AggressiveEnforcementToggle = parentTab:CreateToggle({
+   Name = "⚡ Aggressive Enforcement",
+   CurrentValue = true,
+   Flag = "AggressiveEnforcementToggle",
+   Callback = function(Value)
+      horseManipulator.settings.aggressiveEnforcement = Value
    end,
 })
 
 local FollowerToggle = parentTab:CreateToggle({
-   Name = "🐎 Enable Follower Behaviour",
+   Name = "🐎 Follower Behaviour",
    CurrentValue = true,
-   Flag = "FollowerToggle",
+   Flag = "ProfessionalFollowerToggle",
    Callback = function(Value)
-      ultimateHorseSystem.settings.enableFollower = Value
+      horseManipulator.settings.enableFollower = Value
    end,
 })
 
 local FleeDistanceToggle = parentTab:CreateToggle({
-   Name = "🏃 Enable Flee Distance Control",
+   Name = "🏃 Flee Distance Control",
    CurrentValue = true,
-   Flag = "FleeDistanceToggle",
+   Flag = "ProfessionalFleeDistanceToggle",
    Callback = function(Value)
-      ultimateHorseSystem.settings.enableFleeDistance = Value
+      horseManipulator.settings.enableFleeDistance = Value
    end,
 })
 
-local LastPlayerToggle = parentTab:CreateToggle({
-   Name = "🎯 Enable Exclusive Control",
+local ExclusiveControlToggle = parentTab:CreateToggle({
+   Name = "🎯 Exclusive Control",
    CurrentValue = true,
-   Flag = "LastPlayerToggle",
+   Flag = "ProfessionalExclusiveControlToggle",
    Callback = function(Value)
-      ultimateHorseSystem.settings.enableLastPlayerToThrow = Value
+      horseManipulator.settings.enableLastPlayerToThrow = Value
    end,
 })
 
--- 📊 LIVE STATUS SECTION
-local LiveStatusSection = parentTab:CreateSection("📊 Live Status")
+-- 📊 PROFESSIONAL STATUS SECTION
+local ProfessionalStatusSection = parentTab:CreateSection("📊 Professional Status")
 
-local UltimateStatus = parentTab:CreateParagraph({Title = "🚀 Ultimate System Status", Content = "Ready"})
-local CatchAuraStatus = parentTab:CreateParagraph({Title = "🎯 Catch Aura Status", Content = "Ready"})
-local PerformanceStats = parentTab:CreateParagraph({Title = "⚡ Performance Stats", Content = "Optimized"})
-local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Target Information", Content = "None"})
+local SystemStatus = parentTab:CreateParagraph({Title = "🎭 System Status", Content = "Professional system ready"})
+local PerformanceStatus = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Monitoring..."})
+local GlobalStats = parentTab:CreateParagraph({Title = "🌍 Global Statistics", Content = "Ready"})
+local EnforcementMetrics = parentTab:CreateParagraph({Title = "🔒 Enforcement Metrics", Content = "Standby"})
 
--- ⚡ ULTIMATE ACTIONS SECTION
-local UltimateActionsSection = parentTab:CreateSection("⚡ Ultimate Actions")
+-- ⚡ PROFESSIONAL ACTIONS SECTION
+local ProfessionalActionsSection = parentTab:CreateSection("⚡ Professional Actions")
 
-local SuperChargeButton = parentTab:CreateButton({
-   Name = "⚡ SUPERCHARGE ALL",
+local GlobalManipulateButton = parentTab:CreateButton({
+   Name = "🌍 Global Instant Manipulation",
    Callback = function()
-      local horses = getFilteredHorses()
+      local horses = updateHorseCache()
       local manipulated = 0
-      local enforced = 0
       
-      for _, horseData in pairs(horses) do
-         local horse = horseData.horse
-         if not ultimateHorseSystem.manipulatedHorses[horse.Name] then
-            if manipulateHorseAttributes(horse) then
+      for _, horse in pairs(horses) do
+         if horse and not horseManipulator.manipulatedHorses[horse.Name] then
+            local success, horseName = manipulateHorseAttributes(horse)
+            if success then
                manipulated = manipulated + 1
-            end
-         else
-            if enforceHorseAttributes(horse) then
-               enforced = enforced + 1
             end
          end
       end
       
       Rayfield:Notify({
-         Title = "⚡ SUPERCHARGED!",
-         Content = "Manipulated: " .. manipulated .. " | Enforced: " .. enforced,
+         Title = "🌍 Global Manipulation Complete",
+         Content = "Instantly controlled " .. manipulated .. " horses globally!",
+         Duration = 4,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local ForceEnforceAllButton = parentTab:CreateButton({
+   Name = "🔒 Force Global Enforcement",
+   Callback = function()
+      local horsesToEnforce = {}
+      for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
+         pcall(function()
+            local horse = nil
+            if Workspace.Islands and Workspace.Islands.Mainland then
+               horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
+            end
+            if horse then
+               table.insert(horsesToEnforce, horse)
+            end
+         end)
+      end
+      
+      local enforced, changes = batchEnforceAttributes(horsesToEnforce)
+      
+      Rayfield:Notify({
+         Title = "🔒 Global Enforcement Complete",
+         Content = "Enforced " .. enforced .. " horses with " .. changes .. " changes!",
          Duration = 3,
          Image = 4483362458,
       })
    end,
 })
 
-local CatchNearestButton = parentTab:CreateButton({
-   Name = "🎯 Catch Nearest Now",
-   Callback = function()
-      performCatchAura()
-      Rayfield:Notify({
-         Title = "🎯 Catch Attempt",
-         Content = "Attempting to catch nearest horse",
-         Duration = 2,
-         Image = 4483362458,
-      })
-   end,
-})
-
 local ClearCacheButton = parentTab:CreateButton({
-   Name = "🗑️ Clear Cache",
+   Name = "🗑️ Clear Performance Cache",
    Callback = function()
-      ultimateHorseSystem.cache.wildHorses = {}
-      ultimateHorseSystem.cache.manipulatedHorses = {}
-      ultimateHorseSystem.cache.lastCacheUpdate = 0
-      ultimateHorseSystem.manipulatedHorses = {}
-      ultimateHorseSystem.runtime.manipulatedCount = 0
+      Cache.horses = {}
+      Cache.horsesById = {}
+      Cache.lastUpdate = 0
+      horseManipulator.performance.enforcementTimes = {}
+      horseManipulator.performance.manipulationTimes = {}
+      horseManipulator.performance.scanTimes = {}
       
       Rayfield:Notify({
          Title = "🗑️ Cache Cleared",
-         Content = "All cached data cleared",
+         Content = "Performance cache and metrics reset",
          Duration = 2,
          Image = 4483362458,
       })
    end,
 })
 
-local ResetStatsButton = parentTab:CreateButton({
-   Name = "📊 Reset All Statistics",
+local ResetAllButton = parentTab:CreateButton({
+   Name = "🔄 Reset All Data",
    Callback = function()
-      ultimateHorseSystem.statistics = {
+      horseManipulator.manipulatedHorses = {}
+      horseManipulator.statistics = {
          totalManipulated = 0,
          totalEnforcements = 0,
-         totalCatchAttempts = 0,
-         successfulCatches = 0,
+         totalScans = 0,
+         totalBatches = 0,
          sessionsRun = 0,
-         bestCatchStreak = 0,
-         currentCatchStreak = 0
+         horsesControlled = 0,
+         averageEnforcementTime = 0,
+         peakHorsesControlled = 0
       }
-      ultimateHorseSystem.runtime.enforcementCount = 0
-      ultimateHorseSystem.runtime.catchAttempts = 0
-      ultimateHorseSystem.runtime.successfulCatches = 0
+      horseManipulator.runtime.manipulatedCount = 0
+      horseManipulator.runtime.enforcementCount = 0
       
       Rayfield:Notify({
-         Title = "📊 Stats Reset",
-         Content = "All statistics have been reset",
+         Title = "🔄 Complete Reset",
+         Content = "All data and statistics reset",
          Duration = 2,
          Image = 4483362458,
       })
    end,
 })
 
--- 📈 ULTIMATE STATISTICS SECTION
-local UltimateStatisticsSection = parentTab:CreateSection("📈 Ultimate Statistics")
+-- 📈 PROFESSIONAL STATISTICS SECTION
+local ProfessionalStatisticsSection = parentTab:CreateSection("📈 Professional Statistics")
 
-local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Statistics", Content = "Ready to start"})
-local CatchStats = parentTab:CreateParagraph({Title = "🎯 Catch Statistics", Content = "Ready to start"})
-local AllTimeStats = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
+local SessionMetrics = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready to start"})
+local AllTimeMetrics = parentTab:CreateParagraph({Title = "🏆 All-Time Metrics", Content = "No data yet"})
+local PerformanceAnalytics = parentTab:CreateParagraph({Title = "⚡ Performance Analytics", Content = "Monitoring ready"})
 
 -- =================================
--- ULTIMATE STATUS UPDATE SYSTEM
+-- PROFESSIONAL STATUS UPDATE SYSTEM
 -- =================================
 spawn(function()
-    while wait(0.5) do -- Faster updates for better UX
-        -- Ultimate System Status
+    while wait(0.5) do -- Faster updates for professional monitoring
+        -- System Status
         local statusText = ""
-        if ultimateHorseSystem.manipulationRunning then
-            local runtime = tick() - ultimateHorseSystem.runtime.sessionStartTime
+        if horseManipulator.isRunning then
+            local runtime = tick() - horseManipulator.runtime.sessionStartTime
             local minutes = math.floor(runtime / 60)
             local seconds = math.floor(runtime % 60)
             
-            statusText = "🟢 ACTIVE (Ultimate Mode)\n"
+            statusText = "🟢 ACTIVE (Professional Control)\n"
             statusText = statusText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
-            statusText = statusText .. "♾️ Range: " .. (ultimateHorseSystem.settings.unlimitedRange and "UNLIMITED" or ultimateHorseSystem.settings.catchAuraRadius .. " studs") .. "\n"
-            statusText = statusText .. "🎭 Manipulated: " .. ultimateHorseSystem.runtime.manipulatedCount .. "\n"
-            statusText = statusText .. "🔒 Enforcements: " .. ultimateHorseSystem.runtime.enforcementCount
+            statusText = statusText .. "🌍 Mode: " .. (horseManipulator.settings.globalManipulation and "Global" or "Local") .. "\n"
+            statusText = statusText .. "🎭 Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            statusText = statusText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount
         else
-            statusText = "🔴 STOPPED\n💤 Ready to start\n⚡ Ultimate optimization ready\n🚀 Most OP horse exploit ever\n🎯 Manipulation + Catch Aura available"
+            statusText = "🔴 STOPPED\n💤 Professional system ready\n🌍 Global manipulation available\n🔒 Continuous enforcement ready\n⚡ Ultra-optimized performance"
         end
-        UltimateStatus:Set({Title = "🚀 Ultimate System Status", Content = statusText})
+        SystemStatus:Set({Title = "🎭 System Status", Content = statusText})
         
-        -- Catch Aura Status
-        local catchText = ""
-        if ultimateHorseSystem.catchAuraRunning then
-            catchText = "🟢 ACTIVE (Auto-Catching)\n"
-            catchText = catchText .. "🎯 Attempts: " .. ultimateHorseSystem.runtime.catchAttempts .. "\n"
-            catchText = catchText .. "✅ Successful: " .. ultimateHorseSystem.runtime.successfulCatches .. "\n"
-            catchText = catchText .. "🔥 Current Streak: " .. ultimateHorseSystem.statistics.currentCatchStreak .. "\n"
-            catchText = catchText .. "⏱️ Cooldown: " .. ultimateHorseSystem.settings.catchCooldown .. "s"
-        else
-            catchText = "🔴 STOPPED\n💤 Ready to start\n🎯 Auto-catch system ready\n⚡ Instant catch available\n🎪 Most OP catch system"
-        end
-        CatchAuraStatus:Set({Title = "🎯 Catch Aura Status", Content = catchText})
-        
-        -- Performance Stats
-        local horses = getFilteredHorses()
-        local perfText = "🐎 Cached Horses: " .. #ultimateHorseSystem.cache.wildHorses .. "\n"
-        perfText = perfText .. "🎯 Available Targets: " .. #horses .. "\n"
-        perfText = perfText .. "⚡ Max Process/Frame: " .. ultimateHorseSystem.settings.maxProcessPerFrame .. "\n"
-        perfText = perfText .. "🔄 Cache Update: " .. string.format("%.1f", ultimateHorseSystem.cache.cacheInterval) .. "s\n"
-        perfText = perfText .. "🚀 System: OPTIMIZED"
-        PerformanceStats:Set({Title = "⚡ Performance Stats", Content = perfText})
-        
-        -- Target Information
-        local targetText = ""
-        if #horses > 0 then
-            local nearest = horses[1]
-            targetText = "🐎 Nearest: " .. nearest.name .. "\n"
-            targetText = targetText .. "📏 Distance: " .. math.floor(nearest.distance) .. " studs\n"
-            targetText = targetText .. "🏃 Speed: " .. math.floor(nearest.velocity) .. " studs/s\n"
-            
-            if ultimateHorseSystem.runtime.currentTarget then
-                local currentName = getHorseName(ultimateHorseSystem.runtime.currentTarget)
-                targetText = targetText .. "🎯 Current Target: " .. currentName
-            else
-                targetText = targetText .. "🎯 Current Target: Auto-selecting"
+        -- Performance Status
+        local avgEnforcementTime = 0
+        if #horseManipulator.performance.enforcementTimes > 0 then
+            local total = 0
+            for _, time in pairs(horseManipulator.performance.enforcementTimes) do
+                total = total + time
             end
-        else
-            targetText = "🔍 Scanning for targets...\n"
-            if ultimateHorseSystem.settings.unlimitedRange then
-                targetText = targetText .. "♾️ Range: UNLIMITED\n📊 Searching entire map"
-            else
-                targetText = targetText .. "📍 Range: " .. ultimateHorseSystem.settings.catchAuraRadius .. " studs\n📊 No targets in range"
-            end
+            avgEnforcementTime = total / #horseManipulator.performance.enforcementTimes
         end
-        TargetInfo:Set({Title = "🐎 Target Information", Content = targetText})
         
-        -- Session Statistics
-        if ultimateHorseSystem.manipulationRunning then
-            local sessionTime = tick() - ultimateHorseSystem.runtime.sessionStartTime
+        local avgScanTime = 0
+        if #horseManipulator.performance.scanTimes > 0 then
+            local total = 0
+            for _, time in pairs(horseManipulator.performance.scanTimes) do
+                total = total + time
+            end
+            avgScanTime = total / #horseManipulator.performance.scanTimes
+        end
+        
+        local performanceText = "⚡ Avg Enforcement: " .. string.format("%.3f", avgEnforcementTime * 1000) .. "ms\n"
+        performanceText = performanceText .. "🔍 Avg Scan: " .. string.format("%.3f", avgScanTime * 1000) .. "ms\n"
+        performanceText = performanceText .. "📦 Batch Size: " .. horseManipulator.settings.maxBatchSize .. "\n"
+        performanceText = performanceText .. "🔄 Cache Size: " .. #Cache.horses .. " horses\n"
+        performanceText = performanceText .. "📊 Batches Processed: " .. horseManipulator.runtime.batchCount
+        PerformanceStatus:Set({Title = "⚡ Performance Metrics", Content = performanceText})
+        
+        -- Global Stats
+        local controlledCount = 0
+        for _ in pairs(horseManipulator.manipulatedHorses) do
+            controlledCount = controlledCount + 1
+        end
+        
+        local globalText = "🌍 Total Horses Cached: " .. #Cache.horses .. "\n"
+        globalText = globalText .. "🎯 Currently Controlled: " .. controlledCount .. "\n"
+        globalText = globalText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
+        globalText = globalText .. "🔍 Total Scans: " .. horseManipulator.statistics.totalScans .. "\n"
+        globalText = globalText .. "📦 Total Batches: " .. horseManipulator.statistics.totalBatches
+        GlobalStats:Set({Title = "🌍 Global Statistics", Content = globalText})
+        
+        -- Enforcement Metrics
+        local enforcementText = "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
+        enforcementText = enforcementText .. "⚡ Session Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
+        enforcementText = enforcementText .. "⏱️ Enforcement Interval: " .. horseManipulator.settings.enforcementInterval .. "s\n"
+        enforcementText = enforcementText .. "🎯 Max Enforcement Time: " .. string.format("%.3f", horseManipulator.performance.maxEnforcementTime * 1000) .. "ms\n"
+        enforcementText = enforcementText .. "📊 Enforcement Mode: " .. (horseManipulator.settings.continuousEnforcement and "Continuous" or "Manual")
+        EnforcementMetrics:Set({Title = "🔒 Enforcement Metrics", Content = enforcementText})
+        
+        -- Session Metrics
+        if horseManipulator.isRunning then
+            local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
             local sessionMinutes = math.floor(sessionTime / 60)
             local sessionSeconds = math.floor(sessionTime % 60)
             
             local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
-            sessionText = sessionText .. "🎭 Horses Manipulated: " .. ultimateHorseSystem.runtime.manipulatedCount .. "\n"
-            sessionText = sessionText .. "🔒 Enforcements: " .. ultimateHorseSystem.runtime.enforcementCount .. "\n"
-            sessionText = sessionText .. "⚡ Performance: OPTIMIZED\n"
-            sessionText = sessionText .. "♾️ Range: " .. (ultimateHorseSystem.settings.unlimitedRange and "UNLIMITED" or "Limited")
+            sessionText = sessionText .. "🎭 Horses Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
+            sessionText = sessionText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
+            sessionText = sessionText .. "🔍 Scans: " .. horseManipulator.runtime.scanCount .. "\n"
+            sessionText = sessionText .. "📦 Batches: " .. horseManipulator.runtime.batchCount .. "\n"
+            sessionText = sessionText .. "⚡ Efficiency: " .. string.format("%.1f", horseManipulator.runtime.manipulatedCount / math.max(sessionTime / 60, 0.1)) .. " horses/min"
             
-            SessionStats:Set({Title = "📈 Session Statistics", Content = sessionText})
+            SessionMetrics:Set({Title = "📈 Session Metrics", Content = sessionText})
         else
-            SessionStats:Set({Title = "📈 Session Statistics", Content = "No active session\nStart ultimate system to see stats\n🚀 Most OP system ready"})
+            SessionMetrics:Set({Title = "📈 Session Metrics", Content = "No active session\nProfessional monitoring ready\n🌍 Global manipulation available"})
         end
         
-        -- Catch Statistics
-        if ultimateHorseSystem.catchAuraRunning then
-            local successRate = 0
-            if ultimateHorseSystem.runtime.catchAttempts > 0 then
-                successRate = math.floor((ultimateHorseSystem.runtime.successfulCatches / ultimateHorseSystem.runtime.catchAttempts) * 100)
-            end
-            
-            local catchText = "🎯 Session Attempts: " .. ultimateHorseSystem.runtime.catchAttempts .. "\n"
-            catchText = catchText .. "✅ Session Successful: " .. ultimateHorseSystem.runtime.successfulCatches .. "\n"
-            catchText = catchText .. "📊 Success Rate: " .. successRate .. "%\n"
-            catchText = catchText .. "🔥 Current Streak: " .. ultimateHorseSystem.statistics.currentCatchStreak .. "\n"
-            catchText = catchText .. "🏆 Best Streak: " .. ultimateHorseSystem.statistics.bestCatchStreak
-            
-            CatchStats:Set({Title = "🎯 Catch Statistics", Content = catchText})
-        else
-            CatchStats:Set({Title = "🎯 Catch Statistics", Content = "No active catch aura\nStart catch aura to see stats\n🎯 Most OP catch system ready"})
-        end
+        -- All-Time Metrics
+        local allTimeText = "🎭 Total Manipulated: " .. horseManipulator.statistics.totalManipulated .. "\n"
+        allTimeText = allTimeText .. "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
+        allTimeText = allTimeText .. "🎮 Sessions Run: " .. horseManipulator.statistics.sessionsRun .. "\n"
+        allTimeText = allTimeText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
+        allTimeText = allTimeText .. "⚡ Avg Enforcement: " .. string.format("%.3f", horseManipulator.statistics.averageEnforcementTime * 1000) .. "ms\n"
+        allTimeText = allTimeText .. "🌍 System: Global Professional Control"
         
-        -- All-Time Statistics
-        local controlledCount = 0
-        for _ in pairs(ultimateHorseSystem.manipulatedHorses) do
-            controlledCount = controlledCount + 1
-        end
+        AllTimeMetrics:Set({Title = "🏆 All-Time Metrics", Content = allTimeText})
         
-        local totalSuccessRate = 0
-        if ultimateHorseSystem.statistics.totalCatchAttempts > 0 then
-            totalSuccessRate = math.floor((ultimateHorseSystem.statistics.successfulCatches / ultimateHorseSystem.statistics.totalCatchAttempts) * 100)
-        end
+        -- Performance Analytics
+        local analyticsText = "📊 Performance Profile: OPTIMIZED\n"
+        analyticsText = analyticsText .. "🔄 Cache Hit Rate: " .. string.format("%.1f", (#Cache.horses / math.max(horseManipulator.runtime.scanCount, 1)) * 100) .. "%\n"
+        analyticsText = analyticsText .. "⚡ Enforcement Efficiency: " .. string.format("%.1f", horseManipulator.statistics.totalEnforcements / math.max(horseManipulator.runtime.manipulatedCount, 1)) .. " per horse\n"
+        analyticsText = analyticsText .. "📦 Batch Efficiency: " .. string.format("%.1f", horseManipulator.runtime.manipulatedCount / math.max(horseManipulator.runtime.batchCount, 1)) .. " horses/batch\n"
+        analyticsText = analyticsText .. "🎯 System Status: PROFESSIONAL"
         
-        local allTimeText = "🎭 Total Manipulated: " .. ultimateHorseSystem.statistics.totalManipulated .. "\n"
-        allTimeText = allTimeText .. "🔒 Total Enforcements: " .. ultimateHorseSystem.statistics.totalEnforcements .. "\n"
-        allTimeText = allTimeText .. "🎯 Total Catch Attempts: " .. ultimateHorseSystem.statistics.totalCatchAttempts .. "\n"
-        allTimeText = allTimeText .. "✅ Total Successful Catches: " .. ultimateHorseSystem.statistics.successfulCatches .. "\n"
-        allTimeText = allTimeText .. "📊 Overall Success Rate: " .. totalSuccessRate .. "%\n"
-        allTimeText = allTimeText .. "🏆 Best Catch Streak: " .. ultimateHorseSystem.statistics.bestCatchStreak .. "\n"
-        allTimeText = allTimeText .. "🎮 Sessions Run: " .. ultimateHorseSystem.statistics.sessionsRun .. "\n"
-        allTimeText = allTimeText .. "🎯 Currently Controlled: " .. controlledCount
-        
-        AllTimeStats:Set({Title = "🏆 All-Time Records", Content = allTimeText})
+        PerformanceAnalytics:Set({Title = "⚡ Performance Analytics", Content = analyticsText})
     end
 end)
 
@@ -992,50 +964,37 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     
-    -- Stop all systems if running
-    if ultimateHorseSystem.manipulationRunning then
-        stopUltimateSystem()
-        UltimateToggle:Set(false)
+    if horseManipulator.isRunning then
+        stopHorseManipulation()
+        MainToggle:Set(false)
+        
+        Rayfield:Notify({
+           Title = "🔄 Character Respawned",
+           Content = "Professional system stopped - restart when ready",
+           Duration = 3,
+           Image = 4483362458,
+        })
     end
-    
-    if ultimateHorseSystem.catchAuraRunning then
-        stopCatchAura()
-        CatchAuraToggle:Set(false)
-    end
-    
-    Rayfield:Notify({
-       Title = "🔄 Character Respawned",
-       Content = "Ultimate system stopped - restart when ready",
-       Duration = 3,
-       Image = 4483362458,
-    })
 end)
 
 -- =================================
--- ULTIMATE INITIALIZATION
+-- PROFESSIONAL INITIALIZATION
 -- =================================
 Rayfield:Notify({
-   Title = "🚀 ULTIMATE HORSE SYSTEM LOADED!",
-   Content = "Most OP horse exploit ever created | Manipulation + Catch Aura + Unlimited Range!",
+   Title = "🎭 Professional Horse Manipulator Loaded!",
+   Content = "Ultra-optimized | Global control | No distance limits | Professional grade",
    Duration = 6,
    Image = 4483362458,
 })
 
 Rayfield:Notify({
-   Title = "⚡ ULTIMATE FEATURES",
-   Content = "🎭 Attribute Manipulation | 🎯 Catch Aura | ♾️ Unlimited Range | 🔒 Continuous Enforcement",
+   Title = "🌍 Global Professional Control",
+   Content = "Control ALL horses on the map | Ultra-fast enforcement | Professional optimizations",
    Duration = 5,
    Image = 4483362458,
 })
 
-Rayfield:Notify({
-   Title = "🎪 PERFORMANCE OPTIMIZED",
-   Content = "Caching system | Frame limiting | Optimized loops | Maximum efficiency!",
-   Duration = 4,
-   Image = 4483362458,
-})
-
-print("🚀 ULTIMATE HORSE MANIPULATOR - CATCH AURA EDITION LOADED!")
-print("🎯 Features: Manipulation + Catch Aura + Unlimited Range + Performance Optimization")
-print("⚡ This is the most OP horse exploit ever created!")
-print("🔥 Horses come to you + Auto-catch + No flee + Exclusive control = ULTIMATE DOMINATION!")
+print("🎭 Professional Horse Attribute Manipulator Loaded!")
+print("🌍 Features: Global control, professional optimizations, ultra-fast enforcement")
+print("⚡ Performance: Batch processing, intelligent caching, continuous monitoring")
+print("🎯 Professional grade: No limits, maximum efficiency, complete control")
