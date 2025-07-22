@@ -1,42 +1,41 @@
--- Horse Attribute Manipulator - Ultra Island Edition with Auto Teleportation
--- by Iyxo - 2025-07-22 15:22:21
--- Revolutionary horse control with ultra-optimized island detection + teleportation
+-- Horse Catcher Pro - Ultra-Optimized Professional Edition with Island Detection
+-- by Iyxo - 2025-07-22 16:13:45
+-- Revolutionary horse catching with professional optimizations + intelligent island detection
 
 local parentTab, Rayfield, Window = ...
 
 -- =================================
--- SERVICES & ULTRA-OPTIMIZATION
+-- SERVICES & OPTIMIZATION
 -- =================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- ISLAND DETECTION SYSTEM
+-- ENHANCED ISLAND DETECTION SYSTEM
 -- =================================
 local islandSystem = {
     currentIsland = "Unknown",
     lastUpdate = 0,
-    updateInterval = 2,
+    updateInterval = 3, -- Check every 3 seconds
     availableIslands = {},
-    scanLocations = {},
     islandHorseCount = {}
 }
 
--- Professional island detection with multiple methods
+-- Professional island detection function
 local function detectCurrentIsland()
     local currentTime = tick()
     if currentTime - islandSystem.lastUpdate < islandSystem.updateInterval then
         return islandSystem.currentIsland
     end
     
-    -- Method 1: Player Attribute (Primary - most reliable)
+    -- Method 1: Player Attribute (Most reliable)
     local islandAttribute = player:GetAttribute("island")
     if islandAttribute and islandAttribute ~= "" then
         islandSystem.currentIsland = islandAttribute
@@ -84,265 +83,175 @@ local function detectCurrentIsland()
     return islandSystem.currentIsland
 end
 
--- Update scan locations based on current island with smart prioritization
-local function updateScanLocations()
-    islandSystem.scanLocations = {}
-    islandSystem.islandHorseCount = {}
-    local currentIsland = detectCurrentIsland()
-    
-    pcall(function()
-        if Workspace.Islands then
-            -- Priority 1: Current island
-            if currentIsland == "Mainland" and Workspace.Islands.Mainland then
-                table.insert(islandSystem.scanLocations, {
-                    location = Workspace.Islands.Mainland,
-                    name = "Mainland",
-                    priority = 1,
-                    isCurrentIsland = true
-                })
-            end
-            
-            -- Scan specific island player is on
-            for _, island in pairs(Workspace.Islands:GetChildren()) do
-                if island.Name == currentIsland and island ~= Workspace.Islands.Mainland then
-                    table.insert(islandSystem.scanLocations, {
-                        location = island,
-                        name = island.Name,
-                        priority = 1,
-                        isCurrentIsland = true
-                    })
-                end
-            end
-            
-            -- Priority 2: Other islands (if multi-island mode enabled)
-            for _, island in pairs(Workspace.Islands:GetChildren()) do
-                if island.Name ~= currentIsland and island:IsA("Model") then
-                    table.insert(islandSystem.scanLocations, {
-                        location = island,
-                        name = island.Name,
-                        priority = 2,
-                        isCurrentIsland = false
-                    })
-                end
-            end
-        end
-    end)
-    
-    -- Sort by priority (current island first)
-    table.sort(islandSystem.scanLocations, function(a, b)
-        if a.priority ~= b.priority then
-            return a.priority < b.priority
-        else
-            return a.name < b.name
-        end
-    end)
-end
-
 -- =================================
--- PROFESSIONAL CACHING SYSTEM
+-- PROFESSIONAL CACHING SYSTEM (ENHANCED)
 -- =================================
 local Cache = {
-    wildHorses = {},
-    manipulatedHorses = {},
-    horseData = {},
-    islandHorses = {}, -- New: horses per island
-    lastWildUpdate = 0,
-    lastManipulatedUpdate = 0,
-    wildUpdateInterval = 2,
-    manipulatedUpdateInterval = 0.5,
-    maxCacheSize = 1000
+    horses = {},
+    horsesById = {},
+    lastUpdate = 0,
+    updateInterval = 1.5, -- Optimized cache timing
+    maxCacheSize = 500,
+    islandHorses = {} -- NEW: Track horses per island
 }
 
 -- =================================
--- ULTRA-OPTIMIZED HORSE MANIPULATOR SYSTEM
+-- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM (ENHANCED)
 -- =================================
-local horseManipulator = {
+local horseCatcher = {
     -- Status
     isRunning = false,
-    manipulatedHorses = {},
+    currentTarget = nil,
+    isAttached = false,
+    lassoEquipped = false,
+    currentLassoID = nil,
     
     -- High-performance connections
     connections = {
-        manipulation = nil,
-        enforcement = nil,
-        scanning = nil,
+        capture = nil,
+        targeting = nil,
+        movement = nil,
         cleanup = nil,
-        teleportation = nil,
-        island = nil -- New: island monitoring
+        islandMonitor = nil -- NEW: Island monitoring
+    },
+    
+    -- Professional data structures
+    capturedHorses = {},
+    statistics = {
+        totalCaptured = 0,
+        sessionsRun = 0,
+        currentStreak = 0,
+        totalAttempts = 0,
+        successfulCaptures = 0,
+        bestStreak = 0,
+        averageCaptureTime = 0,
+        horsesPerMinute = 0,
+        islandStats = {} -- NEW: Per-island statistics
     },
     
     -- Optimized settings
     settings = {
-        -- Core attributes
-        fleeDistance = 0,
-        behaviour = "Follower",
-        enableFollower = true,
-        enableFleeDistance = true,
-        enableLastPlayerToThrow = true,
+        -- Movement optimization
+        movementMode = "attachment",
+        pulseInterval = 0.8,
+        pulseDistance = 8,
         
-        -- Performance optimization
-        manipulationInterval = 1.5,
-        enforcementInterval = 0.25,
-        scanInterval = 2,
-        cleanupInterval = 15,
+        -- Capture optimization
+        captureCooldown = 0.4,
+        maxAttemptsPerHorse = 12,
+        maxStuckTime = 10,
+        smartTargeting = true,
+        aggressiveTargeting = true,
         
-        -- Island settings
-        multiIslandMode = true,
+        -- NEW: Island settings
+        multiIslandScanning = true,
         prioritizeCurrentIsland = true,
-        islandScanRadius = 1000,
+        maxIslandDistance = 1000,
         
-        -- Teleportation settings
-        autoTeleport = false,
-        teleportLoop = false,
-        teleportInterval = 3,
-        teleportRadius = 15,
-        teleportHeight = 5,
-        maxTeleportDistance = 500,
-        teleportFormation = "circle", -- circle, line, grid
-        
-        -- Advanced options
-        continuousEnforcement = true,
-        globalManipulation = true,
-        aggressiveEnforcement = true,
+        -- Professional settings
+        safeDistance = 5,
+        attachmentOffset = 4,
+        targetingRadius = 300,
         batchProcessing = true,
-        maxBatchSize = 15,
-        ultraMode = true
+        maxBatchSize = 5
     },
     
     -- High-performance runtime data
     runtime = {
-        lastManipulationTime = 0,
-        lastEnforcementTime = 0,
-        lastScanTime = 0,
+        lastCaptureTime = 0,
+        lastPulseTime = 0,
+        lastTargetingTime = 0,
         lastCleanupTime = 0,
-        lastTeleportTime = 0,
-        lastIslandCheck = 0,
-        manipulatedCount = 0,
+        lastIslandCheck = 0, -- NEW: Island check timing
+        currentAttempts = 0,
+        retryCount = 0,
+        targetStuckTime = 0,
+        lastTargetName = "",
         sessionStartTime = 0,
-        enforcementCount = 0,
-        scanCount = 0,
-        batchCount = 0,
-        globalScanCount = 0,
-        teleportCount = 0,
-        horsesNearby = 0,
-        currentIslandHorses = 0,
-        islandScanCount = 0
-    },
-    
-    -- Professional statistics
-    statistics = {
-        totalManipulated = 0,
-        totalEnforcements = 0,
-        totalScans = 0,
-        totalBatches = 0,
-        totalTeleports = 0,
-        sessionsRun = 0,
-        horsesControlled = 0,
-        averageEnforcementTime = 0,
-        peakHorsesControlled = 0,
-        enforcementsPerSecond = 0,
-        globalCoverage = 0,
-        horsesNearbyPeak = 0,
-        islandStats = {}, -- New: per-island statistics
-        teleportEfficiency = 0
+        lastSuccessfulCapture = 0,
+        forceDetach = false,
+        targetingCount = 0,
+        captureAttempts = 0,
+        currentIslandHorses = 0 -- NEW: Horses on current island
     },
     
     -- Performance monitoring
     performance = {
-        enforcementTimes = {},
-        manipulationTimes = {},
-        scanTimes = {},
-        batchTimes = {},
-        teleportTimes = {},
-        islandScanTimes = {},
-        maxEnforcementTime = 0,
-        avgEnforcementTime = 0,
-        maxBatchSize = 0,
-        maxTeleportTime = 0
+        captureTimes = {},
+        targetingTimes = {},
+        movementTimes = {},
+        islandScanTimes = {}, -- NEW: Island scan performance
+        maxCaptureTime = 0,
+        avgCaptureTime = 0
     }
 }
 
+-- Game System Detection - Enhanced
+local gameSystem = {
+    u1 = nil,
+    u2 = nil, 
+    u3 = nil,
+    available = false,
+    remoteEvent = nil,
+    networkReady = false
+}
+
+-- Initialize game system with error handling
+pcall(function()
+    gameSystem.u1 = require(ReplicatedStorage.References)
+    gameSystem.u2 = gameSystem.u1.Utilities
+    gameSystem.u3 = require(gameSystem.u1.PlayerScripts.Priority.Data)
+    gameSystem.available = true
+    gameSystem.networkReady = (gameSystem.u2 and gameSystem.u2.Network) and true or false
+    gameSystem.remoteEvent = ReplicatedStorage.Communication.Events['']
+end)
+
 -- =================================
--- ENHANCED UTILITY FUNCTIONS WITH ISLAND AWARENESS
+-- ULTRA-OPTIMIZED HORSE FUNCTIONS (ENHANCED WITH ISLAND DETECTION)
 -- =================================
 
--- ENHANCED: Horse name getter with island context
+-- Professional horse name getter with caching
 local function getHorseName(horse)
     if not horse then return "Unknown" end
     
-    local cached = Cache.horseData[horse.Name]
-    if cached and cached.name and cached.name ~= "Unknown" and cached.lastUpdate > tick() - 30 then
+    -- Check cache first
+    local cached = Cache.horsesById[horse.Name]
+    if cached and cached.name then
         return cached.name
     end
     
     local horseName = "Unknown"
-    local success = false
-    
-    pcall(function()
+    local success = pcall(function()
         local overheadPart = horse:FindFirstChild("OverheadPart")
         if overheadPart then
             local overhead = overheadPart:FindFirstChild("Overhead")
             if overhead then
-                -- First try: BreedLabel
                 local breedLabel = overhead:FindFirstChild("BreedLabel")
-                if breedLabel and breedLabel.Text and breedLabel.Text ~= "" and breedLabel.Text ~= " " then
+                if breedLabel and breedLabel.Text and breedLabel.Text ~= "" then
                     horseName = breedLabel.Text
-                    success = true
                 else
-                    -- Second try: Other labels
-                    for _, child in pairs(overhead:GetChildren()) do
-                        if child:IsA("TextLabel") and child.Text and child.Text ~= "" and child.Text ~= " " and child.Text ~= "Wild" then
-                            if child.Text:match("[A-Za-z]") then
-                                horseName = child.Text
-                                success = true
-                                break
-                            end
-                        end
-                    end
+                    horseName = horse.Name:sub(2, 9) -- Optimized ID extraction
                 end
             end
-        end
-        
-        -- Third try: Check for any text-containing parts
-        if not success or horseName == "Unknown" then
-            for _, descendant in pairs(horse:GetDescendants()) do
-                if descendant:IsA("TextLabel") and descendant.Text and descendant.Text ~= "" and descendant.Text ~= " " and descendant.Text ~= "Wild" then
-                    if descendant.Text:match("[A-Za-z]") and descendant.Text:len() > 2 then
-                        horseName = descendant.Text
-                        success = true
-                        break
-                    end
-                end
-            end
-        end
-        
-        -- Fourth try: Use shortened ID as fallback with island context
-        if not success or horseName == "Unknown" then
-            local currentIsland = detectCurrentIsland()
-            horseName = currentIsland:sub(1,3) .. "_" .. horse.Name:sub(2, 9)
-            success = true
         end
     end)
     
-    -- Enhanced caching with island info
+    -- Cache the result
     if success then
-        Cache.horseData[horse.Name] = {
-            name = horseName,
-            lastUpdate = tick(),
-            isWild = nil,
-            island = detectCurrentIsland()
-        }
+        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+        Cache.horsesById[horse.Name].name = horseName
     end
     
     return horseName
 end
 
--- Ultra-fast wild horse checker with island caching
+-- Ultra-fast wild horse checker with caching
 local function isWildHorse(horse)
     if not horse then return false end
     
-    local cached = Cache.horseData[horse.Name]
-    if cached and cached.isWild ~= nil and cached.lastUpdate > tick() - 30 then
+    -- Check cache first
+    local cached = Cache.horsesById[horse.Name]
+    if cached and cached.isWild ~= nil then
         return cached.isWild
     end
     
@@ -360,75 +269,64 @@ local function isWildHorse(horse)
         end
     end)
     
+    -- Cache the result
     if success then
-        if not Cache.horseData[horse.Name] then
-            Cache.horseData[horse.Name] = {
-                name = "Unknown",
-                lastUpdate = tick(),
-                isWild = isWild,
-                island = detectCurrentIsland()
-            }
-        else
-            Cache.horseData[horse.Name].isWild = isWild
-            Cache.horseData[horse.Name].lastUpdate = tick()
-            Cache.horseData[horse.Name].island = detectCurrentIsland()
-        end
+        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+        Cache.horsesById[horse.Name].isWild = isWild
     end
     
     return isWild
 end
 
--- ENHANCED: Multi-island horse scanning with smart prioritization
-local function updateGlobalWildHorses()
+-- ENHANCED: Professional cache management with island awareness
+local function updateHorseCache()
     local currentTime = tick()
-    if currentTime - Cache.lastWildUpdate < Cache.wildUpdateInterval then
-        return Cache.wildHorses
+    if currentTime - Cache.lastUpdate < Cache.updateInterval then
+        return Cache.horses
     end
     
     local startTime = tick()
-    Cache.wildHorses = {}
+    Cache.horses = {}
     Cache.islandHorses = {}
     local horseCount = 0
+    local currentIsland = detectCurrentIsland()
     
-    -- Update scan locations
-    updateScanLocations()
-    
-    local function scanLocation(locationData)
-        if not locationData.location then return end
-        
-        local location = locationData.location
-        local islandName = locationData.name
-        local priority = locationData.priority
-        local isCurrentIsland = locationData.isCurrentIsland
+    -- Enhanced ultra-optimized scanning with island prioritization
+    local function scanLocation(location, islandName, priority)
+        if not location then return end
         
         local children = location:GetChildren()
-        local islandHorseCount = 0
+        local localHorseCount = 0
         
         for i = 1, #children do
             local child = children[i]
             
+            -- Fast filtering with early returns
             if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
                 local humanoid = child:FindFirstChild("Humanoid")
                 if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
-                    if isWildHorse(child) and not horseManipulator.manipulatedHorses[child.Name] then
-                        horseCount = horseCount + 1
-                        islandHorseCount = islandHorseCount + 1
+                    if isWildHorse(child) and not horseCatcher.capturedHorses[child.Name] then
+                        local distance = (humanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude
                         
-                        Cache.wildHorses[horseCount] = {
-                            horse = child,
-                            location = islandName,
-                            priority = priority,
-                            isCurrentIsland = isCurrentIsland,
-                            distance = (humanoidRootPart.Position - child.HumanoidRootPart.Position).Magnitude
-                        }
-                        
-                        -- Performance limits based on priority
-                        if isCurrentIsland and islandHorseCount >= Cache.maxCacheSize * 0.6 then
-                            break
-                        elseif not isCurrentIsland and islandHorseCount >= Cache.maxCacheSize * 0.3 then
-                            break
+                        -- Island-aware filtering
+                        if not horseCatcher.settings.multiIslandScanning and islandName ~= currentIsland then
+                            if distance > horseCatcher.settings.maxIslandDistance then
+                                continue
+                            end
                         end
                         
+                        horseCount = horseCount + 1
+                        localHorseCount = localHorseCount + 1
+                        
+                        -- Enhanced horse data with island info
+                        Cache.horses[horseCount] = {
+                            horse = child,
+                            island = islandName,
+                            priority = priority,
+                            distance = distance
+                        }
+                        
+                        -- Performance limit
                         if horseCount >= Cache.maxCacheSize then
                             break
                         end
@@ -437,699 +335,720 @@ local function updateGlobalWildHorses()
             end
         end
         
-        Cache.islandHorses[islandName] = islandHorseCount
-        islandSystem.islandHorseCount[islandName] = islandHorseCount
+        Cache.islandHorses[islandName] = localHorseCount
     end
     
-    -- Scan all locations with priority
-    for _, locationData in pairs(islandSystem.scanLocations) do
-        if horseCount < Cache.maxCacheSize then
-            scanLocation(locationData)
+    -- Enhanced scan with island prioritization
+    pcall(function()
+        if Workspace.Islands then
+            -- Priority 1: Current island
+            if currentIsland == "Mainland" and Workspace.Islands.Mainland then
+                scanLocation(Workspace.Islands.Mainland, "Mainland", 1)
+            end
+            
+            -- Scan other islands with appropriate priority
+            for _, island in pairs(Workspace.Islands:GetChildren()) do
+                if island:IsA("Model") then
+                    local priority = (island.Name == currentIsland) and 1 or 2
+                    scanLocation(island, island.Name, priority)
+                end
+            end
+            
+            -- Fallback: scan Islands folder itself
+            scanLocation(Workspace.Islands, "Islands", 3)
         end
-    end
+    end)
     
-    -- Sort horses by priority and distance
-    table.sort(Cache.wildHorses, function(a, b)
+    -- Sort horses by island priority and distance
+    table.sort(Cache.horses, function(a, b)
         if a.priority ~= b.priority then
             return a.priority < b.priority
-        elseif a.isCurrentIsland ~= b.isCurrentIsland then
-            return a.isCurrentIsland
         else
             return a.distance < b.distance
         end
     end)
     
-    Cache.lastWildUpdate = currentTime
+    Cache.lastUpdate = currentTime
     
-    -- Performance tracking
+    -- Enhanced performance tracking
     local scanTime = tick() - startTime
-    table.insert(horseManipulator.performance.islandScanTimes, scanTime)
-    if #horseManipulator.performance.islandScanTimes > 100 then
-        table.remove(horseManipulator.performance.islandScanTimes, 1)
+    table.insert(horseCatcher.performance.targetingTimes, scanTime)
+    table.insert(horseCatcher.performance.islandScanTimes, scanTime)
+    if #horseCatcher.performance.targetingTimes > 100 then
+        table.remove(horseCatcher.performance.targetingTimes, 1)
+    end
+    if #horseCatcher.performance.islandScanTimes > 50 then
+        table.remove(horseCatcher.performance.islandScanTimes, 1)
     end
     
-    horseManipulator.runtime.scanCount = horseManipulator.runtime.scanCount + 1
-    horseManipulator.runtime.globalScanCount = horseManipulator.runtime.globalScanCount + 1
-    horseManipulator.runtime.islandScanCount = horseManipulator.runtime.islandScanCount + 1
-    horseManipulator.statistics.totalScans = horseManipulator.statistics.totalScans + 1
+    horseCatcher.runtime.targetingCount = horseCatcher.runtime.targetingCount + 1
+    horseCatcher.runtime.currentIslandHorses = Cache.islandHorses[currentIsland] or 0
     
-    -- Update current island horse count
-    local currentIsland = detectCurrentIsland()
-    horseManipulator.runtime.currentIslandHorses = Cache.islandHorses[currentIsland] or 0
-    
-    return Cache.wildHorses
+    return Cache.horses
 end
 
--- ENHANCED: Get manipulated horses with island tracking
-local function updateManipulatedHorses()
-    local currentTime = tick()
-    if currentTime - Cache.lastManipulatedUpdate < Cache.manipulatedUpdateInterval then
-        return Cache.manipulatedHorses
+-- Professional lasso detection with game system integration
+local function equipLasso()
+    if horseCatcher.lassoEquipped and horseCatcher.currentLassoID then
+        return true, horseCatcher.currentLassoID
     end
     
-    Cache.manipulatedHorses = {}
-    local manipulatedCount = 0
-    local nearbyCount = 0
-    local playerPos = humanoidRootPart.Position
-    local currentIsland = detectCurrentIsland()
+    local success = false
+    local toolID = nil
     
-    for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
+    -- Method 1: Enhanced game system detection
+    if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
+        local lastEquipped = gameSystem.u3.GetLocal({"lastEquippedLasso"})
+        if lastEquipped then
+            local inventoryItem = gameSystem.u3.GetLocal({"inventory", lastEquipped})
+            if inventoryItem then
+                pcall(function()
+                    gameSystem.u2.Network:FireServer("Inventory", "Use", lastEquipped)
+                    success = true
+                    toolID = lastEquipped
+                end)
+            end
+        end
+    end
+    
+    -- Method 2: Fallback with known working ID
+    if not success then
+        toolID = "{60769f1f-cade-463b-ae32-adaacc91116f}"
+        success = true
+    end
+    
+    -- Method 3: Backpack scan optimization
+    if not success then
         pcall(function()
-            local horse = nil
-            local horseIsland = "Unknown"
-            
-            -- Search in current island first
-            if currentIsland == "Mainland" and Workspace.Islands and Workspace.Islands.Mainland then
-                horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
-                if horse then horseIsland = "Mainland" end
-            end
-            
-            -- Search in other islands
-            if not horse and Workspace.Islands then
-                for _, location in pairs(Workspace.Islands:GetChildren()) do
-                    if location:IsA("Model") then
-                        horse = location:FindFirstChild(horseId)
-                        if horse then 
-                            horseIsland = location.Name
-                            break 
-                        end
+            local backpack = player:FindFirstChild("Backpack")
+            if backpack then
+                local tools = backpack:GetChildren()
+                for i = 1, #tools do
+                    local tool = tools[i]
+                    if tool.Name:lower():find("lasso") then
+                        tool.Parent = character
+                        success = true
+                        toolID = tool.Name
+                        break
                     end
-                end
-            end
-            
-            if horse and horse:FindFirstChild("HumanoidRootPart") then
-                local humanoid = horse:FindFirstChild("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    manipulatedCount = manipulatedCount + 1
-                    
-                    local distance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
-                    if distance <= horseManipulator.settings.teleportRadius + 20 then
-                        nearbyCount = nearbyCount + 1
-                    end
-                    
-                    Cache.manipulatedHorses[manipulatedCount] = {
-                        horse = horse,
-                        distance = distance,
-                        name = horseData.name or getHorseName(horse),
-                        island = horseIsland,
-                        isCurrentIsland = horseIsland == currentIsland
-                    }
                 end
             end
         end)
     end
     
-    horseManipulator.runtime.horsesNearby = nearbyCount
-    if nearbyCount > horseManipulator.statistics.horsesNearbyPeak then
-        horseManipulator.statistics.horsesNearbyPeak = nearbyCount
+    if success then
+        horseCatcher.lassoEquipped = true
+        horseCatcher.currentLassoID = toolID
     end
     
-    Cache.lastManipulatedUpdate = currentTime
-    return Cache.manipulatedHorses
+    return success, toolID
 end
 
--- =================================
--- ENHANCED HORSE TELEPORTATION SYSTEM
--- =================================
-
--- Professional horse teleportation with multiple formation options
-local function teleportHorseToPlayer(horse, index)
-    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
+-- ENHANCED: Ultra-optimized horse finding with intelligent scoring + island awareness
+local function findOptimalTarget()
+    local horses = updateHorseCache()
+    if #horses == 0 then return nil end
     
-    local success = false
+    local playerPos = humanoidRootPart.Position
+    local currentIsland = detectCurrentIsland()
+    local candidates = {}
+    
+    -- Enhanced scoring algorithm with island bonuses
+    for i = 1, math.min(#horses, horseCatcher.settings.maxBatchSize * 2) do
+        local horseData = horses[i]
+        if horseData and horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
+            local horse = horseData.horse
+            local horsePos = horse.HumanoidRootPart.Position
+            local distance = (playerPos - horsePos).Magnitude
+            local velocity = horse.HumanoidRootPart.Velocity.Magnitude
+            
+            -- Skip if too far (performance optimization)
+            if distance > horseCatcher.settings.targetingRadius then
+                continue
+            end
+            
+            -- Professional scoring system with island bonuses
+            local score = 1000 -- Base score
+            
+            -- NEW: Island priority bonus
+            if horseData.island == currentIsland then
+                score = score + 500 -- Big bonus for same island
+            elseif horseData.priority == 1 then
+                score = score + 200 -- Bonus for priority islands
+            end
+            
+            -- Distance scoring (closer = better)
+            if distance < 50 then
+                score = score + 300
+            elseif distance < 100 then
+                score = score + 200
+            elseif distance < 200 then
+                score = score + 100
+            else
+                score = score - (distance * 0.5)
+            end
+            
+            -- Movement scoring (moving horses preferred)
+            if velocity > 5 then
+                score = score + 400
+            elseif velocity > 2 then
+                score = score + 200
+            elseif velocity > 0.5 then
+                score = score + 100
+            else
+                score = score - 100 -- Penalize stationary horses
+            end
+            
+            -- Height preference
+            local heightDiff = math.abs(horsePos.Y - playerPos.Y)
+            if heightDiff < 10 then
+                score = score + 150
+            elseif heightDiff < 25 then
+                score = score + 50
+            else
+                score = score - (heightDiff * 2)
+            end
+            
+            -- Accessibility check
+            local raycast = workspace:Raycast(playerPos, (horsePos - playerPos).Unit * distance)
+            if not raycast or raycast.Instance == horse then
+                score = score + 100 -- Clear line of sight
+            end
+            
+            table.insert(candidates, {
+                horse = horse,
+                score = score,
+                distance = distance,
+                velocity = velocity,
+                island = horseData.island,
+                priority = horseData.priority
+            })
+        end
+    end
+    
+    -- Sort by score and return best
+    if #candidates > 0 then
+        table.sort(candidates, function(a, b) return a.score > b.score end)
+        return candidates[1].horse
+    end
+    
+    return nil
+end
+
+-- Ultra-optimized capture function with performance tracking
+local function captureHorse(horse)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") or not horseCatcher.currentLassoID then
+        return false
+    end
+    
+    -- Check cooldown
+    local currentTime = tick()
+    if currentTime - horseCatcher.runtime.lastCaptureTime < horseCatcher.settings.captureCooldown then
+        return false
+    end
+    
     local startTime = tick()
+    local success = false
     
     pcall(function()
-        local playerPos = humanoidRootPart.Position
-        local playerLook = humanoidRootPart.CFrame.LookVector
-        local playerRight = humanoidRootPart.CFrame.RightVector
-        local targetPos
-        
-        -- Different formation patterns
-        if horseManipulator.settings.teleportFormation == "circle" then
-            -- Circular formation around player
-            local angle = (index - 1) * (math.pi * 2 / math.min(#Cache.manipulatedHorses, 8))
-            local radius = horseManipulator.settings.teleportRadius
-            
-            -- Advanced positioning for multiple horses
-            if #Cache.manipulatedHorses > 8 then
-                local ring = math.floor((index - 1) / 8)
-                radius = horseManipulator.settings.teleportRadius + (ring * 8)
-                angle = (index - 1 - ring * 8) * (math.pi * 2 / 8)
-            end
-            
-            local offsetX = math.cos(angle) * radius
-            local offsetZ = math.sin(angle) * radius
-            targetPos = playerPos + Vector3.new(offsetX, horseManipulator.settings.teleportHeight, offsetZ)
-            
-        elseif horseManipulator.settings.teleportFormation == "line" then
-            -- Line formation behind player
-            local offset = playerLook * -(5 + index * 3)
-            targetPos = playerPos + offset + Vector3.new(0, horseManipulator.settings.teleportHeight, 0)
-            
-        elseif horseManipulator.settings.teleportFormation == "grid" then
-            -- Grid formation
-            local gridSize = math.ceil(math.sqrt(#Cache.manipulatedHorses))
-            local row = math.floor((index - 1) / gridSize)
-            local col = (index - 1) % gridSize
-            
-            local offsetX = (col - gridSize/2) * 6
-            local offsetZ = (row - gridSize/2) * 6
-            targetPos = playerPos + Vector3.new(offsetX, horseManipulator.settings.teleportHeight, offsetZ)
-        end
-        
-        -- Ensure horses don't teleport too far
-        local currentDistance = (playerPos - horse.HumanoidRootPart.Position).Magnitude
-        if currentDistance <= horseManipulator.settings.maxTeleportDistance then
-            -- Smooth teleportation with proper orientation
-            horse.HumanoidRootPart.CFrame = CFrame.lookAt(targetPos, playerPos)
-            
-            -- Remove any existing BodyVelocity
-            if horse.HumanoidRootPart:FindFirstChild("BodyVelocity") then
-                horse.HumanoidRootPart.BodyVelocity:Destroy()
-            end
-            
+        -- Enhanced capture method with game system
+        if gameSystem.available and gameSystem.networkReady then
+            gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", horse)
             success = true
         end
+        
+        horseCatcher.runtime.lastCaptureTime = currentTime
+        horseCatcher.runtime.currentAttempts = horseCatcher.runtime.currentAttempts + 1
+        horseCatcher.runtime.captureAttempts = horseCatcher.runtime.captureAttempts + 1
+        horseCatcher.statistics.totalAttempts = horseCatcher.statistics.totalAttempts + 1
     end)
     
     -- Performance tracking
     if success then
-        local teleportTime = tick() - startTime
-        table.insert(horseManipulator.performance.teleportTimes, teleportTime)
-        if #horseManipulator.performance.teleportTimes > 100 then
-            table.remove(horseManipulator.performance.teleportTimes, 1)
+        local captureTime = tick() - startTime
+        table.insert(horseCatcher.performance.captureTimes, captureTime)
+        if #horseCatcher.performance.captureTimes > 1000 then
+            table.remove(horseCatcher.performance.captureTimes, 1)
         end
         
-        if teleportTime > horseManipulator.performance.maxTeleportTime then
-            horseManipulator.performance.maxTeleportTime = teleportTime
+        if captureTime > horseCatcher.performance.maxCaptureTime then
+            horseCatcher.performance.maxCaptureTime = captureTime
         end
-        
-        horseManipulator.runtime.teleportCount = horseManipulator.runtime.teleportCount + 1
-        horseManipulator.statistics.totalTeleports = horseManipulator.statistics.totalTeleports + 1
     end
     
     return success
 end
 
--- Enhanced batch teleport with formation awareness
-local function batchTeleportControlledHorses()
-    if not horseManipulator.settings.autoTeleport then return 0 end
+-- Professional movement functions with optimization
+local function pulseTeleportToHorse(horse)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
-    local manipulatedHorses = updateManipulatedHorses()
-    local teleported = 0
-    local currentIslandPriority = {}
-    local otherIslandHorses = {}
-    
-    -- Separate horses by island priority
-    for i, horseData in pairs(manipulatedHorses) do
-        if horseData.isCurrentIsland then
-            table.insert(currentIslandPriority, {data = horseData, index = i})
-        else
-            table.insert(otherIslandHorses, {data = horseData, index = i})
-        end
+    local currentTime = tick()
+    if currentTime - horseCatcher.runtime.lastPulseTime < horseCatcher.settings.pulseInterval then
+        return false
     end
-    
-    -- Teleport current island horses first
-    for _, horseInfo in pairs(currentIslandPriority) do
-        if horseInfo.data.horse and horseInfo.data.distance > horseManipulator.settings.teleportRadius then
-            if teleportHorseToPlayer(horseInfo.data.horse, horseInfo.index) then
-                teleported = teleported + 1
-            end
-        end
-        
-        if teleported >= 8 then break end -- Limit for performance
-    end
-    
-    -- Then teleport other island horses if multi-island mode is enabled
-    if horseManipulator.settings.multiIslandMode and teleported < 5 then
-        for _, horseInfo in pairs(otherIslandHorses) do
-            if horseInfo.data.horse and horseInfo.data.distance > horseManipulator.settings.teleportRadius then
-                if teleportHorseToPlayer(horseInfo.data.horse, horseInfo.index) then
-                    teleported = teleported + 1
-                end
-            end
-            
-            if teleported >= 8 then break end
-        end
-    end
-    
-    -- Calculate teleportation efficiency
-    if #manipulatedHorses > 0 then
-        horseManipulator.statistics.teleportEfficiency = (teleported / #manipulatedHorses) * 100
-    end
-    
-    return teleported
-end
-
--- =================================
--- ENHANCED ATTRIBUTE MANIPULATION WITH ISLAND AWARENESS
--- =================================
-
--- ULTRA-OPTIMIZED BATCH ATTRIBUTE ENFORCEMENT (same as before)
-local function batchEnforceAttributes(horses)
-    if not horses or #horses == 0 then return 0, 0 end
     
     local startTime = tick()
-    local batchSize = math.min(#horses, horseManipulator.settings.maxBatchSize)
-    local enforced = 0
-    local totalChanges = 0
-    
-    for i = 1, batchSize do
-        local horseData = horses[i]
-        local horse = horseData.horse or horseData
-        
-        if horse and horse.Parent then
-            local changes = 0
-            
-            pcall(function()
-                local attributesToSet = {}
-                
-                if horseManipulator.settings.enableFollower then
-                    local currentBehaviour = horse:GetAttribute("behaviour")
-                    if currentBehaviour ~= horseManipulator.settings.behaviour then
-                        attributesToSet.behaviour = horseManipulator.settings.behaviour
-                        changes = changes + 1
-                    end
-                    
-                    local currentFollowPlayer = horse:GetAttribute("followPlayer")
-                    if currentFollowPlayer ~= player.Name then
-                        attributesToSet.followPlayer = player.Name
-                        changes = changes + 1
-                    end
-                end
-                
-                if horseManipulator.settings.enableFleeDistance then
-                    local currentFleeDistance = horse:GetAttribute("fleeDistance")
-                    if currentFleeDistance ~= horseManipulator.settings.fleeDistance then
-                        attributesToSet.fleeDistance = horseManipulator.settings.fleeDistance
-                        changes = changes + 1
-                    end
-                end
-                
-                if horseManipulator.settings.enableLastPlayerToThrow then
-                    local currentLastPlayer = horse:GetAttribute("lastPlayerToThrowLasso")
-                    if currentLastPlayer ~= player.Name then
-                        attributesToSet.lastPlayerToThrowLasso = player.Name
-                        changes = changes + 1
-                    end
-                end
-                
-                for attribute, value in pairs(attributesToSet) do
-                    horse:SetAttribute(attribute, value)
-                end
-                
-                if changes > 0 then
-                    enforced = enforced + 1
-                    totalChanges = totalChanges + changes
-                    
-                    if horseManipulator.manipulatedHorses[horse.Name] then
-                        horseManipulator.manipulatedHorses[horse.Name].lastEnforcement = tick()
-                        horseManipulator.manipulatedHorses[horse.Name].enforcementCount = 
-                            (horseManipulator.manipulatedHorses[horse.Name].enforcementCount or 0) + 1
-                    end
-                end
-            end)
-        end
-    end
-    
-    local batchTime = tick() - startTime
-    table.insert(horseManipulator.performance.batchTimes, batchTime)
-    if #horseManipulator.performance.batchTimes > 100 then
-        table.remove(horseManipulator.performance.batchTimes, 1)
-    end
-    
-    if batchSize > horseManipulator.performance.maxBatchSize then
-        horseManipulator.performance.maxBatchSize = batchSize
-    end
-    
-    horseManipulator.runtime.batchCount = horseManipulator.runtime.batchCount + 1
-    horseManipulator.runtime.enforcementCount = horseManipulator.runtime.enforcementCount + enforced
-    horseManipulator.statistics.totalBatches = horseManipulator.statistics.totalBatches + 1
-    horseManipulator.statistics.totalEnforcements = horseManipulator.statistics.totalEnforcements + enforced
-    
-    return enforced, totalChanges
-end
-
--- ENHANCED: Initial manipulation with island tracking
-local function manipulateHorseAttributes(horse)
-    if not horse then return false end
-    
-    local startTime = tick()
-    local success = false
-    local horseName = getHorseName(horse)
-    local currentIsland = detectCurrentIsland()
     
     pcall(function()
-        local attributesToSet = {}
+        local horseRoot = horse.HumanoidRootPart
+        local horsePos = horseRoot.Position
+        local horseVelocity = horseRoot.Velocity
         
-        if horseManipulator.settings.enableFollower then
-            attributesToSet.behaviour = horseManipulator.settings.behaviour
-            attributesToSet.followPlayer = player.Name
-        end
+        -- Advanced prediction with velocity
+        local prediction = horsePos + (horseVelocity * 0.4)
         
-        if horseManipulator.settings.enableFleeDistance then
-            attributesToSet.fleeDistance = horseManipulator.settings.fleeDistance
-        end
-        
-        if horseManipulator.settings.enableLastPlayerToThrow then
-            attributesToSet.lastPlayerToThrowLasso = player.Name
-        end
-        
-        for attribute, value in pairs(attributesToSet) do
-            horse:SetAttribute(attribute, value)
-        end
-        
-        -- Enhanced metadata with island info
-        horseManipulator.manipulatedHorses[horse.Name] = {
-            name = horseName,
-            time = tick(),
-            controlled = true,
-            lastEnforcement = tick(),
-            enforcementCount = 0,
-            island = currentIsland,
-            location = currentIsland
+        -- Smart approach angle selection
+        local approaches = {
+            horseRoot.CFrame.RightVector * horseCatcher.settings.pulseDistance,
+            horseRoot.CFrame.RightVector * -horseCatcher.settings.pulseDistance,
+            horseRoot.CFrame.LookVector * -horseCatcher.settings.pulseDistance,
+            (horseRoot.CFrame.RightVector + horseRoot.CFrame.LookVector).Unit * horseCatcher.settings.pulseDistance
         }
         
-        horseManipulator.runtime.manipulatedCount = horseManipulator.runtime.manipulatedCount + 1
-        horseManipulator.statistics.totalManipulated = horseManipulator.statistics.totalManipulated + 1
+        -- Select optimal approach
+        local bestOffset = approaches[1]
+        local shortestDist = math.huge
+        local playerPos = humanoidRootPart.Position
         
-        -- Track per-island statistics
-        if not horseManipulator.statistics.islandStats[currentIsland] then
-            horseManipulator.statistics.islandStats[currentIsland] = 0
-        end
-        horseManipulator.statistics.islandStats[currentIsland] = horseManipulator.statistics.islandStats[currentIsland] + 1
-        
-        local currentControlled = 0
-        for _ in pairs(horseManipulator.manipulatedHorses) do
-            currentControlled = currentControlled + 1
-        end
-        
-        if currentControlled > horseManipulator.statistics.peakHorsesControlled then
-            horseManipulator.statistics.peakHorsesControlled = currentControlled
+        for _, offset in pairs(approaches) do
+            local targetPos = prediction + offset
+            local dist = (playerPos - targetPos).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                bestOffset = offset
+            end
         end
         
-        success = true
+        local heightOffset = Vector3.new(0, 3, 0)
+        local finalPos = prediction + bestOffset + heightOffset
+        
+        -- Smooth teleportation with orientation
+        humanoidRootPart.CFrame = CFrame.lookAt(finalPos, horsePos)
+        horseCatcher.runtime.lastPulseTime = currentTime
     end)
     
-    local manipulationTime = tick() - startTime
-    table.insert(horseManipulator.performance.manipulationTimes, manipulationTime)
-    if #horseManipulator.performance.manipulationTimes > 100 then
-        table.remove(horseManipulator.performance.manipulationTimes, 1)
+    -- Performance tracking
+    local movementTime = tick() - startTime
+    table.insert(horseCatcher.performance.movementTimes, movementTime)
+    if #horseCatcher.performance.movementTimes > 100 then
+        table.remove(horseCatcher.performance.movementTimes, 1)
     end
     
-    return success, horseName
+    return true
 end
 
--- Enhanced cleanup system with island awareness
-local function cleanupDisconnectedHorses()
-    local currentTime = tick()
-    local cleaned = 0
+local function attachToHorse(horse)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
-    for horseId, horseData in pairs(horseManipulator.manipulatedHorses) do
-        local horseExists = false
-        
-        pcall(function()
-            if Workspace.Islands then
-                -- Check current island first
-                local currentIsland = detectCurrentIsland()
-                if currentIsland == "Mainland" and Workspace.Islands.Mainland then
-                    local horse = Workspace.Islands.Mainland:FindFirstChild(horseId)
-                    if horse and horse:FindFirstChild("HumanoidRootPart") then
-                        local humanoid = horse:FindFirstChild("Humanoid")
-                        if humanoid and humanoid.Health > 0 then
-                            horseExists = true
-                        end
-                    end
-                end
-                
-                -- Check other islands
-                if not horseExists then
-                    for _, location in pairs(Workspace.Islands:GetChildren()) do
-                        if location:IsA("Model") and location ~= Workspace.Islands.Mainland then
-                            local horse = location:FindFirstChild(horseId)
-                            if horse and horse:FindFirstChild("HumanoidRootPart") then
-                                local humanoid = horse:FindFirstChild("Humanoid")
-                                if humanoid and humanoid.Health > 0 then
-                                    horseExists = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-        
-        if not horseExists or (currentTime - horseData.time > 600) then
-            horseManipulator.manipulatedHorses[horseId] = nil
-            Cache.horseData[horseId] = nil
-            cleaned = cleaned + 1
-        end
-    end
-    
-    return cleaned
-end
-
--- =================================
--- ENHANCED MAIN LOGIC WITH ISLAND DETECTION
--- =================================
-local function startHorseManipulation()
-    if horseManipulator.isRunning then return false end
-    
-    horseManipulator.isRunning = true
-    horseManipulator.runtime.sessionStartTime = tick()
-    horseManipulator.statistics.sessionsRun = horseManipulator.statistics.sessionsRun + 1
-    horseManipulator.runtime.manipulatedCount = 0
-    horseManipulator.runtime.enforcementCount = 0
-    horseManipulator.runtime.scanCount = 0
-    horseManipulator.runtime.batchCount = 0
-    horseManipulator.runtime.globalScanCount = 0
-    horseManipulator.runtime.teleportCount = 0
-    horseManipulator.runtime.islandScanCount = 0
-    
-    local currentIsland = detectCurrentIsland()
-    
-    Rayfield:Notify({
-       Title = "🚀 Ultra Island Manipulation Started!",
-       Content = "Island: " .. currentIsland .. " | Global + Auto teleportation | Multi-island system active",
-       Duration = 4,
-       Image = 4483362458,
-    })
-    
-    -- ISLAND MONITORING CONNECTION
-    horseManipulator.connections.island = RunService.Heartbeat:Connect(function()
-        if not horseManipulator.isRunning then return end
-        
-        local currentTime = tick()
-        if currentTime - horseManipulator.runtime.lastIslandCheck < 3 then
-            return
-        end
-        
-        -- Update island detection and scan locations
-        detectCurrentIsland()
-        updateScanLocations()
-        horseManipulator.runtime.lastIslandCheck = currentTime
-    end)
-    
-    -- SCANNING CONNECTION
-    horseManipulator.connections.scanning = RunService.Heartbeat:Connect(function()
-        if not horseManipulator.isRunning then return end
-        
-        local currentTime = tick()
-        if currentTime - horseManipulator.runtime.lastScanTime < horseManipulator.settings.scanInterval then
-            return
-        end
-        
-        updateGlobalWildHorses()
-        horseManipulator.runtime.lastScanTime = currentTime
-    end)
-    
-    -- MANIPULATION CONNECTION
-    horseManipulator.connections.manipulation = RunService.Heartbeat:Connect(function()
-        if not horseManipulator.isRunning then return end
-        
-        local currentTime = tick()
-        if currentTime - horseManipulator.runtime.lastManipulationTime < horseManipulator.settings.manipulationInterval then
-            return
-        end
-        
-        local wildHorses = updateGlobalWildHorses()
-        local manipulatedThisRound = 0
-        local currentIslandManipulated = 0
-        
-        local batchSize = math.min(#wildHorses, horseManipulator.settings.maxBatchSize)
-        for i = 1, batchSize do
-            local horseData = wildHorses[i]
-            if horseData and horseData.horse and not horseManipulator.manipulatedHorses[horseData.horse.Name] then
-                local success, horseName = manipulateHorseAttributes(horseData.horse)
-                
-                if success then
-                    manipulatedThisRound = manipulatedThisRound + 1
-                    if horseData.isCurrentIsland then
-                        currentIslandManipulated = currentIslandManipulated + 1
-                    end
-                    
-                    if manipulatedThisRound <= 3 then
-                        Rayfield:Notify({
-                           Title = "🎭 " .. horseName .. " Controlled!",
-                           Content = "Island: " .. horseData.location .. " | Auto-teleport: " .. (horseManipulator.settings.autoTeleport and "✅" or "❌"),
-                           Duration = 2,
-                           Image = 4483362458,
-                        })
-                    end
-                end
+    pcall(function()
+        -- Professional cleanup
+        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
+            if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) and attachment:IsA("WeldConstraint") then
+                attachment:Destroy()
             end
         end
         
-        if manipulatedThisRound > 3 then
-            local currentIsland = detectCurrentIsland()
-            Rayfield:Notify({
-               Title = "🌍 Mass Island Control!",
-               Content = "Controlled " .. manipulatedThisRound .. " horses! Current Island: " .. currentIslandManipulated .. " | " .. currentIsland,
-               Duration = 3,
-               Image = 4483362458,
-            })
-        end
+        local horseRoot = horse.HumanoidRootPart
+        local horsePos = horseRoot.Position
+        local horseVelocity = horseRoot.Velocity
         
-        horseManipulator.runtime.lastManipulationTime = currentTime
-    end)
-    
-    -- ENFORCEMENT CONNECTION
-    if horseManipulator.settings.continuousEnforcement then
-        horseManipulator.connections.enforcement = RunService.Heartbeat:Connect(function()
-            if not horseManipulator.isRunning then return end
-            
-            local currentTime = tick()
-            if currentTime - horseManipulator.runtime.lastEnforcementTime < horseManipulator.settings.enforcementInterval then
-                return
-            end
-            
-            local manipulatedHorses = updateManipulatedHorses()
-            
-            if #manipulatedHorses > 0 then
-                local enforced, changes = batchEnforceAttributes(manipulatedHorses)
-                
-                local sessionTime = currentTime - horseManipulator.runtime.sessionStartTime
-                if sessionTime > 0 then
-                    horseManipulator.statistics.enforcementsPerSecond = horseManipulator.runtime.enforcementCount / sessionTime
-                end
-            end
-            
-            horseManipulator.runtime.lastEnforcementTime = currentTime
-        end)
-    end
-    
-    -- TELEPORTATION CONNECTION
-    if horseManipulator.settings.autoTeleport then
-        horseManipulator.connections.teleportation = RunService.Heartbeat:Connect(function()
-            if not horseManipulator.isRunning then return end
-            
-            local currentTime = tick()
-            local teleportInterval = horseManipulator.settings.teleportLoop and horseManipulator.settings.teleportInterval or (horseManipulator.settings.teleportInterval * 2)
-            
-            if currentTime - horseManipulator.runtime.lastTeleportTime < teleportInterval then
-                return
-            end
-            
-            local teleported = batchTeleportControlledHorses()
-            
-            if teleported > 0 and horseManipulator.settings.teleportLoop then
-                if teleported >= 3 then
-                    Rayfield:Notify({
-                       Title = "🌀 Island Loop Teleport!",
-                       Content = "Teleported " .. teleported .. " horses | Formation: " .. horseManipulator.settings.teleportFormation,
-                       Duration = 1.5,
-                       Image = 4483362458,
-                    })
-                end
-            end
-            
-            horseManipulator.runtime.lastTeleportTime = currentTime
-        end)
-    end
-    
-    -- CLEANUP CONNECTION
-    horseManipulator.connections.cleanup = RunService.Heartbeat:Connect(function()
-        if not horseManipulator.isRunning then return end
+        -- Predictive positioning
+        local prediction = horsePos + (horseVelocity * 0.2)
+        local sideOffset = horseRoot.CFrame.RightVector * horseCatcher.settings.attachmentOffset
+        local heightOffset = Vector3.new(0, 3.5, 0)
         
-        local currentTime = tick()
-        if currentTime - horseManipulator.runtime.lastCleanupTime < horseManipulator.settings.cleanupInterval then
-            return
-        end
+        -- Optimal positioning
+        humanoidRootPart.CFrame = CFrame.lookAt(prediction + sideOffset + heightOffset, prediction)
+        wait(0.03) -- Minimal wait for stability
         
-        local cleaned = cleanupDisconnectedHorses()
+        -- Professional weld creation
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = humanoidRootPart
+        weld.Part1 = horseRoot
+        weld.Parent = humanoidRootPart
+        weld.Name = "HorseAttachment"
         
-        if #Cache.wildHorses > Cache.maxCacheSize * 0.8 then
-            for i = Cache.maxCacheSize * 0.6, #Cache.wildHorses do
-                Cache.wildHorses[i] = nil
-            end
-        end
-        
-        horseManipulator.runtime.lastCleanupTime = currentTime
+        horseCatcher.isAttached = true
+        horseCatcher.runtime.currentAttempts = 0
+        horseCatcher.runtime.targetStuckTime = 0
     end)
     
     return true
 end
 
-local function stopHorseManipulation()
-    horseManipulator.isRunning = false
+local function smoothFollow(horse)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
-    for name, connection in pairs(horseManipulator.connections) do
-        if connection then
-            connection:Disconnect()
-            horseManipulator.connections[name] = nil
+    pcall(function()
+        local horsePos = horse.HumanoidRootPart.Position
+        local horseVelocity = horse.HumanoidRootPart.Velocity
+        local currentPos = humanoidRootPart.Position
+        
+        -- Predictive following
+        local prediction = horsePos + (horseVelocity * 0.3)
+        local direction = (prediction - currentPos).Unit
+        local distance = (prediction - currentPos).Magnitude
+        
+        if distance > horseCatcher.settings.safeDistance + 1 then
+            local targetPos = prediction - direction * horseCatcher.settings.safeDistance
+            targetPos = targetPos + Vector3.new(0, 2.5, 0)
+            
+            -- Optimized tween
+            local tweenInfo = TweenInfo.new(
+                0.4,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+            
+            local tween = TweenService:Create(
+                humanoidRootPart,
+                tweenInfo,
+                {CFrame = CFrame.lookAt(targetPos, prediction)}
+            )
+            tween:Play()
+        end
+    end)
+    
+    return true
+end
+
+-- Professional cleanup
+local function detachFromHorse()
+    pcall(function()
+        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
+            if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) then
+                if attachment:IsA("WeldConstraint") or attachment:IsA("Weld") then
+                    attachment:Destroy()
+                end
+            end
+        end
+        horseCatcher.isAttached = false
+        horseCatcher.runtime.forceDetach = false
+    end)
+end
+
+-- ENHANCED: Capture detection with horse name + island tracking
+local function isHorseCaptured(horse)
+    if not horse or not horse.Parent then
+        return true
+    end
+    
+    local captured = false
+    local horseName = "Unknown"
+    
+    pcall(function()
+        local overheadPart = horse:FindFirstChild("OverheadPart")
+        if overheadPart then
+            local overhead = overheadPart:FindFirstChild("Overhead")
+            if overhead then
+                local nameLabel = overhead:FindFirstChild("NameLabel")
+                if nameLabel and nameLabel.Text ~= "Wild" then
+                    captured = true
+                end
+                
+                local breedLabel = overhead:FindFirstChild("BreedLabel")
+                if breedLabel and breedLabel.Text ~= "" then
+                    horseName = breedLabel.Text
+                end
+            end
+        end
+        
+        local humanoid = horse:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            captured = true
+        end
+    end)
+    
+    if captured then
+        horseCatcher.capturedHorses[horse.Name] = true
+        horseCatcher.statistics.totalCaptured = horseCatcher.statistics.totalCaptured + 1
+        horseCatcher.statistics.currentStreak = horseCatcher.statistics.currentStreak + 1
+        horseCatcher.statistics.successfulCaptures = horseCatcher.statistics.successfulCaptures + 1
+        horseCatcher.runtime.lastSuccessfulCapture = tick()
+        
+        -- NEW: Track per-island statistics
+        local currentIsland = detectCurrentIsland()
+        if not horseCatcher.statistics.islandStats[currentIsland] then
+            horseCatcher.statistics.islandStats[currentIsland] = 0
+        end
+        horseCatcher.statistics.islandStats[currentIsland] = horseCatcher.statistics.islandStats[currentIsland] + 1
+        
+        if horseCatcher.statistics.currentStreak > horseCatcher.statistics.bestStreak then
+            horseCatcher.statistics.bestStreak = horseCatcher.statistics.currentStreak
+        end
+        
+        -- Calculate horses per minute
+        local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+        horseCatcher.statistics.horsesPerMinute = (horseCatcher.statistics.currentStreak / (sessionTime / 60))
+        
+        Rayfield:Notify({
+           Title = "🎉 " .. horseName .. " Captured!",
+           Content = "Island: " .. currentIsland .. " | Streak: " .. horseCatcher.statistics.currentStreak .. " | Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min",
+           Duration = 2.5,
+           Image = 4483362458,
+        })
+    end
+    
+    return captured
+end
+
+-- Professional cleanup system
+local function cleanupSystem()
+    local currentTime = tick()
+    if currentTime - horseCatcher.runtime.lastCleanupTime < 15 then -- Every 15 seconds
+        return
+    end
+    
+    -- Cache cleanup
+    if #Cache.horses > Cache.maxCacheSize * 0.8 then
+        for i = Cache.maxCacheSize * 0.6, #Cache.horses do
+            Cache.horses[i] = nil
         end
     end
     
-    local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
-    local minutes = math.floor(sessionTime / 60)
-    local seconds = math.floor(sessionTime % 60)
-    local currentIsland = detectCurrentIsland()
+    -- Performance data cleanup
+    if #horseCatcher.performance.captureTimes > 1000 then
+        for i = 1, 500 do
+            table.remove(horseCatcher.performance.captureTimes, 1)
+        end
+    end
     
-    Rayfield:Notify({
-       Title = "🏁 Ultra Island Session Ended",
-       Content = "Island: " .. currentIsland .. " | Controlled: " .. horseManipulator.runtime.manipulatedCount .. " | Teleports: " .. horseManipulator.runtime.teleportCount,
-       Duration = 5,
-       Image = 4483362458,
-    })
+    horseCatcher.runtime.lastCleanupTime = currentTime
 end
 
 -- =================================
--- ENHANCED UI WITH ISLAND & TELEPORTATION CONTROLS
+-- ENHANCED MAIN LOGIC WITH ISLAND MONITORING
+-- =================================
+local function startHorseCatching()
+    if horseCatcher.isRunning then return false end
+    
+    -- System checks
+    local lassoReady, lassoID = equipLasso()
+    if not lassoReady then
+        Rayfield:Notify({
+           Title = "❌ Lasso Required!",
+           Content = "Please equip a lasso first!",
+           Duration = 4,
+           Image = 4483362458,
+        })
+        return false
+    end
+    
+    if not gameSystem.available or not gameSystem.networkReady then
+        Rayfield:Notify({
+           Title = "❌ Network System Error!",
+           Content = "Cannot access game network system!",
+           Duration = 4,
+           Image = 4483362458,
+        })
+        return false
+    end
+    
+    -- Initialize session
+    horseCatcher.isRunning = true
+    horseCatcher.runtime.sessionStartTime = tick()
+    horseCatcher.statistics.sessionsRun = horseCatcher.statistics.sessionsRun + 1
+    horseCatcher.statistics.currentStreak = 0
+    horseCatcher.runtime.lastCaptureTime = 0
+    horseCatcher.runtime.currentAttempts = 0
+    horseCatcher.runtime.retryCount = 0
+    horseCatcher.runtime.lastPulseTime = 0
+    horseCatcher.runtime.targetingCount = 0
+    horseCatcher.runtime.captureAttempts = 0
+    horseCatcher.runtime.lastIslandCheck = 0
+    
+    local movementMode = horseCatcher.settings.movementMode == "pulse" and "Pulse TP" or 
+                        horseCatcher.settings.movementMode == "attachment" and "Attachment" or "Smooth"
+    
+    local currentIsland = detectCurrentIsland()
+    
+    Rayfield:Notify({
+       Title = "🚀 Ultra Horse Catching Started!",
+       Content = "Island: " .. currentIsland .. " | Mode: " .. movementMode .. " | Island detection active",
+       Duration = 3,
+       Image = 4483362458,
+    })
+    
+    -- NEW: Island monitoring connection
+    horseCatcher.connections.islandMonitor = RunService.Heartbeat:Connect(function()
+        if not horseCatcher.isRunning then return end
+        
+        local currentTime = tick()
+        if currentTime - horseCatcher.runtime.lastIslandCheck < 5 then -- Check every 5 seconds
+            return
+        end
+        
+        -- Update island detection
+        detectCurrentIsland()
+        horseCatcher.runtime.lastIslandCheck = currentTime
+    end)
+    
+    -- MAIN CAPTURE CONNECTION (unchanged but uses enhanced cache)
+    horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
+        if not horseCatcher.isRunning then return end
+        
+        -- Check if current target was captured
+        if horseCatcher.currentTarget and isHorseCaptured(horseCatcher.currentTarget) then
+            if horseCatcher.settings.movementMode == "attachment" then
+                detachFromHorse()
+            end
+            horseCatcher.currentTarget = nil
+            horseCatcher.runtime.currentAttempts = 0
+            horseCatcher.runtime.retryCount = 0
+            horseCatcher.runtime.targetStuckTime = 0
+            return
+        end
+        
+        -- Find new target with optimized logic
+        if not horseCatcher.currentTarget then
+            if horseCatcher.settings.smartTargeting then
+                horseCatcher.currentTarget = findOptimalTarget()
+            else
+                local horses = updateHorseCache()
+                -- Handle new cache format
+                horseCatcher.currentTarget = horses[1] and (horses[1].horse or horses[1])
+            end
+            
+            if horseCatcher.currentTarget then
+                horseCatcher.runtime.currentAttempts = 0
+                horseCatcher.runtime.lastTargetName = horseCatcher.currentTarget.Name
+                horseCatcher.runtime.targetStuckTime = 0
+            else
+                if horseCatcher.settings.movementMode == "attachment" then
+                    detachFromHorse()
+                end
+                return
+            end
+        end
+        
+        if horseCatcher.currentTarget then
+            -- Stuck detection
+            if horseCatcher.runtime.lastTargetName == horseCatcher.currentTarget.Name then
+                horseCatcher.runtime.targetStuckTime = horseCatcher.runtime.targetStuckTime + 1
+            else
+                horseCatcher.runtime.targetStuckTime = 0
+                horseCatcher.runtime.lastTargetName = horseCatcher.currentTarget.Name
+            end
+            
+            -- Skip stuck targets
+            if horseCatcher.runtime.targetStuckTime > horseCatcher.settings.maxStuckTime * 60 then
+                horseCatcher.capturedHorses[horseCatcher.currentTarget.Name] = true
+                if horseCatcher.settings.movementMode == "attachment" then
+                    detachFromHorse()
+                end
+                horseCatcher.currentTarget = nil
+                horseCatcher.runtime.targetStuckTime = 0
+                return
+            end
+            
+            -- Movement execution
+            if horseCatcher.settings.movementMode == "pulse" then
+                pulseTeleportToHorse(horseCatcher.currentTarget)
+            elseif horseCatcher.settings.movementMode == "attachment" then
+                if not horseCatcher.isAttached or horseCatcher.runtime.forceDetach then
+                    attachToHorse(horseCatcher.currentTarget)
+                end
+            elseif horseCatcher.settings.movementMode == "smooth" then
+                smoothFollow(horseCatcher.currentTarget)
+            end
+            
+            -- Capture attempt
+            captureHorse(horseCatcher.currentTarget)
+            
+            -- Attempt limit handling
+            if horseCatcher.runtime.currentAttempts > horseCatcher.settings.maxAttemptsPerHorse then
+                horseCatcher.runtime.retryCount = horseCatcher.runtime.retryCount + 1
+                
+                if horseCatcher.runtime.retryCount > 2 then
+                    horseCatcher.capturedHorses[horseCatcher.currentTarget.Name] = true
+                    if horseCatcher.settings.movementMode == "attachment" then
+                        detachFromHorse()
+                    end
+                    horseCatcher.currentTarget = nil
+                    horseCatcher.runtime.retryCount = 0
+                else
+                    if horseCatcher.settings.movementMode == "attachment" then
+                        detachFromHorse()
+                        horseCatcher.runtime.forceDetach = true
+                    end
+                    horseCatcher.runtime.currentAttempts = 0
+                    wait(0.3)
+                end
+            end
+        else
+            if horseCatcher.settings.movementMode == "attachment" then
+                detachFromHorse()
+            end
+        end
+    end)
+    
+    -- CLEANUP CONNECTION
+    horseCatcher.connections.cleanup = RunService.Heartbeat:Connect(function()
+        if not horseCatcher.isRunning then return end
+        cleanupSystem()
+    end)
+    
+    return true
+end
+
+local function stopHorseCatching()
+    horseCatcher.isRunning = false
+    
+    -- Disconnect all connections
+    for name, connection in pairs(horseCatcher.connections) do
+        if connection then
+            connection:Disconnect()
+            horseCatcher.connections[name] = nil
+        end
+    end
+    
+    detachFromHorse()
+    horseCatcher.currentTarget = nil
+    
+    local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+    local minutes = math.floor(sessionTime / 60)
+    local seconds = math.floor(sessionTime % 60)
+    
+    -- Calculate performance metrics
+    local avgCaptureTime = 0
+    if #horseCatcher.performance.captureTimes > 0 then
+        local total = 0
+        for _, time in pairs(horseCatcher.performance.captureTimes) do
+            total = total + time
+        end
+        avgCaptureTime = total / #horseCatcher.performance.captureTimes
+        horseCatcher.statistics.averageCaptureTime = avgCaptureTime
+    end
+    
+    local currentIsland = detectCurrentIsland()
+    
+    Rayfield:Notify({
+       Title = "🏁 Professional Session Ended",
+       Content = "Island: " .. currentIsland .. " | Captured: " .. horseCatcher.statistics.currentStreak .. " | Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min",
+       Duration = 5,
+       Image = 4483362458,
+    })
+    
+    horseCatcher.statistics.currentStreak = 0
+end
+
+-- =================================
+-- ENHANCED UI WITH ISLAND FEATURES
 -- =================================
 
--- 🏝️ MAIN ISLAND CONTROL SECTION
-local MainIslandControlSection = parentTab:CreateSection("🏝️ Ultra Island Manipulation")
-
-local MainToggle = parentTab:CreateToggle({
-   Name = "🚀 Ultra Island Global Manipulation",
-   CurrentValue = false,
-   Flag = "UltraIslandManipulationToggle",
-   Callback = function(Value)
-      if Value then
-         local success = startHorseManipulation()
-         if not success then
-            MainToggle:Set(false)
-         end
-      else
-         stopHorseManipulation()
-      end
-   end,
-})
-
--- 🏝️ ISLAND SETTINGS SECTION
-local IslandSettingsSection = parentTab:CreateSection("🏝️ Island Configuration")
+-- 🏝️ NEW: Island Control Section
+local IslandControlSection = parentTab:CreateSection("🏝️ Island Detection & Control")
 
 local MultiIslandToggle = parentTab:CreateToggle({
-   Name = "🌍 Multi-Island Mode",
+   Name = "🌍 Multi-Island Scanning",
    CurrentValue = true,
-   Flag = "MultiIslandModeToggle",
+   Flag = "MultiIslandScanningToggle",
    Callback = function(Value)
-      horseManipulator.settings.multiIslandMode = Value
+      horseCatcher.settings.multiIslandScanning = Value
       Rayfield:Notify({
          Title = "🌍 Multi-Island " .. (Value and "Enabled" or "Disabled"),
-         Content = Value and "Will scan all islands for horses" or "Only current island",
+         Content = Value and "Scanning all islands for horses" or "Current island only",
          Duration = 2,
          Image = 4483362458,
       })
@@ -1141,558 +1060,436 @@ local PrioritizeCurrentToggle = parentTab:CreateToggle({
    CurrentValue = true,
    Flag = "PrioritizeCurrentIslandToggle",
    Callback = function(Value)
-      horseManipulator.settings.prioritizeCurrentIsland = Value
+      horseCatcher.settings.prioritizeCurrentIsland = Value
    end,
 })
 
-local IslandScanRadiusSlider = parentTab:CreateSlider({
-   Name = "🔍 Island Scan Radius",
+local MaxIslandDistanceSlider = parentTab:CreateSlider({
+   Name = "🗺️ Max Island Distance",
    Range = {500, 2000},
    Increment = 100,
    Suffix = " studs",
    CurrentValue = 1000,
-   Flag = "IslandScanRadiusSlider",
+   Flag = "MaxIslandDistanceSlider",
    Callback = function(Value)
-      horseManipulator.settings.islandScanRadius = Value
+      horseCatcher.settings.maxIslandDistance = Value
    end,
 })
 
--- 🌀 ENHANCED TELEPORTATION CONTROL SECTION
-local TeleportationControlSection = parentTab:CreateSection("🌀 Advanced Horse Teleportation")
+-- 🎯 MAIN CONTROL SECTION
+local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
 
-local AutoTeleportToggle = parentTab:CreateToggle({
-   Name = "🌀 Auto Teleport Controlled Horses",
+local MainToggle = parentTab:CreateToggle({
+   Name = "🚀 Ultra Horse Catching",
    CurrentValue = false,
-   Flag = "AutoTeleportToggle",
+   Flag = "UltraHorseCatchingMainToggle",
    Callback = function(Value)
-      horseManipulator.settings.autoTeleport = Value
-      
-      if horseManipulator.isRunning then
-         if horseManipulator.connections.teleportation then
-            horseManipulator.connections.teleportation:Disconnect()
-            horseManipulator.connections.teleportation = nil
-         end
-         
-         if Value then
-            horseManipulator.connections.teleportation = RunService.Heartbeat:Connect(function()
-               if not horseManipulator.isRunning then return end
-               
-               local currentTime = tick()
-               local teleportInterval = horseManipulator.settings.teleportLoop and horseManipulator.settings.teleportInterval or (horseManipulator.settings.teleportInterval * 2)
-               
-               if currentTime - horseManipulator.runtime.lastTeleportTime < teleportInterval then
-                  return
-               end
-               
-               local teleported = batchTeleportControlledHorses()
-               
-               if teleported > 0 and horseManipulator.settings.teleportLoop then
-                  if teleported >= 3 then
-                     Rayfield:Notify({
-                        Title = "🌀 Island Loop Teleport!",
-                        Content = "Teleported " .. teleported .. " horses | Formation: " .. horseManipulator.settings.teleportFormation,
-                        Duration = 1.5,
-                        Image = 4483362458,
-                     })
-                  end
-               end
-               
-               horseManipulator.runtime.lastTeleportTime = currentTime
-            end)
-         end
-      end
-      
-      Rayfield:Notify({
-         Title = "🌀 Auto Teleport " .. (Value and "Enabled" or "Disabled"),
-         Content = Value and "Island horses will be teleported to you!" or "Auto teleportation disabled",
-         Duration = 3,
-         Image = 4483362458,
-      })
-   end,
-})
-
-local TeleportLoopToggle = parentTab:CreateToggle({
-   Name = "🔄 Teleport Loop Mode",
-   CurrentValue = false,
-   Flag = "TeleportLoopToggle",
-   Callback = function(Value)
-      horseManipulator.settings.teleportLoop = Value
-      Rayfield:Notify({
-         Title = "🔄 Loop Mode " .. (Value and "Enabled" or "Disabled"),
-         Content = Value and "Horses will be continuously teleported!" or "Single teleport mode",
-         Duration = 2,
-         Image = 4483362458,
-      })
-   end,
-})
-
-local TeleportFormationDropdown = parentTab:CreateDropdown({
-   Name = "🎪 Teleport Formation",
-   Options = {"circle", "line", "grid"},
-   CurrentOption = {"circle"},
-   MultipleOptions = false,
-   Flag = "TeleportFormationDropdown",
-   Callback = function(Option)
-      horseManipulator.settings.teleportFormation = Option[1]
-      Rayfield:Notify({
-         Title = "🎪 Formation Updated",
-         Content = "Now using: " .. Option[1]:upper() .. " formation",
-         Duration = 2,
-         Image = 4483362458,
-      })
-   end,
-})
-
-local TeleportRadiusSlider = parentTab:CreateSlider({
-   Name = "🌀 Teleport Radius",
-   Range = {8, 50},
-   Increment = 2,
-   Suffix = " studs",
-   CurrentValue = 15,
-   Flag = "TeleportRadiusSlider",
-   Callback = function(Value)
-      horseManipulator.settings.teleportRadius = Value
-   end,
-})
-
-local TeleportIntervalSlider = parentTab:CreateSlider({
-   Name = "⏱️ Teleport Interval",
-   Range = {1, 10},
-   Increment = 0.5,
-   Suffix = "s",
-   CurrentValue = 3,
-   Flag = "TeleportIntervalSlider",
-   Callback = function(Value)
-      horseManipulator.settings.teleportInterval = Value
-   end,
-})
-
-local TeleportHeightSlider = parentTab:CreateSlider({
-   Name = "📏 Teleport Height",
-   Range = {0, 15},
-   Increment = 1,
-   Suffix = " studs",
-   CurrentValue = 5,
-   Flag = "TeleportHeightSlider",
-   Callback = function(Value)
-      horseManipulator.settings.teleportHeight = Value
-   end,
-})
-
-local InstantTeleportButton = parentTab:CreateButton({
-   Name = "⚡ Instant Teleport All",
-   Callback = function()
-      local teleported = batchTeleportControlledHorses()
-      Rayfield:Notify({
-         Title = "⚡ Instant Island Teleport",
-         Content = "Teleported " .. teleported .. " controlled horses to you! Formation: " .. horseManipulator.settings.teleportFormation,
-         Duration = 3,
-         Image = 4483362458,
-      })
-   end,
-})
-
--- 🎛️ ULTRA SETTINGS SECTION (same as before but enhanced)
-local UltraSettingsSection = parentTab:CreateSection("🎛️ Ultra Island Optimization")
-
-local GlobalModeToggle = parentTab:CreateToggle({
-   Name = "🌍 Global Mode (No Distance Limits)",
-   CurrentValue = true,
-   Flag = "UltraGlobalModeToggle",
-   Callback = function(Value)
-      horseManipulator.settings.globalManipulation = Value
-   end,
-})
-
-local UltraModeToggle = parentTab:CreateToggle({
-   Name = "⚡ Ultra Performance Mode",
-   CurrentValue = true,
-   Flag = "UltraPerformanceModeToggle",
-   Callback = function(Value)
-      horseManipulator.settings.ultraMode = Value
       if Value then
-         horseManipulator.settings.enforcementInterval = 0.25
-         horseManipulator.settings.maxBatchSize = 15
+         local success = startHorseCatching()
+         if not success then
+            MainToggle:Set(false)
+         end
       else
-         horseManipulator.settings.enforcementInterval = 0.5
-         horseManipulator.settings.maxBatchSize = 10
+         stopHorseCatching()
       end
    end,
 })
 
-local ManipulationIntervalSlider = parentTab:CreateSlider({
-   Name = "⏱️ Manipulation Interval",
-   Range = {0.5, 5},
+-- 📍 MOVEMENT & SETTINGS SECTION
+local MovementSettingsSection = parentTab:CreateSection("📍 Movement & Optimization")
+
+local MovementDropdown = parentTab:CreateDropdown({
+   Name = "📍 Movement Mode",
+   Options = {"attachment", "pulse", "smooth"},
+   CurrentOption = {"attachment"},
+   MultipleOptions = false,
+   Flag = "UltraHorseMovementModeDropdown",
+   Callback = function(Option)
+      horseCatcher.settings.movementMode = Option[1]
+      Rayfield:Notify({
+         Title = "📍 Movement Updated",
+         Content = "Now using: " .. Option[1]:upper() .. " mode (Ultra-Optimized)",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+local PulseIntervalSlider = parentTab:CreateSlider({
+   Name = "⚡ Pulse Interval",
+   Range = {0.4, 2},
    Increment = 0.1,
    Suffix = "s",
-   CurrentValue = 1.5,
-   Flag = "UltraManipulationIntervalSlider",
+   CurrentValue = 0.8,
+   Flag = "UltraHorsePulseIntervalSlider",
    Callback = function(Value)
-      horseManipulator.settings.manipulationInterval = Value
+      horseCatcher.settings.pulseInterval = Value
    end,
 })
 
-local EnforcementIntervalSlider = parentTab:CreateSlider({
-   Name = "🔒 Enforcement Interval",
-   Range = {0.1, 1},
+local PulseDistanceSlider = parentTab:CreateSlider({
+   Name = "📏 Pulse Distance", 
+   Range = {4, 15},
+   Increment = 1,
+   Suffix = " studs",
+   CurrentValue = 8,
+   Flag = "UltraHorsePulseDistanceSlider",
+   Callback = function(Value)
+      horseCatcher.settings.pulseDistance = Value
+   end,
+})
+
+local CaptureCooldownSlider = parentTab:CreateSlider({
+   Name = "⏱️ Capture Cooldown",
+   Range = {0.2, 1},
    Increment = 0.05,
    Suffix = "s",
-   CurrentValue = 0.25,
-   Flag = "UltraEnforcementIntervalSlider",
+   CurrentValue = 0.4,
+   Flag = "UltraHorseCaptureCooldownSlider",
    Callback = function(Value)
-      horseManipulator.settings.enforcementInterval = Value
+      horseCatcher.settings.captureCooldown = Value
+   end,
+})
+
+local SmartTargetingToggle = parentTab:CreateToggle({
+   Name = "🧠 Smart Targeting",
+   CurrentValue = true,
+   Flag = "UltraHorseSmartTargetingToggle",
+   Callback = function(Value)
+      horseCatcher.settings.smartTargeting = Value
+   end,
+})
+
+local AggressiveTargetingToggle = parentTab:CreateToggle({
+   Name = "🎯 Aggressive Targeting",
+   CurrentValue = true,
+   Flag = "UltraHorseAggressiveTargetingToggle",
+   Callback = function(Value)
+      horseCatcher.settings.aggressiveTargeting = Value
+   end,
+})
+
+-- 📊 ENHANCED STATUS SECTION WITH ISLAND INFO
+local LiveStatusSection = parentTab:CreateSection("📊 Professional Status")
+
+local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
+local SystemStatus = parentTab:CreateParagraph({Title = "🔧 System Status", Content = "Ultra-optimized system ready"})
+local CatchingStatus = parentTab:CreateParagraph({Title = "🎯 Catching Status", Content = "Professional mode ready"})
+local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
+local PerformanceMetrics = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Monitoring ready"})
+
+-- ⚙️ ADVANCED SETTINGS SECTION
+local AdvancedSettingsSection = parentTab:CreateSection("⚙️ Advanced Optimization")
+
+local MaxAttemptsSlider = parentTab:CreateSlider({
+   Name = "🎯 Max Attempts per Horse",
+   Range = {6, 20},
+   Increment = 1,
+   Suffix = " attempts",
+   CurrentValue = 12,
+   Flag = "UltraHorseMaxAttemptsSlider",
+   Callback = function(Value)
+      horseCatcher.settings.maxAttemptsPerHorse = Value
+   end,
+})
+
+local StuckTimeSlider = parentTab:CreateSlider({
+   Name = "⏳ Max Stuck Time",
+   Range = {5, 20},
+   Increment = 1,
+   Suffix = "s",
+   CurrentValue = 10,
+   Flag = "UltraHorseStuckTimeSlider", 
+   Callback = function(Value)
+      horseCatcher.settings.maxStuckTime = Value
+   end,
+})
+
+local TargetingRadiusSlider = parentTab:CreateSlider({
+   Name = "🎯 Targeting Radius",
+   Range = {100, 500},
+   Increment = 25,
+   Suffix = " studs",
+   CurrentValue = 300,
+   Flag = "UltraHorseTargetingRadiusSlider",
+   Callback = function(Value)
+      horseCatcher.settings.targetingRadius = Value
    end,
 })
 
 local BatchSizeSlider = parentTab:CreateSlider({
-   Name = "📦 Ultra Batch Size",
-   Range = {5, 25},
+   Name = "📦 Batch Processing Size",
+   Range = {3, 15},
    Increment = 1,
    Suffix = " horses",
-   CurrentValue = 15,
-   Flag = "UltraBatchSizeSlider",
+   CurrentValue = 5,
+   Flag = "UltraHorseBatchSizeSlider",
    Callback = function(Value)
-      horseManipulator.settings.maxBatchSize = Value
+      horseCatcher.settings.maxBatchSize = Value
    end,
 })
 
-local FleeDistanceSlider = parentTab:CreateSlider({
-   Name = "🏃 Flee Distance Override",
-   Range = {0, 100},
-   Increment = 5,
-   Suffix = " studs",
-   CurrentValue = 0,
-   Flag = "UltraFleeDistanceSlider",
-   Callback = function(Value)
-      horseManipulator.settings.fleeDistance = Value
-   end,
-})
+-- ⚡ QUICK ACTIONS SECTION
+local QuickActionsSection = parentTab:CreateSection("⚡ Professional Actions")
 
--- 🎯 ATTRIBUTE CONTROLS SECTION (same as before)
-local AttributeControlsSection = parentTab:CreateSection("🎯 Attribute Controls")
-
-local ContinuousEnforcementToggle = parentTab:CreateToggle({
-   Name = "🔒 Continuous Enforcement",
-   CurrentValue = true,
-   Flag = "UltraContinuousEnforcementToggle",
-   Callback = function(Value)
-      horseManipulator.settings.continuousEnforcement = Value
-   end,
-})
-
-local FollowerToggle = parentTab:CreateToggle({
-   Name = "🐎 Follower Behaviour",
-   CurrentValue = true,
-   Flag = "UltraFollowerToggle",
-   Callback = function(Value)
-      horseManipulator.settings.enableFollower = Value
-   end,
-})
-
-local FleeDistanceToggle = parentTab:CreateToggle({
-   Name = "🏃 Flee Distance Control",
-   CurrentValue = true,
-   Flag = "UltraFleeDistanceToggle",
-   Callback = function(Value)
-      horseManipulator.settings.enableFleeDistance = Value
-   end,
-})
-
-local ExclusiveControlToggle = parentTab:CreateToggle({
-   Name = "🎯 Exclusive Control",
-   CurrentValue = true,
-   Flag = "UltraExclusiveControlToggle",
-   Callback = function(Value)
-      horseManipulator.settings.enableLastPlayerToThrow = Value
-   end,
-})
-
--- 📊 ENHANCED ISLAND STATUS SECTION
-local EnhancedIslandStatusSection = parentTab:CreateSection("📊 Enhanced Island Status")
-
-local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Current Island", Content = "Detecting island..."})
-local IslandHorseStats = parentTab:CreateParagraph({Title = "🐎 Island Horse Statistics", Content = "Scanning islands..."})
-local SystemStatus = parentTab:CreateParagraph({Title = "🚀 Ultra System Status", Content = "Ultra-optimized island system ready"})
-local TeleportStatus = parentTab:CreateParagraph({Title = "🌀 Teleportation Status", Content = "Island teleportation ready"})
-local GlobalStats = parentTab:CreateParagraph({Title = "🌍 Global Statistics", Content = "Global island monitoring ready"})
-local PerformanceMetrics = parentTab:CreateParagraph({Title = "⚡ Performance Metrics", Content = "Ultra-performance monitoring"})
-
--- ⚡ ENHANCED ACTIONS SECTION
-local EnhancedActionsSection = parentTab:CreateSection("⚡ Enhanced Island Actions")
-
-local GlobalInstantButton = parentTab:CreateButton({
-   Name = "🌍 Instant Global Island Manipulation",
+local ClearCacheButton = parentTab:CreateButton({
+   Name = "🗑️ Clear Performance Cache",
    Callback = function()
-      local wildHorses = updateGlobalWildHorses()
-      local manipulated = 0
-      local islandBreakdown = {}
-      
-      for _, horseData in pairs(wildHorses) do
-         if horseData.horse and not horseManipulator.manipulatedHorses[horseData.horse.Name] then
-            local success, horseName = manipulateHorseAttributes(horseData.horse)
-            if success then
-               manipulated = manipulated + 1
-               islandBreakdown[horseData.location] = (islandBreakdown[horseData.location] or 0) + 1
-            end
-         end
-      end
-      
-      local breakdown = ""
-      for island, count in pairs(islandBreakdown) do
-         breakdown = breakdown .. island .. ": " .. count .. " | "
-      end
+      Cache.horses = {}
+      Cache.horsesById = {}
+      Cache.islandHorses = {}
+      Cache.lastUpdate = 0
+      horseCatcher.performance.captureTimes = {}
+      horseCatcher.performance.targetingTimes = {}
+      horseCatcher.performance.movementTimes = {}
+      horseCatcher.performance.islandScanTimes = {}
       
       Rayfield:Notify({
-         Title = "🌍 Global Island Manipulation Complete",
-         Content = "Controlled " .. manipulated .. " horses across all islands! " .. breakdown,
-         Duration = 5,
-         Image = 4483362458,
-      })
-   end,
-})
-
-local UltraEnforceButton = parentTab:CreateButton({
-   Name = "🔒 Ultra Global Island Enforcement",
-   Callback = function()
-      local manipulatedHorses = updateManipulatedHorses()
-      local enforced, changes = batchEnforceAttributes(manipulatedHorses)
-      
-      Rayfield:Notify({
-         Title = "🔒 Ultra Island Enforcement Complete",
-         Content = "Ultra-enforced " .. enforced .. " horses with " .. changes .. " changes across all islands!",
-         Duration = 4,
-         Image = 4483362458,
-      })
-   end,
-})
-
-local ResetIslandStatsButton = parentTab:CreateButton({
-   Name = "📊 Reset Island Statistics",
-   Callback = function()
-      horseManipulator.statistics = {
-         totalManipulated = 0,
-         totalEnforcements = 0,
-         totalScans = 0,
-         totalBatches = 0,
-         totalTeleports = 0,
-         sessionsRun = 0,
-         horsesControlled = 0,
-         averageEnforcementTime = 0,
-         peakHorsesControlled = 0,
-         enforcementsPerSecond = 0,
-         globalCoverage = 0,
-         horsesNearbyPeak = 0,
-         islandStats = {},
-         teleportEfficiency = 0
-      }
-      horseManipulator.runtime.manipulatedCount = 0
-      horseManipulator.runtime.enforcementCount = 0
-      horseManipulator.runtime.teleportCount = 0
-      horseManipulator.runtime.islandScanCount = 0
-      
-      Rayfield:Notify({
-         Title = "📊 Island Stats Reset",
-         Content = "All island statistics have been reset",
+         Title = "🗑️ Cache Cleared",
+         Content = "Performance cache optimized",
          Duration = 2,
          Image = 4483362458,
       })
    end,
 })
 
--- 📈 ENHANCED ISLAND STATISTICS SECTION
-local EnhancedIslandStatisticsSection = parentTab:CreateSection("📈 Enhanced Island Statistics")
+local ResetCapturedButton = parentTab:CreateButton({
+   Name = "🔄 Reset Captured List",
+   Callback = function()
+      horseCatcher.capturedHorses = {}
+      Rayfield:Notify({
+         Title = "✅ List Reset",
+         Content = "Captured horses list cleared",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
 
-local SessionMetrics = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Enhanced island session ready"})
-local AllTimeMetrics = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No island data yet"})
-local TeleportMetrics = parentTab:CreateParagraph({Title = "🌀 Teleportation Metrics", Content = "Island teleport tracking ready"})
-local IslandBreakdown = parentTab:CreateParagraph({Title = "🏝️ Island Breakdown", Content = "Per-island statistics ready"})
+local ResetStatsButton = parentTab:CreateButton({
+   Name = "📊 Reset Statistics",
+   Callback = function()
+      horseCatcher.statistics = {
+         totalCaptured = 0,
+         sessionsRun = 0,
+         currentStreak = 0,
+         totalAttempts = 0,
+         successfulCaptures = 0,
+         bestStreak = 0,
+         averageCaptureTime = 0,
+         horsesPerMinute = 0,
+         islandStats = {}
+      }
+      Rayfield:Notify({
+         Title = "📊 Stats Reset",
+         Content = "All statistics have been reset",
+         Duration = 2,
+         Image = 4483362458,
+      })
+   end,
+})
+
+-- 📈 ENHANCED STATISTICS SECTION
+local StatisticsSection = parentTab:CreateSection("📈 Professional Statistics")
+
+local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for ultra session"})
+local AllTimeStats = parentTab:CreateParagraph({Title = "🏆 All-Time Records", Content = "No data yet"})
+local IslandStats = parentTab:CreateParagraph({Title = "🏝️ Island Statistics", Content = "No island data yet"})
+local PerformanceAnalytics = parentTab:CreateParagraph({Title = "⚡ Performance Analytics", Content = "Monitoring ready"})
 
 -- =================================
--- ENHANCED STATUS UPDATE SYSTEM WITH ISLAND DETECTION
+-- ENHANCED STATUS UPDATE SYSTEM WITH ISLAND INFO
 -- =================================
 spawn(function()
-    while wait(0.5) do
+    while wait(0.8) do -- Optimized update frequency
         local currentIsland = detectCurrentIsland()
         
-        -- Island Information
+        -- NEW: Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "🔍 Island Detection: " .. (islandSystem.currentIsland ~= "Unknown" and "✅" or "❌") .. "\n"
-        islandText = islandText .. "🌍 Multi-Island Mode: " .. (horseManipulator.settings.multiIslandMode and "✅" or "❌") .. "\n"
-        islandText = islandText .. "📍 Prioritize Current: " .. (horseManipulator.settings.prioritizeCurrentIsland and "✅" or "❌") .. "\n"
-        islandText = islandText .. "🔄 Island Scans: " .. horseManipulator.runtime.islandScanCount
+        islandText = islandText .. "🐎 Horses on Island: " .. (horseCatcher.runtime.currentIslandHorses or 0) .. "\n"
         
-        IslandInfo:Set({Title = "🏝️ Current Island", Content = islandText})
-        
-        -- Island Horse Statistics
-        local horseStatsText = "🐎 Current Island Horses: " .. (horseManipulator.runtime.currentIslandHorses or 0) .. "\n"
-        
-        local totalIslandHorses = 0
-        local islandCount = 0
+        local totalIslands = 0
+        local totalHorses = 0
         for islandName, horseCount in pairs(Cache.islandHorses) do
-            totalIslandHorses = totalIslandHorses + horseCount
-            islandCount = islandCount + 1
-            if islandCount <= 3 then -- Show top 3 islands
-                horseStatsText = horseStatsText .. "• " .. islandName .. ": " .. horseCount .. " horses\n"
-            end
+            totalIslands = totalIslands + 1
+            totalHorses = totalHorses + horseCount
         end
         
-        if islandCount > 3 then
-            horseStatsText = horseStatsText .. "• +" .. (islandCount - 3) .. " more islands..."
+        islandText = islandText .. "🌍 Islands Scanned: " .. totalIslands .. "\n"
+        islandText = islandText .. "📊 Total Horses: " .. totalHorses .. "\n"
+        islandText = islandText .. "🔍 Multi-Island: " .. (horseCatcher.settings.multiIslandScanning and "✅" or "❌")
+        
+        IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
+        
+        -- System Status
+        local systemText = ""
+        if gameSystem.available and gameSystem.networkReady then
+            systemText = "✅ Game System: Ultra-Connected\n✅ Network (u2): High-Performance\n✅ Capture Remote: Optimized"
+        elseif gameSystem.available then
+            systemText = "⚠️ Game System: Connected\n❌ Network (u2): Limited\n❌ Performance Degraded"
+        else
+            systemText = "❌ Game System: Disconnected\n❌ Network: Unavailable\n❌ System Failure"
         end
         
-        IslandHorseStats:Set({Title = "🐎 Island Horse Statistics", Content = horseStatsText})
+        local lassoReady, lassoID = equipLasso()
+        if lassoReady then
+            systemText = systemText .. "\n✅ Lasso: Ready (" .. (lassoID and lassoID:sub(1,8) or "Unknown") .. "...)"
+        else
+            systemText = systemText .. "\n❌ Lasso: Not Found"
+        end
         
-        -- Enhanced System Status
-        local statusText = ""
-        if horseManipulator.isRunning then
-            local runtime = tick() - horseManipulator.runtime.sessionStartTime
+        local cacheSize = #Cache.horses
+        systemText = systemText .. "\n📦 Cache: " .. cacheSize .. " horses"
+        systemText = systemText .. "\n🏝️ Island: " .. currentIsland
+        
+        SystemStatus:Set({Title = "🔧 System Status", Content = systemText})
+        
+        -- Catching Status
+        local catchingText = ""
+        if horseCatcher.isRunning then
+            local runtime = tick() - horseCatcher.runtime.sessionStartTime
             local minutes = math.floor(runtime / 60)
             local seconds = math.floor(runtime % 60)
             
-            statusText = "🚀 ULTRA-ISLAND-ACTIVE\n"
-            statusText = statusText .. "🏝️ Island: " .. currentIsland .. "\n"
-            statusText = statusText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
-            statusText = statusText .. "🌍 Global: " .. (horseManipulator.settings.globalManipulation and "✅" or "❌") .. "\n"
-            statusText = statusText .. "🎭 Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
-            statusText = statusText .. "🔒 Enforcements: " .. horseManipulator.runtime.enforcementCount .. "\n"
-            statusText = statusText .. "🌀 Teleports: " .. horseManipulator.runtime.teleportCount
+            catchingText = "🚀 ULTRA-ACTIVE (" .. horseCatcher.settings.movementMode:upper() .. ")\n"
+            catchingText = catchingText .. "🏝️ Island: " .. currentIsland .. "\n"
+            catchingText = catchingText .. "⏱️ Runtime: " .. minutes .. "m " .. seconds .. "s\n"
+            catchingText = catchingText .. "🎯 Cooldown: " .. horseCatcher.settings.captureCooldown .. "s\n"
+            catchingText = catchingText .. "🧠 Smart: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n"
+            catchingText = catchingText .. "⚡ Aggressive: " .. (horseCatcher.settings.aggressiveTargeting and "✅" or "❌")
         else
-            statusText = "🔴 STOPPED\n🏝️ Island: " .. currentIsland .. "\n💤 Enhanced island system ready\n🌍 Multi-island manipulation available\n🌀 Auto teleportation ready\n⚡ Ultra-performance optimizations\n🚀 Maximum island efficiency mode"
+            catchingText = "🔴 STOPPED\n🏝️ Island: " .. currentIsland .. "\n💤 Ultra-optimized system ready\n⚙️ Mode: " .. horseCatcher.settings.movementMode:upper() .. " (Professional)\n🔧 System: " .. (gameSystem.available and gameSystem.networkReady and "✅" or "❌") .. "\n🚀 Ultra-performance ready"
         end
-        SystemStatus:Set({Title = "🚀 Ultra System Status", Content = statusText})
+        CatchingStatus:Set({Title = "🎯 Catching Status", Content = catchingText})
         
-        -- Enhanced Teleportation Status
-        local teleportText = ""
-        if horseManipulator.settings.autoTeleport then
-            teleportText = "🌀 AUTO-TELEPORT ACTIVE\n"
-            teleportText = teleportText .. "🎪 Formation: " .. horseManipulator.settings.teleportFormation:upper() .. "\n"
-            teleportText = teleportText .. "🔄 Loop Mode: " .. (horseManipulator.settings.teleportLoop and "✅" or "❌") .. "\n"
-            teleportText = teleportText .. "📏 Radius: " .. horseManipulator.settings.teleportRadius .. " studs\n"
-            teleportText = teleportText .. "⏱️ Interval: " .. horseManipulator.settings.teleportInterval .. "s\n"
-            teleportText = teleportText .. "📊 Horses Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
-            teleportText = teleportText .. "🌀 Total Teleports: " .. horseManipulator.runtime.teleportCount .. "\n"
-            teleportText = teleportText .. "📈 Efficiency: " .. string.format("%.1f", horseManipulator.statistics.teleportEfficiency) .. "%"
+        -- Target Info with enhanced data
+        local targetText = ""
+        if horseCatcher.currentTarget then
+            local targetName = getHorseName(horseCatcher.currentTarget)
+            local distance = math.floor((humanoidRootPart.Position - horseCatcher.currentTarget.HumanoidRootPart.Position).Magnitude)
+            local velocity = math.floor(horseCatcher.currentTarget.HumanoidRootPart.Velocity.Magnitude)
+            
+            targetText = "🐎 " .. targetName .. "\n"
+            targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
+            targetText = targetText .. "🏃 Speed: " .. velocity .. " studs/s\n"
+            targetText = targetText .. "🎯 Attempts: " .. horseCatcher.runtime.currentAttempts .. "/" .. horseCatcher.settings.maxAttemptsPerHorse .. "\n"
+            
+            if horseCatcher.settings.movementMode == "attachment" then
+                targetText = targetText .. "🔗 Attached: " .. (horseCatcher.isAttached and "✅" or "❌")
+            elseif horseCatcher.settings.movementMode == "pulse" then
+                local nextPulse = math.max(0, horseCatcher.settings.pulseInterval - (tick() - horseCatcher.runtime.lastPulseTime))
+                targetText = targetText .. "⚡ Next Pulse: " .. string.format("%.1f", nextPulse) .. "s"
+            else
+                targetText = targetText .. "🌊 Smooth Follow: Ultra-Active"
+            end
         else
-            teleportText = "🔴 TELEPORT DISABLED\n🎪 Formation: " .. horseManipulator.settings.teleportFormation:upper() .. "\n⚙️ Radius: " .. horseManipulator.settings.teleportRadius .. " studs\n⏱️ Interval: " .. horseManipulator.settings.teleportInterval .. "s\n🌀 Manual teleportation available\n📊 Nearby tracking active\n🏝️ Island-aware teleportation"
+            local wildCount = #Cache.horses
+            targetText = "🔍 Scanning for optimal targets...\n🐎 Wild horses cached: " .. wildCount .. "\n📊 Targeting radius: " .. horseCatcher.settings.targetingRadius .. " studs\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "Active" or "Disabled") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
         end
-        TeleportStatus:Set({Title = "🌀 Teleportation Status", Content = teleportText})
+        TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
         
-        -- Enhanced Global Statistics
-        local wildHorsesCount = #Cache.wildHorses
-        local manipulatedCount = 0
-        for _ in pairs(horseManipulator.manipulatedHorses) do
-            manipulatedCount = manipulatedCount + 1
-        end
-        
-        local globalCoverage = wildHorsesCount > 0 and (manipulatedCount / wildHorsesCount) * 100 or 0
-        
-        local globalText = "🌍 Total Horses Scanned: " .. wildHorsesCount .. "\n"
-        globalText = globalText .. "🎯 Currently Controlled: " .. manipulatedCount .. "\n"
-        globalText = globalText .. "📊 Global Coverage: " .. string.format("%.1f", globalCoverage) .. "%\n"
-        globalText = globalText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
-        globalText = globalText .. "🌀 Horses Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
-        globalText = globalText .. "📈 Peak Nearby: " .. horseManipulator.statistics.horsesNearbyPeak .. "\n"
-        globalText = globalText .. "🏝️ Islands Scanned: " .. islandCount .. "\n"
-        globalText = globalText .. "📦 Total Island Horses: " .. totalIslandHorses
-        GlobalStats:Set({Title = "🌍 Global Statistics", Content = globalText})
-        
-        -- Enhanced Performance Metrics
-        local avgTeleportTime = 0
-        if #horseManipulator.performance.teleportTimes > 0 then
+        -- Performance Metrics
+        local avgCaptureTime = 0
+        if #horseCatcher.performance.captureTimes > 0 then
             local total = 0
-            for _, time in pairs(horseManipulator.performance.teleportTimes) do
+            for _, time in pairs(horseCatcher.performance.captureTimes) do
                 total = total + time
             end
-            avgTeleportTime = total / #horseManipulator.performance.teleportTimes
+            avgCaptureTime = total / #horseCatcher.performance.captureTimes
+        end
+        
+        local avgTargetingTime = 0
+        if #horseCatcher.performance.targetingTimes > 0 then
+            local total = 0
+            for _, time in pairs(horseCatcher.performance.targetingTimes) do
+                total = total + time
+            end
+            avgTargetingTime = total / #horseCatcher.performance.targetingTimes
         end
         
         local avgIslandScanTime = 0
-        if #horseManipulator.performance.islandScanTimes > 0 then
+        if #horseCatcher.performance.islandScanTimes > 0 then
             local total = 0
-            for _, time in pairs(horseManipulator.performance.islandScanTimes) do
+            for _, time in pairs(horseCatcher.performance.islandScanTimes) do
                 total = total + time
             end
-            avgIslandScanTime = total / #horseManipulator.performance.islandScanTimes
+            avgIslandScanTime = total / #horseCatcher.performance.islandScanTimes
         end
         
-        local performanceText = "⚡ Enforcement: " .. string.format("%.2f", horseManipulator.statistics.enforcementsPerSecond) .. "/s\n"
-        performanceText = performanceText .. "🌀 Avg Teleport: " .. string.format("%.3f", avgTeleportTime * 1000) .. "ms\n"
+        local performanceText = "⚡ Avg Capture: " .. string.format("%.3f", avgCaptureTime * 1000) .. "ms\n"
+        performanceText = performanceText .. "🎯 Avg Targeting: " .. string.format("%.3f", avgTargetingTime * 1000) .. "ms\n"
         performanceText = performanceText .. "🏝️ Avg Island Scan: " .. string.format("%.3f", avgIslandScanTime * 1000) .. "ms\n"
-        performanceText = performanceText .. "📦 Max Batch: " .. horseManipulator.performance.maxBatchSize .. "\n"
-        performanceText = performanceText .. "🔄 Cache: " .. wildHorsesCount .. " horses\n"
-        performanceText = performanceText .. "🚀 Status: ULTRA-ISLAND-OPTIMIZED"
+        performanceText = performanceText .. "📦 Cache Size: " .. #Cache.horses .. " horses\n"
+        performanceText = performanceText .. "🔄 Cache Updates: " .. horseCatcher.runtime.targetingCount .. "\n"
+        performanceText = performanceText .. "🎯 Capture Attempts: " .. horseCatcher.runtime.captureAttempts
         PerformanceMetrics:Set({Title = "⚡ Performance Metrics", Content = performanceText})
         
-        -- Enhanced Session Metrics
-        if horseManipulator.isRunning then
-            local sessionTime = tick() - horseManipulator.runtime.sessionStartTime
+        -- Session Statistics
+        if horseCatcher.isRunning then
+            local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
             local sessionMinutes = math.floor(sessionTime / 60)
             local sessionSeconds = math.floor(sessionTime % 60)
             
-            local manipulationRate = sessionTime > 0 and (horseManipulator.runtime.manipulatedCount / (sessionTime / 60)) or 0
-            local teleportRate = sessionTime > 0 and (horseManipulator.runtime.teleportCount / (sessionTime / 60)) or 0
-            
             local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
+            sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
+            sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
+            sessionText = sessionText .. "🎯 Total Attempts: " .. horseCatcher.runtime.captureAttempts .. "\n"
             sessionText = sessionText .. "🏝️ Current Island: " .. currentIsland .. "\n"
-            sessionText = sessionText .. "🎭 Horses Controlled: " .. horseManipulator.runtime.manipulatedCount .. "\n"
-            sessionText = sessionText .. "📈 Control Rate: " .. string.format("%.1f", manipulationRate) .. "/min\n"
-            sessionText = sessionText .. "🌀 Teleports: " .. horseManipulator.runtime.teleportCount .. "\n"
-            sessionText = sessionText .. "📊 Teleport Rate: " .. string.format("%.1f", teleportRate) .. "/min\n"
-            sessionText = sessionText .. "🌍 Coverage: " .. string.format("%.1f", globalCoverage) .. "%\n"
-            sessionText = sessionText .. "🏝️ Island Scans: " .. horseManipulator.runtime.islandScanCount
+            sessionText = sessionText .. "📊 Mode: " .. horseCatcher.settings.movementMode:upper() .. " (Ultra-Optimized)"
             
-            SessionMetrics:Set({Title = "📈 Session Metrics", Content = sessionText})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
         else
-            SessionMetrics:Set({Title = "📈 Session Metrics", Content = "No island session active\nEnhanced island monitoring ready\n🌍 Multi-island manipulation\n🌀 Auto teleportation with formations\n🏝️ Professional island detection\n🚀 Ultra-performance"})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nUltra-optimized monitoring ready\n🚀 Professional performance tracking\n🏝️ Island-aware scanning"})
         end
         
-        -- Enhanced All-Time Metrics
-        local allTimeText = "🎭 Total Manipulated: " .. horseManipulator.statistics.totalManipulated .. "\n"
-        allTimeText = allTimeText .. "🔒 Total Enforcements: " .. horseManipulator.statistics.totalEnforcements .. "\n"
-        allTimeText = allTimeText .. "🌀 Total Teleports: " .. horseManipulator.statistics.totalTeleports .. "\n"
-        allTimeText = allTimeText .. "🏝️ Island Scans: " .. horseManipulator.runtime.islandScanCount .. "\n"
-        allTimeText = allTimeText .. "🎮 Sessions: " .. horseManipulator.statistics.sessionsRun .. "\n"
-        allTimeText = allTimeText .. "🏆 Peak Controlled: " .. horseManipulator.statistics.peakHorsesControlled .. "\n"
-        allTimeText = allTimeText .. "📊 Best Coverage: " .. string.format("%.1f", horseManipulator.statistics.globalCoverage) .. "%\n"
-        allTimeText = allTimeText .. "🌀 Best Teleport Efficiency: " .. string.format("%.1f", horseManipulator.statistics.teleportEfficiency) .. "%"
-        
-        AllTimeMetrics:Set({Title = "🏆 All-Time Records", Content = allTimeText})
-        
-        -- Enhanced Teleportation Metrics
-        local teleportMetricsText = "🌀 Session Teleports: " .. horseManipulator.runtime.teleportCount .. "\n"
-        teleportMetricsText = teleportMetricsText .. "📊 Total Teleports: " .. horseManipulator.statistics.totalTeleports .. "\n"
-        teleportMetricsText = teleportMetricsText .. "⚡ Avg Time: " .. string.format("%.3f", avgTeleportTime * 1000) .. "ms\n"
-        teleportMetricsText = teleportMetricsText .. "🔥 Max Time: " .. string.format("%.3f", horseManipulator.performance.maxTeleportTime * 1000) .. "ms\n"
-        teleportMetricsText = teleportMetricsText .. "🎯 Current Nearby: " .. horseManipulator.runtime.horsesNearby .. "\n"
-        teleportMetricsText = teleportMetricsText .. "📈 Peak Nearby: " .. horseManipulator.statistics.horsesNearbyPeak .. "\n"
-        teleportMetricsText = teleportMetricsText .. "🎪 Formation: " .. horseManipulator.settings.teleportFormation:upper() .. "\n"
-        teleportMetricsText = teleportMetricsText .. "🌀 Mode: " .. (horseManipulator.settings.autoTeleport and "AUTO" or "MANUAL")
-        
-        TeleportMetrics:Set({Title = "🌀 Teleportation Metrics", Content = teleportMetricsText})
-        
-        -- Island Breakdown Statistics
-        local breakdownText = "📊 Per-Island Captures:\n"
-        local sortedIslands = {}
-        
-        for islandName, captureCount in pairs(horseManipulator.statistics.islandStats) do
-            table.insert(sortedIslands, {name = islandName, count = captureCount})
+        -- All-Time Statistics
+        local capturedCount = 0
+        for _ in pairs(horseCatcher.capturedHorses) do
+            capturedCount = capturedCount + 1
         end
         
-        table.sort(sortedIslands, function(a, b) return a.count > b.count end)
-        
-        for i, islandData in pairs(sortedIslands) do
-            if i <= 5 then -- Show top 5 islands
-                breakdownText = breakdownText .. "• " .. islandData.name .. ": " .. islandData.count .. " horses\n"
-            end
+        local successRate = 0
+        if horseCatcher.statistics.totalAttempts > 0 then
+            successRate = math.floor((horseCatcher.statistics.successfulCaptures / horseCatcher.statistics.totalAttempts) * 100)
         end
         
-        if #sortedIslands > 5 then
-            breakdownText = breakdownText .. "• +" .. (#sortedIslands - 5) .. " more islands..."
-        elseif #sortedIslands == 0 then
-            breakdownText = breakdownText .. "No captures yet on any islands"
+        local allTimeText = "🏆 Best Streak: " .. horseCatcher.statistics.bestStreak .. "\n"
+        allTimeText = allTimeText .. "📈 Total Captured: " .. horseCatcher.statistics.totalCaptured .. "\n"
+        allTimeText = allTimeText .. "🎮 Sessions Run: " .. horseCatcher.statistics.sessionsRun .. "\n"
+        allTimeText = allTimeText .. "🎯 Success Rate: " .. successRate .. "%\n"
+        allTimeText = allTimeText .. "📝 Marked Horses: " .. capturedCount .. "\n"
+        allTimeText = allTimeText .. "⚡ Avg Capture Time: " .. string.format("%.3f", horseCatcher.statistics.averageCaptureTime * 1000) .. "ms"
+        
+        AllTimeStats:Set({Title = "🏆 All-Time Records", Content = allTimeText})
+        
+        -- NEW: Island Statistics
+        local islandStatsText = "🏝️ Per-Island Captures:\n"
+        local hasStats = false
+        for islandName, captures in pairs(horseCatcher.statistics.islandStats) do
+            islandStatsText = islandStatsText .. "• " .. islandName .. ": " .. captures .. " horses\n"
+            hasStats = true
         end
         
-        IslandBreakdown:Set({Title = "🏝️ Island Breakdown", Content = breakdownText})
+        if not hasStats then
+            islandStatsText = islandStatsText .. "No captures yet"
+        else
+            islandStatsText = islandStatsText .. "\n🌍 Total Islands: " .. totalIslands
+        end
+        
+        IslandStats:Set({Title = "🏝️ Island Statistics", Content = islandStatsText})
+        
+        -- Performance Analytics
+        local cacheEfficiency = #Cache.horses > 0 and (horseCatcher.runtime.targetingCount / #Cache.horses) or 0
+        local captureEfficiency = horseCatcher.runtime.captureAttempts > 0 and (horseCatcher.statistics.successfulCaptures / horseCatcher.runtime.captureAttempts) or 0
+        
+        local analyticsText = "📊 Cache Efficiency: " .. string.format("%.1f", cacheEfficiency * 100) .. "%\n"
+        analyticsText = analyticsText .. "🎯 Capture Efficiency: " .. string.format("%.1f", captureEfficiency * 100) .. "%\n"
+        analyticsText = analyticsText .. "⚡ Max Capture Time: " .. string.format("%.3f", horseCatcher.performance.maxCaptureTime * 1000) .. "ms\n"
+        analyticsText = analyticsText .. "🏝️ Island Detection: " .. (currentIsland ~= "Unknown" and "✅" or "❌") .. "\n"
+        analyticsText = analyticsText .. "🔄 System Performance: ULTRA-OPTIMIZED\n"
+        analyticsText = analyticsText .. "🚀 Status: PROFESSIONAL GRADE"
+        
+        PerformanceAnalytics:Set({Title = "⚡ Performance Analytics", Content = analyticsText})
     end
 end)
 
@@ -1703,13 +1500,23 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     
-    if horseManipulator.isRunning then
-        stopHorseManipulation()
+    -- Reset states
+    horseCatcher.isAttached = false
+    horseCatcher.lassoEquipped = false
+    horseCatcher.currentLassoID = nil
+    
+    -- Reset island detection
+    islandSystem.currentIsland = "Unknown"
+    islandSystem.lastUpdate = 0
+    
+    -- Stop catching if running
+    if horseCatcher.isRunning then
+        stopHorseCatching()
         MainToggle:Set(false)
         
         Rayfield:Notify({
            Title = "🔄 Character Respawned",
-           Content = "Enhanced island manipulation stopped - restart when ready",
+           Content = "Ultra horse catching stopped - restart when ready",
            Duration = 3,
            Image = 4483362458,
         })
@@ -1720,26 +1527,63 @@ end)
 -- ENHANCED INITIALIZATION WITH ISLAND DETECTION
 -- =================================
 Rayfield:Notify({
-   Title = "🚀 Ultra Island Horse Manipulator Loaded!",
-   Content = "Multi-island detection + Auto teleportation | Fixed horse names | Professional island system!",
-   Duration = 6,
+   Title = "🚀 Ultra Horse Catcher Pro Loaded!",
+   Content = "Professional optimizations | Island detection | Enhanced performance | Revolutionary catching system",
+   Duration = 5,
    Image = 4483362458,
 })
 
 -- Initial island detection
 local initialIsland = detectCurrentIsland()
-updateScanLocations()
 
-Rayfield:Notify({
-   Title = "🏝️ Island System Ready!",
-   Content = "Current Island: " .. initialIsland .. " | Multi-island auto teleportation | Formation support ready!",
-   Duration = 4,
-   Image = 4483362458,
-})
+if gameSystem.available and gameSystem.networkReady then
+    Rayfield:Notify({
+       Title = "✅ Ultra System Ready!",
+       Content = "Professional grade performance | Island: " .. initialIsland .. " | Ultra-optimized catching | Maximum efficiency!",
+       Duration = 4,
+       Image = 4483362458,
+    })
+else
+    Rayfield:Notify({
+       Title = "⚠️ Performance Warning",
+       Content = "Network system issues detected - Performance may be limited | Island: " .. initialIsland,
+       Duration = 4,
+       Image = 4483362458,
+    })
+end
 
-print("🚀 Ultra Island Horse Attribute Manipulator - Multi-Island + Teleportation Edition Loaded!")
-print("🏝️ Features: Professional island detection, multi-island control, enhanced teleportation")
-print("🌀 Teleportation: Multiple formations (circle, line, grid), auto-teleport, loop mode")
-print("⚡ Performance: Ultra-optimized island scanning, real-time tracking, professional analytics")
-print("🎯 Current Island: " .. initialIsland)
-print("🔥 Revolutionary: Complete island-aware horse manipulation system!")
+-- Island detection confirmation
+spawn(function()
+    wait(2)
+    local detectedIsland = detectCurrentIsland()
+    if detectedIsland ~= "Unknown" then
+        Rayfield:Notify({
+           Title = "🏝️ Island Detected Successfully!",
+           Content = "Current Island: " .. detectedIsland .. " | Multi-island scanning ready!",
+           Duration = 3,
+           Image = 4483362458,
+        })
+    else
+        Rayfield:Notify({
+           Title = "⚠️ Island Detection Warning",
+           Content = "Could not detect current island - Using fallback methods",
+           Duration = 3,
+           Image = 4483362458,
+        })
+    end
+end)
+
+print("🚀 Ultra Horse Catcher Pro - Professional Optimized Edition with Island Detection Loaded!")
+print("✅ Ultra-optimized movement logic with professional caching")
+print("🎯 Enhanced targeting with intelligent scoring system")
+print("🏝️ Professional island detection and multi-island scanning")
+print("⚡ Professional performance monitoring and analytics")
+print("🌍 Current Island: " .. initialIsland)
+print("🔥 Maximum efficiency horse catching system ready!")
+print("📊 Features:")
+print("   🏝️ Automatic island detection using player attributes")
+print("   🌍 Multi-island horse scanning with smart prioritization")
+print("   🎯 Island-aware targeting system with priority bonuses")
+print("   📈 Per-island capture statistics and analytics")
+print("   ⚡ Enhanced performance monitoring with island scan times")
+print("   🚀 Professional grade optimizations and caching")
