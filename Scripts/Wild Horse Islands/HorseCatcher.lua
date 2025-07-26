@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Simplified CaptureProgress Edition
--- by Iyxo - 2025-07-26 12:29:37
--- Revolutionary horse catching with professional CaptureProgress monitoring
+-- Horse Catcher Pro - Simplified CaptureProgress Edition with World Scanning
+-- by Iyxo - 2025-07-26 12:43:30
+-- Revolutionary horse catching with professional CaptureProgress monitoring and world scanning
 
 local parentTab, Rayfield, Window = ...
 
@@ -16,6 +16,339 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- =================================
+-- WORLD SCANNING SYSTEM
+-- =================================
+local worldScanner = {
+    isScanning = false,
+    scanPoints = {},
+    currentScanIndex = 1,
+    foundHorses = {},
+    originalPosition = nil,
+    
+    settings = {
+        scanPointsCount = 12,
+        waitTime = 0.5,
+        landOnly = true,
+        smartDistribution = true,
+        autoScanOnEmpty = true,
+        scanRadius = 512
+    },
+    
+    -- Mainland bounds (as in your scanner script)
+    mainlandBounds = {
+        corner1 = Vector3.new(-992.5, 6.8, -951.3),
+        corner2 = Vector3.new(1084.9, 6.7, 861.8)
+    },
+    
+    -- Generic bounds for other islands (will be calculated dynamically)
+    islandBounds = {}
+}
+
+-- Check if position is on land (not water)
+local function isOnLand(position)
+    if not worldScanner.settings.landOnly then return true end
+    
+    local success, result = pcall(function()
+        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
+        
+        if raycast and raycast.Instance then
+            if raycast.Instance:IsA("Terrain") then
+                local material = raycast.Material
+                
+                local landMaterials = {
+                    Enum.Material.Grass,
+                    Enum.Material.Ground,
+                    Enum.Material.Rock,
+                    Enum.Material.Sand,
+                    Enum.Material.Snow,
+                    Enum.Material.Mud,
+                    Enum.Material.LeafyGrass,
+                    Enum.Material.Concrete,
+                    Enum.Material.Brick,
+                    Enum.Material.Cobblestone
+                }
+                
+                for _, landMat in pairs(landMaterials) do
+                    if material == landMat then
+                        return true
+                    end
+                end
+                
+                return material ~= Enum.Material.Water
+            else
+                return true
+            end
+        end
+        
+        return false
+    end)
+    
+    return success and result
+end
+
+-- Get bounds for current island
+local function getIslandBounds(islandName)
+    if islandName == "Mainland" then
+        return worldScanner.mainlandBounds
+    end
+    
+    -- For other islands, try to calculate bounds dynamically
+    if worldScanner.islandBounds[islandName] then
+        return worldScanner.islandBounds[islandName]
+    end
+    
+    -- Calculate bounds for non-mainland islands
+    local island = Workspace.Islands:FindFirstChild(islandName)
+    if island then
+        local minX, maxX = math.huge, -math.huge
+        local minY, maxY = math.huge, -math.huge
+        local minZ, maxZ = math.huge, -math.huge
+        
+        local function processObject(obj)
+            if obj:IsA("BasePart") then
+                local pos = obj.Position
+                local size = obj.Size
+                
+                minX = math.min(minX, pos.X - size.X/2)
+                maxX = math.max(maxX, pos.X + size.X/2)
+                minY = math.min(minY, pos.Y - size.Y/2)
+                maxY = math.max(maxY, pos.Y + size.Y/2)
+                minZ = math.min(minZ, pos.Z - size.Z/2)
+                maxZ = math.max(maxZ, pos.Z + size.Z/2)
+            end
+        end
+        
+        local function scanChildren(parent)
+            for _, child in pairs(parent:GetChildren()) do
+                processObject(child)
+                scanChildren(child)
+            end
+        end
+        
+        scanChildren(island)
+        
+        if minX ~= math.huge then
+            worldScanner.islandBounds[islandName] = {
+                corner1 = Vector3.new(minX, minY, minZ),
+                corner2 = Vector3.new(maxX, maxY, maxZ)
+            }
+            return worldScanner.islandBounds[islandName]
+        end
+    end
+    
+    -- Fallback: use player position with radius
+    local playerPos = humanoidRootPart.Position
+    local radius = 500
+    return {
+        corner1 = Vector3.new(playerPos.X - radius, playerPos.Y - 100, playerPos.Z - radius),
+        corner2 = Vector3.new(playerPos.X + radius, playerPos.Y + 200, playerPos.Z + radius)
+    }
+end
+
+-- Generate smart scan points for current island
+local function generateScanPoints(islandName, count)
+    local points = {}
+    local bounds = getIslandBounds(islandName)
+    
+    local minX = math.min(bounds.corner1.X, bounds.corner2.X)
+    local maxX = math.max(bounds.corner1.X, bounds.corner2.X)
+    local minZ = math.min(bounds.corner1.Z, bounds.corner2.Z)
+    local maxZ = math.max(bounds.corner1.Z, bounds.corner2.Z)
+    local avgY = (bounds.corner1.Y + bounds.corner2.Y) / 2
+    
+    if worldScanner.settings.smartDistribution then
+        -- Smart grid distribution
+        local gridSize = math.ceil(math.sqrt(count))
+        local stepX = (maxX - minX) / gridSize
+        local stepZ = (maxZ - minZ) / gridSize
+        
+        for i = 0, gridSize - 1 do
+            for j = 0, gridSize - 1 do
+                if #points >= count then break end
+                
+                local baseX = minX + (i + 0.5) * stepX
+                local baseZ = minZ + (j + 0.5) * stepZ
+                
+                local randomX = baseX + (math.random() - 0.5) * stepX * 0.5
+                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.5
+                local randomY = avgY + math.random(-50, 150)
+                
+                local point = Vector3.new(randomX, randomY, randomZ)
+                
+                if worldScanner.settings.landOnly then
+                    local attempts = 0
+                    while not isOnLand(point) and attempts < 5 do
+                        randomX = baseX + (math.random() - 0.5) * stepX
+                        randomZ = baseZ + (math.random() - 0.5) * stepZ
+                        point = Vector3.new(randomX, randomY, randomZ)
+                        attempts = attempts + 1
+                    end
+                end
+                
+                table.insert(points, point)
+            end
+        end
+    else
+        -- Pure random distribution
+        for i = 1, count do
+            local attempts = 0
+            local point
+            
+            repeat
+                local randomX = minX + (maxX - minX) * math.random()
+                local randomZ = minZ + (maxZ - minZ) * math.random()
+                local randomY = avgY + math.random(-50, 150)
+                point = Vector3.new(randomX, randomY, randomZ)
+                attempts = attempts + 1
+            until not worldScanner.settings.landOnly or isOnLand(point) or attempts > 10
+            
+            table.insert(points, point)
+        end
+    end
+    
+    return points
+end
+
+-- Scan horses at specific position
+local function scanHorsesAtPosition(position, islandName)
+    local newHorses = {}
+    
+    local island = nil
+    if islandName == "Mainland" and Workspace.Islands:FindFirstChild("Mainland") then
+        island = Workspace.Islands.Mainland
+    elseif Workspace.Islands:FindFirstChild(islandName) then
+        island = Workspace.Islands[islandName]
+    end
+    
+    if island then
+        for _, child in pairs(island:GetChildren()) do
+            if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
+                local distance = (position - child.HumanoidRootPart.Position).Magnitude
+                
+                if distance <= worldScanner.settings.scanRadius then
+                    local humanoid = child:FindFirstChild("Humanoid")
+                    if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
+                        -- Check if wild horse
+                        local isWild = false
+                        local overhead = child:FindFirstChild("OverheadPart")
+                        if overhead and overhead:FindFirstChild("Overhead") then
+                            local nameLabel = overhead.Overhead:FindFirstChild("NameLabel")
+                            if nameLabel and nameLabel.Text == "Wild" then
+                                isWild = true
+                            end
+                        end
+                        
+                        if isWild and not horseCatcher.capturedHorses[child.Name] then
+                            local horseName = "Unknown"
+                            local breedLabel = overhead.Overhead:FindFirstChild("BreedLabel")
+                            if breedLabel and breedLabel.Text ~= "" then
+                                horseName = breedLabel.Text
+                            else
+                                horseName = child.Name:sub(2, 9) .. "..."
+                            end
+                            
+                            newHorses[child.Name] = {
+                                object = child,
+                                name = horseName,
+                                position = child.HumanoidRootPart.Position,
+                                distance = distance,
+                                scanPoint = position,
+                                timestamp = os.clock()
+                            }
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return newHorses
+end
+
+-- Start world scanning
+local function startWorldScan()
+    if worldScanner.isScanning then return end
+    
+    worldScanner.isScanning = true
+    worldScanner.originalPosition = humanoidRootPart.CFrame
+    
+    local currentIsland = detectCurrentIsland()
+    worldScanner.scanPoints = generateScanPoints(currentIsland, worldScanner.settings.scanPointsCount)
+    worldScanner.currentScanIndex = 1
+    worldScanner.foundHorses = {}
+    
+    Rayfield:Notify({
+       Title = "World Scan Started",
+       Content = "Scanning " .. currentIsland .. " for horses",
+       Duration = 2,
+    })
+end
+
+-- Stop world scanning
+local function stopWorldScan()
+    if not worldScanner.isScanning then return end
+    
+    worldScanner.isScanning = false
+    
+    -- Return to original position
+    if worldScanner.originalPosition then
+        humanoidRootPart.CFrame = worldScanner.originalPosition
+    end
+    
+    Rayfield:Notify({
+       Title = "World Scan Stopped",
+       Content = "Found " .. #worldScanner.foundHorses .. " horses",
+       Duration = 2,
+    })
+end
+
+-- Continue scanning process
+local function continueScan()
+    if not worldScanner.isScanning or worldScanner.currentScanIndex > #worldScanner.scanPoints then
+        worldScanner.isScanning = false
+        return false
+    end
+    
+    local currentIsland = detectCurrentIsland()
+    local scanPoint = worldScanner.scanPoints[worldScanner.currentScanIndex]
+    
+    -- Teleport to scan point
+    humanoidRootPart.CFrame = CFrame.new(scanPoint)
+    
+    -- Scan for horses
+    local newHorses = scanHorsesAtPosition(scanPoint, currentIsland)
+    for id, data in pairs(newHorses) do
+        worldScanner.foundHorses[id] = data
+    end
+    
+    worldScanner.currentScanIndex = worldScanner.currentScanIndex + 1
+    
+    return true
+end
+
+-- Get closest horse from scan results
+local function getClosestScanHorse()
+    local playerPos = humanoidRootPart.Position
+    local closestHorse = nil
+    local closestDistance = math.huge
+    
+    for id, data in pairs(worldScanner.foundHorses) do
+        if data.object and data.object.Parent and data.object:FindFirstChild("HumanoidRootPart") then
+            local distance = (playerPos - data.object.HumanoidRootPart.Position).Magnitude
+            if distance < closestDistance and not horseCatcher.capturedHorses[id] then
+                closestDistance = distance
+                closestHorse = data.object
+            end
+        else
+            -- Remove invalid horses
+            worldScanner.foundHorses[id] = nil
+        end
+    end
+    
+    return closestHorse
+end
 
 -- =================================
 -- ENHANCED ISLAND DETECTION SYSTEM
@@ -254,7 +587,8 @@ local horseCatcher = {
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
-        lassoProtection = nil
+        lassoProtection = nil,
+        worldScanner = nil
     },
     
     capturedHorses = {},
@@ -282,7 +616,8 @@ local horseCatcher = {
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
         attachmentOffset = 4,
-        targetingRadius = 300
+        targetingRadius = 300,
+        enableWorldScan = true
     },
     
     runtime = {
@@ -292,6 +627,7 @@ local horseCatcher = {
         lastIslandCheck = 0,
         lastProgressCheck = 0,
         lastLassoCheck = 0,
+        lastScanCheck = 0,
         
         currentTargetStartTime = 0,
         lastProgressChange = 0,
@@ -304,7 +640,8 @@ local horseCatcher = {
         targetingCount = 0,
         captureAttempts = 0,
         currentIslandHorses = 0,
-        sessionCapturedCount = 0
+        sessionCapturedCount = 0,
+        noHorsesFoundTime = 0
     },
     
     performance = {
@@ -798,6 +1135,11 @@ local function isHorseCapturedOrComplete(horse)
         horseCatcher.runtime.lastSuccessfulCapture = os.clock()
         horseCatcher.runtime.sessionCapturedCount = horseCatcher.runtime.sessionCapturedCount + 1
         
+        -- Remove from scan results if exists
+        if worldScanner.foundHorses[horse.Name] then
+            worldScanner.foundHorses[horse.Name] = nil
+        end
+        
         local captureTime = os.clock() - horseCatcher.runtime.currentTargetStartTime
         if captureTime < horseCatcher.statistics.progressStats.fastestCapture then
             horseCatcher.statistics.progressStats.fastestCapture = captureTime
@@ -851,7 +1193,7 @@ local function cleanupSystem()
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC
+-- ENHANCED MAIN LOGIC WITH WORLD SCANNING
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -885,7 +1227,9 @@ local function startHorseCatching()
     horseCatcher.runtime.lastIslandCheck = 0
     horseCatcher.runtime.lastProgressCheck = 0
     horseCatcher.runtime.lastLassoCheck = 0
+    horseCatcher.runtime.lastScanCheck = 0
     horseCatcher.runtime.sessionCapturedCount = 0
+    horseCatcher.runtime.noHorsesFoundTime = 0
     
     horseCatcher.runtime.currentTargetStartTime = 0
     horseCatcher.runtime.lastProgressChange = 0
@@ -902,7 +1246,7 @@ local function startHorseCatching()
     
     Rayfield:Notify({
        Title = "Started!",
-       Content = movementMode .. " mode on " .. currentIsland,
+       Content = movementMode .. " mode on " .. currentIsland .. (horseCatcher.settings.enableWorldScan and " + World Scan" or ""),
        Duration = 2,
     })
     
@@ -954,8 +1298,51 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
     end)
     
+    -- World Scanner Connection
+    horseCatcher.connections.worldScanner = RunService.Heartbeat:Connect(function()
+        if not horseCatcher.isRunning or not horseCatcher.settings.enableWorldScan then return end
+        
+        local currentTime = os.clock()
+        if currentTime - horseCatcher.runtime.lastScanCheck < 2 then
+            return
+        end
+        
+        horseCatcher.runtime.lastScanCheck = currentTime
+        
+        -- If we're scanning, continue scan process
+        if worldScanner.isScanning then
+            if not continueScan() then
+                -- Scan complete
+                worldScanner.isScanning = false
+                if worldScanner.originalPosition then
+                    humanoidRootPart.CFrame = worldScanner.originalPosition
+                end
+            else
+                wait(worldScanner.settings.waitTime)
+            end
+            return
+        end
+        
+        -- Check if no horses found for a while
+        local horses = updateHorseCache()
+        if #horses == 0 then
+            if horseCatcher.runtime.noHorsesFoundTime == 0 then
+                horseCatcher.runtime.noHorsesFoundTime = currentTime
+            elseif currentTime - horseCatcher.runtime.noHorsesFoundTime > 10 then
+                -- No horses found for 10 seconds, start world scan
+                startWorldScan()
+                horseCatcher.runtime.noHorsesFoundTime = 0
+            end
+        else
+            horseCatcher.runtime.noHorsesFoundTime = 0
+        end
+    end)
+    
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
+        
+        -- Skip main logic if world scanning
+        if worldScanner.isScanning then return end
         
         if horseCatcher.currentTarget then
             local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
@@ -995,11 +1382,22 @@ local function startHorseCatching()
         end
         
         if not horseCatcher.currentTarget then
+            -- First try regular targeting
             if horseCatcher.settings.smartTargeting then
                 horseCatcher.currentTarget = findOptimalTarget()
             else
                 local horses = updateHorseCache()
                 horseCatcher.currentTarget = horses[1] and (horses[1].horse or horses[1])
+            end
+            
+            -- If no target found, try scan results
+            if not horseCatcher.currentTarget and horseCatcher.settings.enableWorldScan then
+                horseCatcher.currentTarget = getClosestScanHorse()
+                if horseCatcher.currentTarget then
+                    -- Teleport to scan horse
+                    humanoidRootPart.CFrame = CFrame.new(horseCatcher.currentTarget.HumanoidRootPart.Position + Vector3.new(10, 5, 10))
+                    wait(0.2)
+                end
             end
             
             if horseCatcher.currentTarget then
@@ -1044,6 +1442,9 @@ end
 local function stopHorseCatching()
     horseCatcher.isRunning = false
     
+    -- Stop world scanning
+    stopWorldScan()
+    
     -- Disable noclip
     disableNoclip()
     
@@ -1074,7 +1475,7 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- SIMPLIFIED UI
+-- SIMPLIFIED UI WITH WORLD SCAN OPTIONS
 -- =================================
 
 -- Main Control Section
@@ -1093,6 +1494,52 @@ local MainToggle = parentTab:CreateToggle({
       else
          stopHorseCatching()
       end
+   end,
+})
+
+-- World Scanning Section
+local WorldScanSection = parentTab:CreateSection("🌍 World Scanning")
+
+local WorldScanToggle = parentTab:CreateToggle({
+   Name = "🌍 Enable World Scanning",
+   CurrentValue = true,
+   Flag = "WorldScanToggle",
+   Callback = function(Value)
+      horseCatcher.settings.enableWorldScan = Value
+      worldScanner.settings.autoScanOnEmpty = Value
+   end,
+})
+
+local ScanPointsSlider = parentTab:CreateSlider({
+   Name = "📍 Scan Points",
+   Range = {6, 24},
+   Increment = 1,
+   Suffix = " points",
+   CurrentValue = 12,
+   Flag = "ScanPointsSlider",
+   Callback = function(Value)
+      worldScanner.settings.scanPointsCount = Value
+   end,
+})
+
+local ScanWaitSlider = parentTab:CreateSlider({
+   Name = "⏱️ Scan Wait Time",
+   Range = {0.2, 2},
+   Increment = 0.1,
+   Suffix = "s",
+   CurrentValue = 0.5,
+   Flag = "ScanWaitSlider",
+   Callback = function(Value)
+      worldScanner.settings.waitTime = Value
+   end,
+})
+
+local LandOnlyToggle = parentTab:CreateToggle({
+   Name = "🌱 Land Only Scan",
+   CurrentValue = true,
+   Flag = "LandOnlyToggle",
+   Callback = function(Value)
+      worldScanner.settings.landOnly = Value
    end,
 })
 
@@ -1180,6 +1627,26 @@ local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Con
 -- Quick Actions Section
 local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
 
+local ManualScanButton = parentTab:CreateButton({
+   Name = "🔍 Manual World Scan",
+   Callback = function()
+      if not worldScanner.isScanning then
+         startWorldScan()
+         Rayfield:Notify({
+            Title = "Manual Scan",
+            Content = "Starting world scan manually",
+            Duration = 2,
+         })
+      else
+         Rayfield:Notify({
+            Title = "Already Scanning",
+            Content = "World scan in progress",
+            Duration = 2,
+         })
+      end
+   end,
+})
+
 local ClearCacheButton = parentTab:CreateButton({
    Name = "🗑️ Clear Cache",
    Callback = function()
@@ -1190,6 +1657,7 @@ local ClearCacheButton = parentTab:CreateButton({
       horseCatcher.performance.captureTimes = {}
       horseCatcher.performance.targetingTimes = {}
       horseCatcher.performance.progressCheckTimes = {}
+      worldScanner.foundHorses = {}
       
       Rayfield:Notify({
          Title = "Cache Cleared",
@@ -1220,7 +1688,13 @@ spawn(function()
         
         -- Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "🔍 Auto-Scanning: ✅"
+        islandText = islandText .. "🔍 Auto-Scanning: " .. (horseCatcher.settings.enableWorldScan and "✅" or "❌") .. "\n"
+        if worldScanner.isScanning then
+            islandText = islandText .. "🌍 World Scan: " .. worldScanner.currentScanIndex .. "/" .. #worldScanner.scanPoints .. "\n"
+            islandText = islandText .. "📊 Scan Found: " .. table.getn(worldScanner.foundHorses) .. " horses"
+        else
+            islandText = islandText .. "🌍 World Scan: Ready"
+        end
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
@@ -1250,7 +1724,11 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
+            local scanCount = table.getn(worldScanner.foundHorses)
             targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌")
+            if horseCatcher.settings.enableWorldScan then
+                targetText = targetText .. "\n🌍 Scan horses: " .. scanCount
+            end
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
     end
@@ -1266,6 +1744,7 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     
     disableNoclip()
+    stopWorldScan()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1286,8 +1765,8 @@ end)
 -- INITIALIZATION
 -- =================================
 Rayfield:Notify({
-   Title = "Horse Catcher Loaded",
-   Content = "Ready to catch horses!",
+   Title = "Horse Catcher Pro Loaded",
+   Content = "Ready with World Scanning!",
    Duration = 3,
 })
 
@@ -1296,7 +1775,7 @@ local initialIsland = detectCurrentIsland()
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
        Title = "System Ready",
-       Content = "Island: " .. initialIsland,
+       Content = "Island: " .. initialIsland .. " | World Scan: Ready",
        Duration = 3,
     })
 else
@@ -1313,7 +1792,7 @@ spawn(function()
     if detectedIsland ~= "Unknown" then
         Rayfield:Notify({
            Title = "Ready!",
-           Content = "Island: " .. detectedIsland,
+           Content = "Island: " .. detectedIsland .. " | Auto-Scan: " .. (horseCatcher.settings.enableWorldScan and "ON" or "OFF"),
            Duration = 2,
         })
     end
