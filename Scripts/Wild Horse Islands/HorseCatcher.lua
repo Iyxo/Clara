@@ -1,11 +1,11 @@
--- Horse Catcher Pro - WORKING Teleport Scanner
--- by Iyxo - 2025-07-26 15:25:00
--- KURWA DZIAŁA TELEPORTACJA BEZ JEBANYCH POINTÓW
+-- Horse Catcher Pro - SIMPLE TELEPORT VERSION
+-- by Iyxo - 2025-07-26 15:53:00
+-- KURWA PROSTE: Brak konia = teleportuj losowo, Znalazł konia = łap
 
 local parentTab, Rayfield, Window = ...
 
 -- =================================
--- SERVICES & OPTIMIZATION
+-- SERVICES
 -- =================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,228 +18,106 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- KURWA PROSTY TELEPORT SCANNER
+-- MAINLAND BOUNDS (SKOSY KWADRAT)
 -- =================================
-local TeleportScanner = {
-    isScanning = false,
-    scanConnection = nil,
-    lastTeleportTime = 0,
-    waitTime = 0.5,
-    landOnly = true,
-    
-    -- MAINLAND BOUNDS - KURWA DZIAŁA
-    bounds = {
-        minX = -992.5,
-        maxX = 1084.9,
-        minZ = -951.3,
-        maxZ = 861.8,
-        avgY = 6.75
-    },
-    
-    -- LAND MATERIALS
-    landMaterials = {
-        [Enum.Material.Grass] = true,
-        [Enum.Material.Rock] = true,
-        [Enum.Material.Sand] = true,
-        [Enum.Material.Snow] = true,
-        [Enum.Material.Mud] = true,
-        [Enum.Material.Ground] = true,
-        [Enum.Material.Concrete] = true,
-        [Enum.Material.Brick] = true,
-        [Enum.Material.Cobblestone] = true,
-        [Enum.Material.LeafyGrass] = true,
-        [Enum.Material.Limestone] = true,
-        [Enum.Material.Pavement] = true,
-        [Enum.Material.Salt] = true,
-        [Enum.Material.Sandstone] = true,
-        [Enum.Material.Slate] = true
-    }
+local MAINLAND_BOUNDS = {
+    minX = -992.5,
+    maxX = 1084.9,
+    minZ = -951.3,
+    maxZ = 861.8,
+    avgY = 50  -- Wysokość
 }
 
--- SPRAWDŹ CZY LĄAD (KURWA PROSTE)
-function TeleportScanner.isOnLand(position)
-    if not TeleportScanner.landOnly then return true end
+-- =================================
+-- TELEPORT SETTINGS
+-- =================================
+local teleportSettings = {
+    enabled = false,
+    waitTime = 0.5,
+    landOnly = true,
+    lastTeleportTime = 0
+}
+
+-- LAND MATERIALS
+local LAND_MATERIALS = {
+    [Enum.Material.Grass] = true,
+    [Enum.Material.Rock] = true,
+    [Enum.Material.Sand] = true,
+    [Enum.Material.Snow] = true,
+    [Enum.Material.Mud] = true,
+    [Enum.Material.Ground] = true,
+    [Enum.Material.Concrete] = true,
+    [Enum.Material.Brick] = true,
+    [Enum.Material.LeafyGrass] = true
+}
+
+-- =================================
+-- TELEPORT FUNCTIONS
+-- =================================
+
+-- Sprawdź czy ląd
+local function isOnLand(position)
+    if not teleportSettings.landOnly then return true end
     
     local success, result = pcall(function()
-        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
-        
+        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0))
         if raycast and raycast.Instance and raycast.Instance.Name == "Terrain" then
-            local material = raycast.Material
-            return TeleportScanner.landMaterials[material] == true
+            return LAND_MATERIALS[raycast.Material] == true
         end
-        
         return false
     end)
     
     return success and result
 end
 
--- WYGENERUJ KURWA LOSOWĄ POZYCJĘ
-function TeleportScanner.generateRandomPosition()
-    local randomX = TeleportScanner.bounds.minX + math.random() * (TeleportScanner.bounds.maxX - TeleportScanner.bounds.minX)
-    local randomZ = TeleportScanner.bounds.minZ + math.random() * (TeleportScanner.bounds.maxZ - TeleportScanner.bounds.minZ)
-    local randomY = TeleportScanner.bounds.avgY + math.random(-50, 150)
+-- Wygeneruj losową pozycję
+local function generateRandomPosition()
+    local randomX = MAINLAND_BOUNDS.minX + math.random() * (MAINLAND_BOUNDS.maxX - MAINLAND_BOUNDS.minX)
+    local randomZ = MAINLAND_BOUNDS.minZ + math.random() * (MAINLAND_BOUNDS.maxZ - MAINLAND_BOUNDS.minZ)
+    local randomY = MAINLAND_BOUNDS.avgY + math.random(-30, 100)
     
     return Vector3.new(randomX, randomY, randomZ)
 end
 
--- TELEPORTUJ SIĘ (KURWA DZIAŁAJ)
-function TeleportScanner.teleportToRandomPosition()
+-- Teleportuj się losowo
+local function teleportRandomly()
     local currentTime = os.clock()
-    if currentTime - TeleportScanner.lastTeleportTime < TeleportScanner.waitTime then
+    if currentTime - teleportSettings.lastTeleportTime < teleportSettings.waitTime then
         return false
     end
     
     local attempts = 0
     local targetPosition
     
-    -- SPRÓBUJ 10 RAZY ZNALEŹĆ LĄAD
     repeat
-        targetPosition = TeleportScanner.generateRandomPosition()
+        targetPosition = generateRandomPosition()
         attempts = attempts + 1
-    until TeleportScanner.isOnLand(targetPosition) or attempts >= 10
+    until isOnLand(targetPosition) or attempts >= 10
     
-    -- TELEPORTUJ SIĘ KURWA
     humanoidRootPart.CFrame = CFrame.new(targetPosition)
-    TeleportScanner.lastTeleportTime = currentTime
+    teleportSettings.lastTeleportTime = currentTime
     
     return true
 end
 
--- SPRAWDŹ CZY KONIE W POBLIŻU (KURWA PROSTE)
-function TeleportScanner.detectNearbyHorses()
+-- =================================
+-- HORSE DETECTION
+-- =================================
+
+-- Sprawdź czy konie w pobliżu
+local function hasNearbyHorses()
     local playerPos = humanoidRootPart.Position
-    local horsesFound = 0
     
     for _, horseData in pairs(Cache.horses) do
         if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
             local distance = (playerPos - horseData.horse.HumanoidRootPart.Position).Magnitude
-            if distance <= 512 then -- STREAMING RANGE
-                horsesFound = horsesFound + 1
+            if distance <= 400 then -- RANGE
+                return true
             end
         end
     end
     
-    return horsesFound
-end
-
--- GŁÓWNA LOGIKA SKANOWANIA (KURWA PROSTA)
-function TeleportScanner.performScan()
-    if not TeleportScanner.isScanning then return end
-    
-    -- SPRAWDŹ CZY KONIE W POBLIŻU
-    local nearbyHorses = TeleportScanner.detectNearbyHorses()
-    
-    if nearbyHorses > 0 then
-        -- KURWA ZNALAZŁ KONIA - ZATRZYMAJ SKANOWANIE
-        TeleportScanner.stopScanning()
-        Rayfield:Notify({
-           Title = "Horse Found!",
-           Content = "Found " .. nearbyHorses .. " horses - stopping scan",
-           Duration = 2,
-        })
-        return
-    end
-    
-    -- BRAK KONI - TELEPORTUJ SIĘ DALEJ
-    if TeleportScanner.teleportToRandomPosition() then
-        updateHorseCache() -- ODŚWIEŻ CACHE KONI
-    end
-end
-
--- START SKANOWANIA (KURWA DZIAŁAJ)
-function TeleportScanner.startScanning()
-    if TeleportScanner.isScanning then return false end
-    
-    TeleportScanner.isScanning = true
-    
-    TeleportScanner.scanConnection = RunService.Heartbeat:Connect(function()
-        TeleportScanner.performScan()
-    end)
-    
-    Rayfield:Notify({
-       Title = "Teleport Scanner Started",
-       Content = "Randomly teleporting to find horses",
-       Duration = 2,
-    })
-    
-    return true
-end
-
--- STOP SKANOWANIA
-function TeleportScanner.stopScanning()
-    TeleportScanner.isScanning = false
-    
-    if TeleportScanner.scanConnection then
-        TeleportScanner.scanConnection:Disconnect()
-        TeleportScanner.scanConnection = nil
-    end
-    
-    Rayfield:Notify({
-       Title = "Teleport Scanner Stopped",
-       Content = "Scanning disabled",
-       Duration = 2,
-    })
-end
-
--- =================================
--- ENHANCED ISLAND DETECTION SYSTEM
--- =================================
-local islandSystem = {
-    currentIsland = "Unknown",
-    lastUpdate = 0,
-    updateInterval = 3,
-    availableIslands = {},
-    islandHorseCount = {}
-}
-
-local function detectCurrentIsland()
-    local currentTime = os.clock()
-    if currentTime - islandSystem.lastUpdate < islandSystem.updateInterval then
-        return islandSystem.currentIsland
-    end
-    
-    local islandAttribute = player:GetAttribute("island")
-    if islandAttribute and islandAttribute ~= "" then
-        islandSystem.currentIsland = islandAttribute
-        islandSystem.lastUpdate = currentTime
-        return islandAttribute
-    end
-    
-    pcall(function()
-        if character and character.Parent then
-            for _, island in pairs(Workspace.Islands:GetChildren()) do
-                if character.Parent == island then
-                    islandSystem.currentIsland = island.Name
-                    islandSystem.lastUpdate = currentTime
-                    return
-                end
-            end
-        end
-    end)
-    
-    if islandSystem.currentIsland == "Unknown" then
-        local playerPos = humanoidRootPart.Position
-        local closestIsland = "Mainland"
-        local shortestDistance = math.huge
-        
-        for _, island in pairs(Workspace.Islands:GetChildren()) do
-            if island:IsA("Model") and island:FindFirstChild("Terrain") then
-                local islandPos = island:GetPivot().Position
-                local distance = (playerPos - islandPos).Magnitude
-                
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    closestIsland = island.Name
-                end
-            end
-        end
-        
-        islandSystem.currentIsland = closestIsland
-    end
-    
-    islandSystem.lastUpdate = currentTime
-    return islandSystem.currentIsland
+    return false
 end
 
 -- =================================
@@ -298,6 +176,35 @@ local function updateCaptureProgressTracking()
             captureProgressSystem.trackedHorses[horseId] = nil
         end
     end
+end
+
+-- =================================
+-- ENHANCED ISLAND DETECTION SYSTEM
+-- =================================
+local islandSystem = {
+    currentIsland = "Unknown",
+    lastUpdate = 0,
+    updateInterval = 3,
+    availableIslands = {},
+    islandHorseCount = {}
+}
+
+local function detectCurrentIsland()
+    local currentTime = os.clock()
+    if currentTime - islandSystem.lastUpdate < islandSystem.updateInterval then
+        return islandSystem.currentIsland
+    end
+    
+    local islandAttribute = player:GetAttribute("island")
+    if islandAttribute and islandAttribute ~= "" then
+        islandSystem.currentIsland = islandAttribute
+        islandSystem.lastUpdate = currentTime
+        return islandAttribute
+    end
+    
+    islandSystem.currentIsland = "Mainland"
+    islandSystem.lastUpdate = currentTime
+    return islandSystem.currentIsland
 end
 
 -- =================================
@@ -1016,7 +923,7 @@ local function cleanupSystem()
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC
+-- MAIN LOGIC - KURWA PROSTE
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -1026,15 +933,6 @@ local function startHorseCatching()
         Rayfield:Notify({
            Title = "Error",
            Content = "No lasso found!",
-           Duration = 3,
-        })
-        return false
-    end
-    
-    if not gameSystem.available or not gameSystem.networkReady then
-        Rayfield:Notify({
-           Title = "Error",
-           Content = "Network system error",
            Duration = 3,
         })
         return false
@@ -1063,11 +961,6 @@ local function startHorseCatching()
     -- Enable noclip for smooth mode
     if horseCatcher.settings.movementMode == "smooth" then
         enableNoclip()
-    end
-    
-    -- Start teleport scanner if enabled
-    if TeleportScanner.enabled then
-        TeleportScanner.startScanning()
     end
     
     Rayfield:Notify({
@@ -1124,81 +1017,81 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
     end)
     
+    -- GŁÓWNA LOGIKA - KURWA PROSTE
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         
-        if horseCatcher.currentTarget then
-            local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
-            if captured then
-                if horseCatcher.settings.movementMode == "attachment" then
-                    detachFromHorse()
-                end
-                horseCatcher.currentTarget = nil
-                horseCatcher.currentTargetProgress = nil
-                horseCatcher.runtime.currentTargetStartTime = 0
-                horseCatcher.runtime.lastProgressChange = 0
-                horseCatcher.runtime.lastProgressValue = "0/0"
-                horseCatcher.runtime.progressStuckTime = 0
-                return
-            end
-        end
+        -- ODŚWIEŻ CACHE KONI
+        updateHorseCache()
         
-        if horseCatcher.currentTarget and horseCatcher.settings.abandonOnStuckProgress then
-            if horseCatcher.runtime.progressStuckTime > horseCatcher.settings.maxStuckProgressTime then
-                Rayfield:Notify({
-                   Title = "Skipping",
-                   Content = "Stuck horse - moving to next",
-                   Duration = 2,
-                })
+        -- SPRAWDŹ CZY JEST KONIK W POBLIŻU
+        local hasHorses = hasNearbyHorses()
+        
+        if hasHorses then
+            -- JEST KONIK - ŁAP GO!
+            if horseCatcher.currentTarget then
+                local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
+                if captured then
+                    if horseCatcher.settings.movementMode == "attachment" then
+                        detachFromHorse()
+                    end
+                    horseCatcher.currentTarget = nil
+                    horseCatcher.currentTargetProgress = nil
+                    horseCatcher.runtime.currentTargetStartTime = 0
+                    horseCatcher.runtime.lastProgressChange = 0
+                    horseCatcher.runtime.lastProgressValue = "0/0"
+                    horseCatcher.runtime.progressStuckTime = 0
+                    return
+                end
+            end
+            
+            if horseCatcher.currentTarget and horseCatcher.settings.abandonOnStuckProgress then
+                if horseCatcher.runtime.progressStuckTime > horseCatcher.settings.maxStuckProgressTime then
+                    if horseCatcher.settings.movementMode == "attachment" then
+                        detachFromHorse()
+                    end
+                    horseCatcher.currentTarget = nil
+                    horseCatcher.currentTargetProgress = nil
+                    horseCatcher.runtime.currentTargetStartTime = 0
+                    horseCatcher.runtime.lastProgressChange = 0
+                    horseCatcher.runtime.lastProgressValue = "0/0"
+                    horseCatcher.runtime.progressStuckTime = 0
+                    return
+                end
+            end
+            
+            if not horseCatcher.currentTarget then
+                if horseCatcher.settings.smartTargeting then
+                    horseCatcher.currentTarget = findOptimalTarget()
+                else
+                    local horses = updateHorseCache()
+                    horseCatcher.currentTarget = horses[1] and (horses[1].horse or horses[1])
+                end
                 
-                if horseCatcher.settings.movementMode == "attachment" then
-                    detachFromHorse()
+                if horseCatcher.currentTarget then
+                    horseCatcher.runtime.currentTargetStartTime = os.clock()
+                    horseCatcher.runtime.lastProgressChange = os.clock()
+                    horseCatcher.runtime.lastProgressValue = "0/0"
+                    horseCatcher.runtime.progressStuckTime = 0
+                    horseCatcher.currentTargetProgress = getCaptureProgress(horseCatcher.currentTarget)
                 end
-                horseCatcher.currentTarget = nil
-                horseCatcher.currentTargetProgress = nil
-                horseCatcher.runtime.currentTargetStartTime = 0
-                horseCatcher.runtime.lastProgressChange = 0
-                horseCatcher.runtime.lastProgressValue = "0/0"
-                horseCatcher.runtime.progressStuckTime = 0
-                return
-            end
-        end
-        
-        if not horseCatcher.currentTarget then
-            if horseCatcher.settings.smartTargeting then
-                horseCatcher.currentTarget = findOptimalTarget()
-            else
-                local horses = updateHorseCache()
-                horseCatcher.currentTarget = horses[1] and (horses[1].horse or horses[1])
             end
             
             if horseCatcher.currentTarget then
-                horseCatcher.runtime.currentTargetStartTime = os.clock()
-                horseCatcher.runtime.lastProgressChange = os.clock()
-                horseCatcher.runtime.lastProgressValue = "0/0"
-                horseCatcher.runtime.progressStuckTime = 0
-                horseCatcher.currentTargetProgress = getCaptureProgress(horseCatcher.currentTarget)
-            else
                 if horseCatcher.settings.movementMode == "attachment" then
-                    detachFromHorse()
+                    if not horseCatcher.isAttached or horseCatcher.runtime.forceDetach then
+                        attachToHorse(horseCatcher.currentTarget)
+                    end
+                elseif horseCatcher.settings.movementMode == "smooth" then
+                    smoothFollow(horseCatcher.currentTarget)
                 end
-                return
+                
+                captureHorse(horseCatcher.currentTarget)
             end
-        end
-        
-        if horseCatcher.currentTarget then
-            if horseCatcher.settings.movementMode == "attachment" then
-                if not horseCatcher.isAttached or horseCatcher.runtime.forceDetach then
-                    attachToHorse(horseCatcher.currentTarget)
-                end
-            elseif horseCatcher.settings.movementMode == "smooth" then
-                smoothFollow(horseCatcher.currentTarget)
-            end
-            
-            captureHorse(horseCatcher.currentTarget)
         else
-            if horseCatcher.settings.movementMode == "attachment" then
-                detachFromHorse()
+            -- BRAK KONIA - TELEPORTUJ SIĘ LOSOWO
+            if teleportSettings.enabled then
+                teleportRandomly()
             end
         end
     end)
@@ -1213,9 +1106,6 @@ end
 
 local function stopHorseCatching()
     horseCatcher.isRunning = false
-    
-    -- Stop teleport scanner
-    TeleportScanner.stopScanning()
     
     -- Disable noclip
     disableNoclip()
@@ -1247,7 +1137,7 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- KURWA PROSTY UI
+-- UI
 -- =================================
 
 -- Main Control Section
@@ -1269,22 +1159,15 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- KURWA PROSTY TELEPORT SCANNER
-local TeleportScannerSection = parentTab:CreateSection("🌍 Random Teleport Scanner")
+-- Teleport Scanner Section
+local TeleportScannerSection = parentTab:CreateSection("🎲 Random Teleport Scanner")
 
-TeleportScanner.enabled = false
-
-local TeleportScannerToggle = parentTab:CreateToggle({
-   Name = "🔍 Random Teleport Scanning",
+local TeleportToggle = parentTab:CreateToggle({
+   Name = "🎲 Random Teleportation",
    CurrentValue = false,
-   Flag = "TeleportScannerToggle",
+   Flag = "TeleportToggle",
    Callback = function(Value)
-      TeleportScanner.enabled = Value
-      if Value and horseCatcher.isRunning then
-         TeleportScanner.startScanning()
-      else
-         TeleportScanner.stopScanning()
-      end
+      teleportSettings.enabled = Value
    end,
 })
 
@@ -1293,7 +1176,7 @@ local LandOnlyToggle = parentTab:CreateToggle({
    CurrentValue = true,
    Flag = "LandOnlyToggle",
    Callback = function(Value)
-      TeleportScanner.landOnly = Value
+      teleportSettings.landOnly = Value
    end,
 })
 
@@ -1305,7 +1188,7 @@ local TeleportWaitTimeSlider = parentTab:CreateSlider({
    CurrentValue = 0.5,
    Flag = "TeleportWaitTimeSlider",
    Callback = function(Value)
-      TeleportScanner.waitTime = Value
+      teleportSettings.waitTime = Value
    end,
 })
 
@@ -1346,7 +1229,6 @@ local MovementDropdown = parentTab:CreateDropdown({
       local oldMode = horseCatcher.settings.movementMode
       horseCatcher.settings.movementMode = Option[1]
       
-      -- Handle noclip for smooth mode
       if horseCatcher.isRunning then
           if Option[1] == "smooth" and oldMode ~= "smooth" then
               enableNoclip()
@@ -1384,12 +1266,11 @@ local SmartTargetingToggle = parentTab:CreateToggle({
    end,
 })
 
--- Simplified Status Section
+-- Status Section
 local LiveStatusSection = parentTab:CreateSection("📊 Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
-local ScannerInfo = parentTab:CreateParagraph({Title = "🔍 Scanner Status", Content = "Scanner inactive"})
 
 -- Quick Actions Section
 local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
@@ -1425,16 +1306,18 @@ local ResetCapturedButton = parentTab:CreateButton({
    end,
 })
 
--- =================================
--- STATUS UPDATE SYSTEM
--- =================================
+-- Status Update System
 spawn(function()
     while wait(1) do
         local currentIsland = detectCurrentIsland()
         
         -- Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "🔍 Auto-Scanning: ✅"
+        if teleportSettings.enabled then
+            islandText = islandText .. "🎲 Random Teleportation: ✅"
+        else
+            islandText = islandText .. "🎲 Random Teleportation: ❌"
+        end
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
@@ -1464,32 +1347,19 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
-            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌")
+            local hasHorses = hasNearbyHorses()
+            
+            if hasHorses then
+                targetText = "🔍 Searching for optimal target...\n🐎 Wild horses nearby: " .. wildCount
+            else
+                if teleportSettings.enabled then
+                    targetText = "🎲 No horses nearby - teleporting randomly\n🌍 Mainland bounds: " .. MAINLAND_BOUNDS.minX .. " to " .. MAINLAND_BOUNDS.maxX
+                else
+                    targetText = "❌ No horses nearby\n💡 Enable random teleportation to search"
+                end
+            end
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
-        
-        -- Scanner Information
-        local scannerText = ""
-        if TeleportScanner.enabled then
-            if TeleportScanner.isScanning then
-                scannerText = "🔍 Status: Active Random Teleporting\n"
-                scannerText = scannerText .. "🎲 Mode: Infinite Random Search\n"
-                scannerText = scannerText .. "🌱 Land-Only: " .. (TeleportScanner.landOnly and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "⏱️ Wait Time: " .. TeleportScanner.waitTime .. "s\n"
-                scannerText = scannerText .. "🎯 Will stop when horse found"
-            else
-                scannerText = "🔍 Status: Ready to Scan\n"
-                scannerText = scannerText .. "🏝️ Island: " .. currentIsland .. "\n"
-                scannerText = scannerText .. "🌱 Land-Only: " .. (TeleportScanner.landOnly and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "⏱️ Wait Time: " .. TeleportScanner.waitTime .. "s"
-            end
-        else
-            scannerText = "❌ Status: Disabled\n"
-            scannerText = scannerText .. "🔍 Enable scanner to start random teleportation\n"
-            scannerText = scannerText .. "🎲 Features: Infinite random search, Land-only teleportation\n"
-            scannerText = scannerText .. "⚡ Performance: Auto-stops when horses found"
-        end
-        ScannerInfo:Set({Title = "🔍 Scanner Status", Content = scannerText})
     end
 end)
 
@@ -1503,7 +1373,6 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     
     disableNoclip()
-    TeleportScanner.stopScanning()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1514,45 +1383,21 @@ player.CharacterAdded:Connect(function(newCharacter)
         
         Rayfield:Notify({
            Title = "Character Respawned",
-           Content = "Horse catching stopped - scanner disabled",
+           Content = "Horse catching stopped",
            Duration = 3,
         })
     end
 end)
 
--- =================================
--- INITIALIZATION
--- =================================
+-- Initialization
 Rayfield:Notify({
    Title = "Horse Catcher Pro Loaded",
-   Content = "Random Teleport Scanner ready!",
+   Content = "Simple teleport scanner ready!",
    Duration = 3,
 })
 
-local initialIsland = detectCurrentIsland()
-
-if gameSystem.available and gameSystem.networkReady then
-    Rayfield:Notify({
-       Title = "System Ready",
-       Content = "Island: " .. initialIsland .. " | Teleport scanner available",
-       Duration = 3,
-    })
-else
-    Rayfield:Notify({
-       Title = "Warning",
-       Content = "Network issues detected - basic mode only",
-       Duration = 3,
-    })
-end
-
-spawn(function()
-    wait(2)
-    local detectedIsland = detectCurrentIsland()
-    if detectedIsland ~= "Unknown" then
-        Rayfield:Notify({
-           Title = "Ready!",
-           Content = "Island: " .. detectedIsland .. " | Random teleportation configured",
-           Duration = 2,
-        })
-    end
-end)
+Rayfield:Notify({
+   Title = "System Ready",
+   Content = "Mainland bounds configured",
+   Duration = 2,
+})
