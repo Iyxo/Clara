@@ -1,5 +1,5 @@
 -- Horse Catcher Pro - Simplified CaptureProgress Edition with World Scanning
--- by Iyxo - 2025-07-26 12:43:30
+-- by Iyxo - 2025-07-26 13:19:23
 -- Revolutionary horse catching with professional CaptureProgress monitoring and world scanning
 
 local parentTab, Rayfield, Window = ...
@@ -16,6 +16,15 @@ local Workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- =================================
+-- UTILITY FUNCTIONS
+-- =================================
+local function getTableLength(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
 
 -- =================================
 -- WORLD SCANNING SYSTEM
@@ -152,11 +161,17 @@ local function generateScanPoints(islandName, count)
     local points = {}
     local bounds = getIslandBounds(islandName)
     
+    print("🗺️ Island bounds for " .. islandName .. ":")
+    print("Corner 1: " .. tostring(bounds.corner1))
+    print("Corner 2: " .. tostring(bounds.corner2))
+    
     local minX = math.min(bounds.corner1.X, bounds.corner2.X)
     local maxX = math.max(bounds.corner1.X, bounds.corner2.X)
     local minZ = math.min(bounds.corner1.Z, bounds.corner2.Z)
     local maxZ = math.max(bounds.corner1.Z, bounds.corner2.Z)
     local avgY = (bounds.corner1.Y + bounds.corner2.Y) / 2
+    
+    print("📊 Calculated bounds: X(" .. minX .. " to " .. maxX .. "), Z(" .. minZ .. " to " .. maxZ .. "), Y(" .. avgY .. ")")
     
     if worldScanner.settings.smartDistribution then
         -- Smart grid distribution
@@ -164,34 +179,42 @@ local function generateScanPoints(islandName, count)
         local stepX = (maxX - minX) / gridSize
         local stepZ = (maxZ - minZ) / gridSize
         
+        print("📐 Grid: " .. gridSize .. "x" .. gridSize .. ", Step X: " .. stepX .. ", Step Z: " .. stepZ)
+        
         for i = 0, gridSize - 1 do
             for j = 0, gridSize - 1 do
                 if #points >= count then break end
                 
+                -- Grid point with some randomization
                 local baseX = minX + (i + 0.5) * stepX
                 local baseZ = minZ + (j + 0.5) * stepZ
                 
-                local randomX = baseX + (math.random() - 0.5) * stepX * 0.5
-                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.5
-                local randomY = avgY + math.random(-50, 150)
+                -- Add random offset (±25% of step size) - REDUCED for testing
+                local randomX = baseX + (math.random() - 0.5) * stepX * 0.2 -- Reduced from 0.5 to 0.2
+                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.2 -- Reduced from 0.5 to 0.2
+                local randomY = avgY + math.random(-20, 50) -- Reduced Y variation
                 
                 local point = Vector3.new(randomX, randomY, randomZ)
                 
+                -- Check if on land (if enabled) - SIMPLIFIED
                 if worldScanner.settings.landOnly then
                     local attempts = 0
-                    while not isOnLand(point) and attempts < 5 do
-                        randomX = baseX + (math.random() - 0.5) * stepX
-                        randomZ = baseZ + (math.random() - 0.5) * stepZ
+                    while not isOnLand(point) and attempts < 3 do -- Reduced attempts
+                        randomX = baseX + (math.random() - 0.5) * stepX * 0.3
+                        randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.3
+                        randomY = avgY + math.random(-10, 30)
                         point = Vector3.new(randomX, randomY, randomZ)
                         attempts = attempts + 1
                     end
                 end
                 
                 table.insert(points, point)
+                print("📍 Generated point " .. #points .. ": " .. tostring(point))
             end
+            if #points >= count then break end
         end
     else
-        -- Pure random distribution
+        -- Pure random distribution - ALSO FIXED
         for i = 1, count do
             local attempts = 0
             local point
@@ -199,15 +222,17 @@ local function generateScanPoints(islandName, count)
             repeat
                 local randomX = minX + (maxX - minX) * math.random()
                 local randomZ = minZ + (maxZ - minZ) * math.random()
-                local randomY = avgY + math.random(-50, 150)
+                local randomY = avgY + math.random(-30, 80)
                 point = Vector3.new(randomX, randomY, randomZ)
                 attempts = attempts + 1
-            until not worldScanner.settings.landOnly or isOnLand(point) or attempts > 10
+            until not worldScanner.settings.landOnly or isOnLand(point) or attempts > 5 -- Reduced attempts
             
             table.insert(points, point)
+            print("📍 Generated random point " .. #points .. ": " .. tostring(point))
         end
     end
     
+    print("✅ Generated " .. #points .. " scan points total")
     return points
 end
 
@@ -267,7 +292,38 @@ local function scanHorsesAtPosition(position, islandName)
     return newHorses
 end
 
--- Start world scanning
+-- Continue scanning process - FIXED
+local function continueScan()
+    if not worldScanner.isScanning or worldScanner.currentScanIndex > #worldScanner.scanPoints then
+        worldScanner.isScanning = false
+        return false
+    end
+    
+    local currentIsland = detectCurrentIsland()
+    local scanPoint = worldScanner.scanPoints[worldScanner.currentScanIndex]
+    
+    -- DEBUG: Print scan point
+    print("🔍 Teleporting to scan point " .. worldScanner.currentScanIndex .. ": " .. tostring(scanPoint))
+    
+    -- Teleport to scan point - FIXED
+    humanoidRootPart.CFrame = CFrame.new(scanPoint + Vector3.new(0, 5, 0)) -- Add height offset
+    
+    -- Wait before scanning
+    wait(worldScanner.settings.waitTime)
+    
+    -- Scan for horses
+    local newHorses = scanHorsesAtPosition(scanPoint, currentIsland)
+    for id, data in pairs(newHorses) do
+        worldScanner.foundHorses[id] = data
+        print("🐎 Found horse: " .. data.name .. " at scan point " .. worldScanner.currentScanIndex)
+    end
+    
+    worldScanner.currentScanIndex = worldScanner.currentScanIndex + 1
+    
+    return true
+end
+
+-- Start world scanning - FIXED
 local function startWorldScan()
     if worldScanner.isScanning then return end
     
@@ -279,9 +335,14 @@ local function startWorldScan()
     worldScanner.currentScanIndex = 1
     worldScanner.foundHorses = {}
     
+    print("🌍 Starting world scan on " .. currentIsland .. " with " .. #worldScanner.scanPoints .. " points")
+    for i, point in ipairs(worldScanner.scanPoints) do
+        print("Point " .. i .. ": " .. tostring(point))
+    end
+    
     Rayfield:Notify({
        Title = "World Scan Started",
-       Content = "Scanning " .. currentIsland .. " for horses",
+       Content = "Scanning " .. currentIsland .. " (" .. #worldScanner.scanPoints .. " points)",
        Duration = 2,
     })
 end
@@ -299,33 +360,9 @@ local function stopWorldScan()
     
     Rayfield:Notify({
        Title = "World Scan Stopped",
-       Content = "Found " .. #worldScanner.foundHorses .. " horses",
+       Content = "Found " .. getTableLength(worldScanner.foundHorses) .. " horses",
        Duration = 2,
     })
-end
-
--- Continue scanning process
-local function continueScan()
-    if not worldScanner.isScanning or worldScanner.currentScanIndex > #worldScanner.scanPoints then
-        worldScanner.isScanning = false
-        return false
-    end
-    
-    local currentIsland = detectCurrentIsland()
-    local scanPoint = worldScanner.scanPoints[worldScanner.currentScanIndex]
-    
-    -- Teleport to scan point
-    humanoidRootPart.CFrame = CFrame.new(scanPoint)
-    
-    -- Scan for horses
-    local newHorses = scanHorsesAtPosition(scanPoint, currentIsland)
-    for id, data in pairs(newHorses) do
-        worldScanner.foundHorses[id] = data
-    end
-    
-    worldScanner.currentScanIndex = worldScanner.currentScanIndex + 1
-    
-    return true
 end
 
 -- Get closest horse from scan results
@@ -1298,28 +1335,38 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
     end)
     
-    -- World Scanner Connection
+    -- World Scanner Connection - FIXED
     horseCatcher.connections.worldScanner = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning or not horseCatcher.settings.enableWorldScan then return end
         
         local currentTime = os.clock()
-        if currentTime - horseCatcher.runtime.lastScanCheck < 2 then
+        if currentTime - horseCatcher.runtime.lastScanCheck < 1 then -- Reduced from 2 to 1
             return
         end
         
         horseCatcher.runtime.lastScanCheck = currentTime
         
-        -- If we're scanning, continue scan process
+        -- If we're scanning, continue scan process - SPAWN FOR NON-BLOCKING
         if worldScanner.isScanning then
-            if not continueScan() then
-                -- Scan complete
-                worldScanner.isScanning = false
-                if worldScanner.originalPosition then
-                    humanoidRootPart.CFrame = worldScanner.originalPosition
+            spawn(function()
+                if not continueScan() then
+                    -- Scan complete
+                    worldScanner.isScanning = false
+                    print("✅ World scan complete! Found " .. getTableLength(worldScanner.foundHorses) .. " horses")
+                    
+                    Rayfield:Notify({
+                       Title = "Scan Complete",
+                       Content = "Found " .. getTableLength(worldScanner.foundHorses) .. " horses",
+                       Duration = 3,
+                    })
+                    
+                    if worldScanner.originalPosition then
+                        wait(0.5)
+                        humanoidRootPart.CFrame = worldScanner.originalPosition
+                        print("🔙 Returned to original position")
+                    end
                 end
-            else
-                wait(worldScanner.settings.waitTime)
-            end
+            end)
             return
         end
         
@@ -1328,12 +1375,17 @@ local function startHorseCatching()
         if #horses == 0 then
             if horseCatcher.runtime.noHorsesFoundTime == 0 then
                 horseCatcher.runtime.noHorsesFoundTime = currentTime
-            elseif currentTime - horseCatcher.runtime.noHorsesFoundTime > 10 then
-                -- No horses found for 10 seconds, start world scan
+                print("⚠️ No horses found, starting timer...")
+            elseif currentTime - horseCatcher.runtime.noHorsesFoundTime > 8 then -- Reduced from 10 to 8
+                -- No horses found for 8 seconds, start world scan
+                print("🚨 No horses for 8s, starting world scan!")
                 startWorldScan()
                 horseCatcher.runtime.noHorsesFoundTime = 0
             end
         else
+            if horseCatcher.runtime.noHorsesFoundTime > 0 then
+                print("✅ Horses found again, cancelling scan timer")
+            end
             horseCatcher.runtime.noHorsesFoundTime = 0
         end
     end)
@@ -1397,6 +1449,7 @@ local function startHorseCatching()
                     -- Teleport to scan horse
                     humanoidRootPart.CFrame = CFrame.new(horseCatcher.currentTarget.HumanoidRootPart.Position + Vector3.new(10, 5, 10))
                     wait(0.2)
+                    print("🐎 Teleported to scan horse: " .. getHorseName(horseCatcher.currentTarget))
                 end
             end
             
@@ -1691,7 +1744,7 @@ spawn(function()
         islandText = islandText .. "🔍 Auto-Scanning: " .. (horseCatcher.settings.enableWorldScan and "✅" or "❌") .. "\n"
         if worldScanner.isScanning then
             islandText = islandText .. "🌍 World Scan: " .. worldScanner.currentScanIndex .. "/" .. #worldScanner.scanPoints .. "\n"
-            islandText = islandText .. "📊 Scan Found: " .. table.getn(worldScanner.foundHorses) .. " horses"
+            islandText = islandText .. "📊 Scan Found: " .. getTableLength(worldScanner.foundHorses) .. " horses"
         else
             islandText = islandText .. "🌍 World Scan: Ready"
         end
@@ -1724,7 +1777,7 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
-            local scanCount = table.getn(worldScanner.foundHorses)
+            local scanCount = getTableLength(worldScanner.foundHorses)
             targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌")
             if horseCatcher.settings.enableWorldScan then
                 targetText = targetText .. "\n🌍 Scan horses: " .. scanCount
