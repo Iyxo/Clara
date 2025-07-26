@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Advanced Island Scanner Edition (FIXED)
--- by Iyxo - 2025-07-26 14:55:03
--- Professional land-only teleportation with smart distribution - WORKING VERSION
+-- Horse Catcher Pro - WORKING Teleport Scanner
+-- by Iyxo - 2025-07-26 15:25:00
+-- KURWA DZIAŁA TELEPORTACJA BEZ JEBANYCH POINTÓW
 
 local parentTab, Rayfield, Window = ...
 
@@ -18,39 +18,25 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- ADVANCED ISLAND SCANNER SYSTEM (FIXED)
+-- KURWA PROSTY TELEPORT SCANNER
 -- =================================
-local IslandScanner = {
-    islandBounds = {},
-    gridCache = {},
-    landPositions = {},
-    lastScanTime = 0,
-    scanCooldown = 0.1,
+local TeleportScanner = {
+    isScanning = false,
+    scanConnection = nil,
+    lastTeleportTime = 0,
+    waitTime = 0.5,
+    landOnly = true,
     
-    settings = {
-        enabled = false,
-        scanPoints = 12,
-        waitTime = 0.5,
-        landOnly = true,
-        smartDistribution = true,
-        scanRange = 512,
-        gridSize = 50,
-        maxRaycastAttempts = 5,
-        heightOffset = 5
+    -- MAINLAND BOUNDS - KURWA DZIAŁA
+    bounds = {
+        minX = -992.5,
+        maxX = 1084.9,
+        minZ = -951.3,
+        maxZ = 861.8,
+        avgY = 6.75
     },
     
-    runtime = {
-        isScanning = false,
-        currentIsland = "Unknown",
-        scanningConnections = {},
-        foundHorses = {},
-        lastTeleportTime = 0,
-        scanPositionIndex = 1,
-        currentScanPositions = {},
-        originalPosition = nil
-    },
-    
-    -- Materiały terenu uznawane za "ląd"
+    -- LAND MATERIALS
     landMaterials = {
         [Enum.Material.Grass] = true,
         [Enum.Material.Rock] = true,
@@ -61,8 +47,6 @@ local IslandScanner = {
         [Enum.Material.Concrete] = true,
         [Enum.Material.Brick] = true,
         [Enum.Material.Cobblestone] = true,
-        [Enum.Material.CrackedLava] = true,
-        [Enum.Material.Glacier] = true,
         [Enum.Material.LeafyGrass] = true,
         [Enum.Material.Limestone] = true,
         [Enum.Material.Pavement] = true,
@@ -72,406 +56,127 @@ local IslandScanner = {
     }
 }
 
--- Dodaj granice wysp
-function IslandScanner.addIslandBounds(islandName, minBounds, maxBounds)
-    IslandScanner.islandBounds[islandName] = {
-        min = minBounds,
-        max = maxBounds,
-        center = (minBounds + maxBounds) / 2,
-        size = maxBounds - minBounds
-    }
-end
-
--- Inicjalizacja granic wysp
-IslandScanner.addIslandBounds("Mainland", Vector3.new(-992.5, 6.8, -951.3), Vector3.new(1084.9, 6.7, 861.8))
-
--- Sprawdź czy pozycja jest na lądzie (NAPRAWIONA FUNKCJA)
-function IslandScanner.isLandPosition(position)
-    if not IslandScanner.settings.landOnly then
-        return true
-    end
+-- SPRAWDŹ CZY LĄAD (KURWA PROSTE)
+function TeleportScanner.isOnLand(position)
+    if not TeleportScanner.landOnly then return true end
     
     local success, result = pcall(function()
-        -- Cast ray down to check terrain material
         local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
         
-        if raycast and raycast.Instance then
-            -- Check if it's terrain
-            if raycast.Instance.Name == "Terrain" then
-                local material = raycast.Material
-                
-                -- Check if it's a land material
-                return IslandScanner.landMaterials[material] == true
-            else
-                -- If not terrain, assume it's a part = land
-                return true
-            end
+        if raycast and raycast.Instance and raycast.Instance.Name == "Terrain" then
+            local material = raycast.Material
+            return TeleportScanner.landMaterials[material] == true
         end
         
-        return false -- No hit = probably air/void
+        return false
     end)
     
     return success and result
 end
 
--- Generuj inteligentną siatkę pozycji dla wyspy (NAPRAWIONA FUNKCJA)
-function IslandScanner.generateScanPositions(islandName)
-    local bounds = IslandScanner.islandBounds[islandName]
-    if not bounds then return {} end
+-- WYGENERUJ KURWA LOSOWĄ POZYCJĘ
+function TeleportScanner.generateRandomPosition()
+    local randomX = TeleportScanner.bounds.minX + math.random() * (TeleportScanner.bounds.maxX - TeleportScanner.bounds.minX)
+    local randomZ = TeleportScanner.bounds.minZ + math.random() * (TeleportScanner.bounds.maxZ - TeleportScanner.bounds.minZ)
+    local randomY = TeleportScanner.bounds.avgY + math.random(-50, 150)
     
-    local positions = {}
-    local count = IslandScanner.settings.scanPoints
-    
-    local minX = bounds.min.X
-    local maxX = bounds.max.X
-    local minZ = bounds.min.Z
-    local maxZ = bounds.max.Z
-    local avgY = bounds.center.Y + IslandScanner.settings.heightOffset
-    
-    if IslandScanner.settings.smartDistribution then
-        -- Smart grid distribution (jak w starym kodzie)
-        local gridSize = math.ceil(math.sqrt(count))
-        local stepX = (maxX - minX) / gridSize
-        local stepZ = (maxZ - minZ) / gridSize
-        
-        for i = 0, gridSize - 1 do
-            for j = 0, gridSize - 1 do
-                if #positions >= count then break end
-                
-                -- Grid point with some randomization
-                local baseX = minX + (i + 0.5) * stepX
-                local baseZ = minZ + (j + 0.5) * stepZ
-                
-                -- Add random offset (±25% of step size)
-                local randomX = baseX + (math.random() - 0.5) * stepX * 0.5
-                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.5
-                local randomY = avgY + math.random(-50, 150)
-                
-                local point = Vector3.new(randomX, randomY, randomZ)
-                
-                -- Check if on land (if enabled)
-                if IslandScanner.settings.landOnly then
-                    local attempts = 0
-                    while not IslandScanner.isLandPosition(point) and attempts < 5 do
-                        randomX = baseX + (math.random() - 0.5) * stepX
-                        randomZ = baseZ + (math.random() - 0.5) * stepZ
-                        point = Vector3.new(randomX, randomY, randomZ)
-                        attempts = attempts + 1
-                    end
-                end
-                
-                table.insert(positions, point)
-            end
-        end
-    else
-        -- Pure random distribution
-        for i = 1, count do
-            local attempts = 0
-            local point
-            
-            repeat
-                local randomX = minX + (maxX - minX) * math.random()
-                local randomZ = minZ + (maxZ - minZ) * math.random()
-                local randomY = avgY + math.random(-50, 150)
-                point = Vector3.new(randomX, randomY, randomZ)
-                attempts = attempts + 1
-            until not IslandScanner.settings.landOnly or IslandScanner.isLandPosition(point) or attempts > 10
-            
-            table.insert(positions, point)
-        end
-    end
-    
-    return positions
+    return Vector3.new(randomX, randomY, randomZ)
 end
 
--- Sprawdź czy w pobliżu są konie
-function IslandScanner.detectNearbyHorses()
-    local playerPos = humanoidRootPart.Position
-    local nearbyHorses = {}
+-- TELEPORTUJ SIĘ (KURWA DZIAŁAJ)
+function TeleportScanner.teleportToRandomPosition()
+    local currentTime = os.clock()
+    if currentTime - TeleportScanner.lastTeleportTime < TeleportScanner.waitTime then
+        return false
+    end
     
-    -- Sprawdź cache koni
+    local attempts = 0
+    local targetPosition
+    
+    -- SPRÓBUJ 10 RAZY ZNALEŹĆ LĄAD
+    repeat
+        targetPosition = TeleportScanner.generateRandomPosition()
+        attempts = attempts + 1
+    until TeleportScanner.isOnLand(targetPosition) or attempts >= 10
+    
+    -- TELEPORTUJ SIĘ KURWA
+    humanoidRootPart.CFrame = CFrame.new(targetPosition)
+    TeleportScanner.lastTeleportTime = currentTime
+    
+    return true
+end
+
+-- SPRAWDŹ CZY KONIE W POBLIŻU (KURWA PROSTE)
+function TeleportScanner.detectNearbyHorses()
+    local playerPos = humanoidRootPart.Position
+    local horsesFound = 0
+    
     for _, horseData in pairs(Cache.horses) do
         if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
             local distance = (playerPos - horseData.horse.HumanoidRootPart.Position).Magnitude
-            if distance <= IslandScanner.settings.scanRange then
-                table.insert(nearbyHorses, {
-                    horse = horseData.horse,
-                    distance = distance,
-                    position = horseData.horse.HumanoidRootPart.Position
-                })
+            if distance <= 512 then -- STREAMING RANGE
+                horsesFound = horsesFound + 1
             end
         end
     end
     
-    return nearbyHorses
+    return horsesFound
 end
 
--- Znajdź konie na całej wyspie
-function IslandScanner.findIslandHorses()
-    local islandName = detectCurrentIsland()
-    local bounds = IslandScanner.islandBounds[islandName]
-    if not bounds then return {} end
+-- GŁÓWNA LOGIKA SKANOWANIA (KURWA PROSTA)
+function TeleportScanner.performScan()
+    if not TeleportScanner.isScanning then return end
     
-    local islandHorses = {}
+    -- SPRAWDŹ CZY KONIE W POBLIŻU
+    local nearbyHorses = TeleportScanner.detectNearbyHorses()
     
-    for _, horseData in pairs(Cache.horses) do
-        if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
-            local horsePos = horseData.horse.HumanoidRootPart.Position
-            
-            -- Sprawdź czy koń jest w granicach wyspy
-            if horsePos.X >= bounds.min.X and horsePos.X <= bounds.max.X and
-               horsePos.Z >= bounds.min.Z and horsePos.Z <= bounds.max.Z then
-                table.insert(islandHorses, {
-                    horse = horseData.horse,
-                    position = horsePos,
-                    distance = (humanoidRootPart.Position - horsePos).Magnitude
-                })
-            end
-        end
-    end
-    
-    -- Sortuj po odległości
-    table.sort(islandHorses, function(a, b) return a.distance < b.distance end)
-    
-    return islandHorses
-end
-
--- Bezpieczna teleportacja (NAPRAWIONA FUNKCJA)
-function IslandScanner.teleportToPosition(targetPosition)
-    local currentTime = os.clock()
-    if currentTime - IslandScanner.runtime.lastTeleportTime < IslandScanner.settings.waitTime then
-        return false
-    end
-    
-    -- Dodatkowa weryfikacja terenu
-    if IslandScanner.settings.landOnly then
-        local attempts = 0
-        local finalPosition = targetPosition
-        
-        while attempts < IslandScanner.settings.maxRaycastAttempts do
-            if IslandScanner.isLandPosition(finalPosition) then
-                break
-            end
-            
-            -- Spróbuj pozycję w pobliżu
-            local offset = Vector3.new(
-                (math.random() - 0.5) * 20,
-                0,
-                (math.random() - 0.5) * 20
-            )
-            finalPosition = targetPosition + offset
-            attempts = attempts + 1
-        end
-        
-        -- Jeśli nie znaleziono lądu, anuluj teleportację
-        if attempts >= IslandScanner.settings.maxRaycastAttempts then
-            return false
-        end
-        
-        targetPosition = finalPosition
-    end
-    
-    -- Wykonaj teleportację
-    humanoidRootPart.CFrame = CFrame.new(targetPosition)
-    IslandScanner.runtime.lastTeleportTime = currentTime
-    
-    return true
-end
-
--- NOWA FUNKCJA SKANOWANIA (jak w starym kodzie)
-function IslandScanner.startFullScan()
-    if IslandScanner.runtime.isScanning then return false end
-    
-    IslandScanner.runtime.isScanning = true
-    IslandScanner.runtime.originalPosition = humanoidRootPart.CFrame
-    
-    local currentIsland = detectCurrentIsland()
-    local scanPoints = IslandScanner.generateScanPositions(currentIsland)
-    
-    if #scanPoints == 0 then
+    if nearbyHorses > 0 then
+        -- KURWA ZNALAZŁ KONIA - ZATRZYMAJ SKANOWANIE
+        TeleportScanner.stopScanning()
         Rayfield:Notify({
-           Title = "Scan Error",
-           Content = "No valid scan points generated",
-           Duration = 3,
-        })
-        IslandScanner.runtime.isScanning = false
-        return false
-    end
-    
-    Rayfield:Notify({
-       Title = "Full Island Scan Started",
-       Content = "Scanning " .. #scanPoints .. " points on " .. currentIsland,
-       Duration = 2,
-    })
-    
-    spawn(function()
-        for i, point in ipairs(scanPoints) do
-            if not IslandScanner.runtime.isScanning then break end
-            
-            -- Teleportuj się do punktu skanowania
-            if IslandScanner.teleportToPosition(point) then
-                wait(IslandScanner.settings.waitTime)
-                
-                -- Skanuj konie w tym miejscu
-                updateHorseCache() -- Odśwież cache koni
-                
-                Rayfield:Notify({
-                   Title = "Scanning Progress",
-                   Content = "Point " .. i .. "/" .. #scanPoints .. " completed",
-                   Duration = 0.5,
-                })
-            end
-        end
-        
-        -- Wróć do oryginalnej pozycji
-        if IslandScanner.runtime.originalPosition then
-            humanoidRootPart.CFrame = IslandScanner.runtime.originalPosition
-        end
-        
-        IslandScanner.runtime.isScanning = false
-        
-        Rayfield:Notify({
-           Title = "Full Scan Complete",
-           Content = "Returned to original position",
+           Title = "Horse Found!",
+           Content = "Found " .. nearbyHorses .. " horses - stopping scan",
            Duration = 2,
         })
-    end)
-    
-    return true
-end
-
--- Zatrzymaj skanowanie
-function IslandScanner.stopFullScan()
-    IslandScanner.runtime.isScanning = false
-    
-    -- Wróć do oryginalnej pozycji
-    if IslandScanner.runtime.originalPosition then
-        humanoidRootPart.CFrame = IslandScanner.runtime.originalPosition
-        IslandScanner.runtime.originalPosition = nil
-    end
-    
-    Rayfield:Notify({
-       Title = "Scan Stopped",
-       Content = "Returned to original position",
-       Duration = 2,
-    })
-end
-
--- Główna logika skanowania (NAPRAWIONA)
-function IslandScanner.performScan()
-    if not IslandScanner.settings.enabled or not horseCatcher.isRunning then
         return
     end
     
-    local currentTime = os.clock()
-    if currentTime - IslandScanner.lastScanTime < IslandScanner.scanCooldown then
-        return
-    end
-    
-    IslandScanner.lastScanTime = currentTime
-    
-    -- Sprawdź czy w pobliżu są konie
-    local nearbyHorses = IslandScanner.detectNearbyHorses()
-    
-    if #nearbyHorses > 0 then
-        -- Konie w pobliżu - zatrzymaj skanowanie
-        if IslandScanner.runtime.isScanning then
-            IslandScanner.runtime.isScanning = false
-            Rayfield:Notify({
-               Title = "Scan Paused",
-               Content = "Horse detected nearby - stopping scan",
-               Duration = 1,
-            })
-        end
-        return
-    end
-    
-    -- Brak koni w pobliżu - sprawdź całą wyspę
-    local islandHorses = IslandScanner.findIslandHorses()
-    
-    if #islandHorses > 0 then
-        -- Znaleziono konie na wyspie - teleportuj się do najbliższego
-        local targetHorse = islandHorses[1]
-        local targetPosition = targetHorse.position + Vector3.new(
-            (math.random() - 0.5) * 40,
-            IslandScanner.settings.heightOffset,
-            (math.random() - 0.5) * 40
-        )
-        
-        if IslandScanner.teleportToPosition(targetPosition) then
-            Rayfield:Notify({
-               Title = "Horse Found",
-               Content = "Teleporting to horse location",
-               Duration = 1,
-            })
-        end
-        return
-    end
-    
-    -- Brak koni na wyspie - rozpocznij/kontynuuj systematyczne skanowanie
-    if not IslandScanner.runtime.isScanning then
-        IslandScanner.runtime.isScanning = true
-        local currentIsland = detectCurrentIsland()
-        IslandScanner.runtime.currentScanPositions = IslandScanner.generateScanPositions(currentIsland)
-        IslandScanner.runtime.scanPositionIndex = 1
-        
-        Rayfield:Notify({
-           Title = "Island Scan Started",
-           Content = "Scanning " .. currentIsland .. " for horses",
-           Duration = 2,
-        })
-    end
-    
-    -- Kontynuuj systematyczne skanowanie
-    if #IslandScanner.runtime.currentScanPositions > 0 then
-        local targetPosition = IslandScanner.runtime.currentScanPositions[IslandScanner.runtime.scanPositionIndex]
-        
-        if IslandScanner.teleportToPosition(targetPosition) then
-            IslandScanner.runtime.scanPositionIndex = IslandScanner.runtime.scanPositionIndex + 1
-            
-            -- Jeśli skończono pozycje, wygeneruj nowe
-            if IslandScanner.runtime.scanPositionIndex > #IslandScanner.runtime.currentScanPositions then
-                local currentIsland = detectCurrentIsland()
-                IslandScanner.runtime.currentScanPositions = IslandScanner.generateScanPositions(currentIsland)
-                IslandScanner.runtime.scanPositionIndex = 1
-            end
-        end
+    -- BRAK KONI - TELEPORTUJ SIĘ DALEJ
+    if TeleportScanner.teleportToRandomPosition() then
+        updateHorseCache() -- ODŚWIEŻ CACHE KONI
     end
 end
 
--- Start scanning system
-function IslandScanner.startScanning()
-    if IslandScanner.runtime.scanningConnections.main then
-        return false
-    end
+-- START SKANOWANIA (KURWA DZIAŁAJ)
+function TeleportScanner.startScanning()
+    if TeleportScanner.isScanning then return false end
     
-    IslandScanner.runtime.scanningConnections.main = RunService.Heartbeat:Connect(function()
-        IslandScanner.performScan()
+    TeleportScanner.isScanning = true
+    
+    TeleportScanner.scanConnection = RunService.Heartbeat:Connect(function()
+        TeleportScanner.performScan()
     end)
     
     Rayfield:Notify({
-       Title = "Island Scanner Active",
-       Content = "Smart land-only scanning enabled",
+       Title = "Teleport Scanner Started",
+       Content = "Randomly teleporting to find horses",
        Duration = 2,
     })
     
     return true
 end
 
--- Stop scanning system
-function IslandScanner.stopScanning()
-    for name, connection in pairs(IslandScanner.runtime.scanningConnections) do
-        if connection then
-            connection:Disconnect()
-            IslandScanner.runtime.scanningConnections[name] = nil
-        end
+-- STOP SKANOWANIA
+function TeleportScanner.stopScanning()
+    TeleportScanner.isScanning = false
+    
+    if TeleportScanner.scanConnection then
+        TeleportScanner.scanConnection:Disconnect()
+        TeleportScanner.scanConnection = nil
     end
     
-    IslandScanner.runtime.isScanning = false
-    IslandScanner.runtime.currentScanPositions = {}
-    
     Rayfield:Notify({
-       Title = "Island Scanner Stopped",
+       Title = "Teleport Scanner Stopped",
        Content = "Scanning disabled",
        Duration = 2,
     })
@@ -1360,9 +1065,9 @@ local function startHorseCatching()
         enableNoclip()
     end
     
-    -- Start island scanner if enabled
-    if IslandScanner.settings.enabled then
-        IslandScanner.startScanning()
+    -- Start teleport scanner if enabled
+    if TeleportScanner.enabled then
+        TeleportScanner.startScanning()
     end
     
     Rayfield:Notify({
@@ -1509,9 +1214,8 @@ end
 local function stopHorseCatching()
     horseCatcher.isRunning = false
     
-    -- Stop island scanner
-    IslandScanner.stopScanning()
-    IslandScanner.stopFullScan()
+    -- Stop teleport scanner
+    TeleportScanner.stopScanning()
     
     -- Disable noclip
     disableNoclip()
@@ -1543,7 +1247,7 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- SIMPLIFIED UI
+-- KURWA PROSTY UI
 -- =================================
 
 -- Main Control Section
@@ -1565,19 +1269,21 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- Island Scanner Section
-local IslandScannerSection = parentTab:CreateSection("🌍 Advanced Island Scanner")
+-- KURWA PROSTY TELEPORT SCANNER
+local TeleportScannerSection = parentTab:CreateSection("🌍 Random Teleport Scanner")
 
-local ScannerToggle = parentTab:CreateToggle({
-   Name = "🔍 Smart Island Scanning",
+TeleportScanner.enabled = false
+
+local TeleportScannerToggle = parentTab:CreateToggle({
+   Name = "🔍 Random Teleport Scanning",
    CurrentValue = false,
-   Flag = "IslandScannerToggle",
+   Flag = "TeleportScannerToggle",
    Callback = function(Value)
-      IslandScanner.settings.enabled = Value
+      TeleportScanner.enabled = Value
       if Value and horseCatcher.isRunning then
-         IslandScanner.startScanning()
+         TeleportScanner.startScanning()
       else
-         IslandScanner.stopScanning()
+         TeleportScanner.stopScanning()
       end
    end,
 })
@@ -1587,63 +1293,19 @@ local LandOnlyToggle = parentTab:CreateToggle({
    CurrentValue = true,
    Flag = "LandOnlyToggle",
    Callback = function(Value)
-      IslandScanner.settings.landOnly = Value
+      TeleportScanner.landOnly = Value
    end,
 })
 
-local SmartDistributionToggle = parentTab:CreateToggle({
-   Name = "🧠 Smart Grid Distribution",
-   CurrentValue = true,
-   Flag = "SmartDistributionToggle",
-   Callback = function(Value)
-      IslandScanner.settings.smartDistribution = Value
-   end,
-})
-
-local ScanPointsSlider = parentTab:CreateSlider({
-   Name = "📍 Scan Points",
-   Range = {6, 50},
-   Increment = 1,
-   Suffix = " points",
-   CurrentValue = 12,
-   Flag = "ScanPointsSlider",
-   Callback = function(Value)
-      IslandScanner.settings.scanPoints = Value
-   end,
-})
-
-local ScanWaitTimeSlider = parentTab:CreateSlider({
-   Name = "⏱️ Scan Wait Time",
-   Range = {0.1, 5},
+local TeleportWaitTimeSlider = parentTab:CreateSlider({
+   Name = "⏱️ Teleport Wait Time",
+   Range = {0.1, 3},
    Increment = 0.1,
    Suffix = "s",
    CurrentValue = 0.5,
-   Flag = "ScanWaitTimeSlider",
+   Flag = "TeleportWaitTimeSlider",
    Callback = function(Value)
-      IslandScanner.settings.waitTime = Value
-   end,
-})
-
--- Full Scan Buttons
-local FullScanButton = parentTab:CreateButton({
-   Name = "🚀 Start Full Island Scan",
-   Callback = function()
-      if not IslandScanner.runtime.isScanning then
-         IslandScanner.startFullScan()
-      else
-         Rayfield:Notify({
-            Title = "Scan Running",
-            Content = "Full scan already in progress",
-            Duration = 2,
-         })
-      end
-   end,
-})
-
-local StopScanButton = parentTab:CreateButton({
-   Name = "⏹️ Stop Full Scan",
-   Callback = function()
-      IslandScanner.stopFullScan()
+      TeleportScanner.waitTime = Value
    end,
 })
 
@@ -1764,7 +1426,7 @@ local ResetCapturedButton = parentTab:CreateButton({
 })
 
 -- =================================
--- SIMPLIFIED STATUS UPDATE SYSTEM
+-- STATUS UPDATE SYSTEM
 -- =================================
 spawn(function()
     while wait(1) do
@@ -1808,40 +1470,24 @@ spawn(function()
         
         -- Scanner Information
         local scannerText = ""
-        if IslandScanner.settings.enabled then
-            if IslandScanner.runtime.isScanning then
-                local scanPositions = #IslandScanner.runtime.currentScanPositions
-                local currentIndex = IslandScanner.runtime.scanPositionIndex
-                local progress = scanPositions > 0 and math.floor((currentIndex / scanPositions) * 100) or 0
-                
-                scannerText = "🔍 Status: Active Scanning\n"
-                scannerText = scannerText .. "📍 Progress: " .. progress .. "% (" .. currentIndex .. "/" .. scanPositions .. ")\n"
-                scannerText = scannerText .. "🌱 Land-Only: " .. (IslandScanner.settings.landOnly and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "🧠 Smart Grid: " .. (IslandScanner.settings.smartDistribution and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "⏱️ Wait Time: " .. IslandScanner.settings.waitTime .. "s"
+        if TeleportScanner.enabled then
+            if TeleportScanner.isScanning then
+                scannerText = "🔍 Status: Active Random Teleporting\n"
+                scannerText = scannerText .. "🎲 Mode: Infinite Random Search\n"
+                scannerText = scannerText .. "🌱 Land-Only: " .. (TeleportScanner.landOnly and "✅" or "❌") .. "\n"
+                scannerText = scannerText .. "⏱️ Wait Time: " .. TeleportScanner.waitTime .. "s\n"
+                scannerText = scannerText .. "🎯 Will stop when horse found"
             else
-                local nearbyHorses = IslandScanner.detectNearbyHorses()
-                local islandHorses = IslandScanner.findIslandHorses()
-                
-                if #nearbyHorses > 0 then
-                    scannerText = "⏸️ Status: Paused (Horse Nearby)\n"
-                    scannerText = scannerText .. "🐎 Nearby Horses: " .. #nearbyHorses .. "\n"
-                elseif #islandHorses > 0 then
-                    scannerText = "🎯 Status: Horse Found on Island\n"
-                    scannerText = scannerText .. "🐎 Island Horses: " .. #islandHorses .. "\n"
-                else
-                    scannerText = "🔍 Status: Ready to Scan\n"
-                    scannerText = scannerText .. "🏝️ Island: " .. currentIsland .. "\n"
-                end
-                
-                scannerText = scannerText .. "🌱 Land-Only: " .. (IslandScanner.settings.landOnly and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "📐 Scan Points: " .. IslandScanner.settings.scanPoints .. " points"
+                scannerText = "🔍 Status: Ready to Scan\n"
+                scannerText = scannerText .. "🏝️ Island: " .. currentIsland .. "\n"
+                scannerText = scannerText .. "🌱 Land-Only: " .. (TeleportScanner.landOnly and "✅" or "❌") .. "\n"
+                scannerText = scannerText .. "⏱️ Wait Time: " .. TeleportScanner.waitTime .. "s"
             end
         else
             scannerText = "❌ Status: Disabled\n"
-            scannerText = scannerText .. "🔍 Enable scanner to start intelligent island exploration\n"
-            scannerText = scannerText .. "🌱 Features: Land-only teleportation, Smart grid distribution\n"
-            scannerText = scannerText .. "⚡ Performance: Optimized for minimal lag"
+            scannerText = scannerText .. "🔍 Enable scanner to start random teleportation\n"
+            scannerText = scannerText .. "🎲 Features: Infinite random search, Land-only teleportation\n"
+            scannerText = scannerText .. "⚡ Performance: Auto-stops when horses found"
         end
         ScannerInfo:Set({Title = "🔍 Scanner Status", Content = scannerText})
     end
@@ -1857,8 +1503,7 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     
     disableNoclip()
-    IslandScanner.stopScanning()
-    IslandScanner.stopFullScan()
+    TeleportScanner.stopScanning()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1880,7 +1525,7 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "Horse Catcher Pro Loaded",
-   Content = "Advanced Island Scanner ready!",
+   Content = "Random Teleport Scanner ready!",
    Duration = 3,
 })
 
@@ -1889,7 +1534,7 @@ local initialIsland = detectCurrentIsland()
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
        Title = "System Ready",
-       Content = "Island: " .. initialIsland .. " | Land-only scanning available",
+       Content = "Island: " .. initialIsland .. " | Teleport scanner available",
        Duration = 3,
     })
 else
@@ -1904,20 +1549,10 @@ spawn(function()
     wait(2)
     local detectedIsland = detectCurrentIsland()
     if detectedIsland ~= "Unknown" then
-        -- Check if island bounds are defined
-        local bounds = IslandScanner.islandBounds[detectedIsland]
-        if bounds then
-            Rayfield:Notify({
-               Title = "Ready!",
-               Content = "Island: " .. detectedIsland .. " | Scanner bounds configured",
-               Duration = 2,
-            })
-        else
-            Rayfield:Notify({
-               Title = "Ready!",
-               Content = "Island: " .. detectedIsland .. " | Configure bounds for optimal scanning",
-               Duration = 3,
-            })
-        end
+        Rayfield:Notify({
+           Title = "Ready!",
+           Content = "Island: " .. detectedIsland .. " | Random teleportation configured",
+           Duration = 2,
+        })
     end
 end)
