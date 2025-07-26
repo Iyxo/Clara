@@ -255,9 +255,7 @@ local horseCatcher = {
         movementMode = "attachment",
         captureCooldown = 0.4,
         smartTargeting = true,
-        aggressiveTargeting = true,
         
-        progressMonitoring = true,
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
         
@@ -286,7 +284,8 @@ local horseCatcher = {
         forceDetach = false,
         targetingCount = 0,
         captureAttempts = 0,
-        currentIslandHorses = 0
+        currentIslandHorses = 0,
+        sessionCapturedCount = 0
     },
     
     performance = {
@@ -815,6 +814,7 @@ local function isHorseCapturedOrComplete(horse)
         horseCatcher.statistics.currentStreak = horseCatcher.statistics.currentStreak + 1
         horseCatcher.statistics.successfulCaptures = horseCatcher.statistics.successfulCaptures + 1
         horseCatcher.runtime.lastSuccessfulCapture = tick()
+        horseCatcher.runtime.sessionCapturedCount = horseCatcher.runtime.sessionCapturedCount + 1
         
         local captureTime = tick() - horseCatcher.runtime.currentTargetStartTime
         if captureTime < horseCatcher.statistics.progressStats.fastestCapture then
@@ -905,6 +905,7 @@ local function startHorseCatching()
     horseCatcher.runtime.lastIslandCheck = 0
     horseCatcher.runtime.lastProgressCheck = 0
     horseCatcher.runtime.lastLassoCheck = 0
+    horseCatcher.runtime.sessionCapturedCount = 0
     
     horseCatcher.runtime.currentTargetStartTime = 0
     horseCatcher.runtime.lastProgressChange = 0
@@ -1088,7 +1089,7 @@ local function stopHorseCatching()
     
     Rayfield:Notify({
        Title = "Session Ended",
-       Content = "Captured " .. horseCatcher.statistics.currentStreak .. " horses",
+       Content = "Captured " .. horseCatcher.runtime.sessionCapturedCount .. " horses",
        Duration = 3,
     })
     
@@ -1099,17 +1100,27 @@ end
 -- SIMPLIFIED UI
 -- =================================
 
--- CaptureProgress Control Section
-local CaptureProgressSection = parentTab:CreateSection("🎯 CaptureProgress System")
+-- Main Control Section
+local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
 
-local ProgressMonitoringToggle = parentTab:CreateToggle({
-   Name = "📊 CaptureProgress Monitoring",
-   CurrentValue = true,
-   Flag = "ProgressMonitoringToggle",
+local MainToggle = parentTab:CreateToggle({
+   Name = "🚀 Ultra Horse Catching",
+   CurrentValue = false,
+   Flag = "UltraHorseCatchingMainToggle",
    Callback = function(Value)
-      horseCatcher.settings.progressMonitoring = Value
+      if Value then
+         local success = startHorseCatching()
+         if not success then
+            MainToggle:Set(false)
+         end
+      else
+         stopHorseCatching()
+      end
    end,
 })
+
+-- Progress Control Section
+local ProgressControlSection = parentTab:CreateSection("⏭️ Progress Control")
 
 local AbandonStuckToggle = parentTab:CreateToggle({
    Name = "⏭️ Abandon Stuck Progress",
@@ -1129,25 +1140,6 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
    Flag = "MaxStuckProgressSlider",
    Callback = function(Value)
       horseCatcher.settings.maxStuckProgressTime = Value
-   end,
-})
-
--- Main Control Section
-local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
-
-local MainToggle = parentTab:CreateToggle({
-   Name = "🚀 Ultra Horse Catching",
-   CurrentValue = false,
-   Flag = "UltraHorseCatchingMainToggle",
-   Callback = function(Value)
-      if Value then
-         local success = startHorseCatching()
-         if not success then
-            MainToggle:Set(false)
-         end
-      else
-         stopHorseCatching()
-      end
    end,
 })
 
@@ -1202,16 +1194,7 @@ local SmartTargetingToggle = parentTab:CreateToggle({
    end,
 })
 
-local AggressiveTargetingToggle = parentTab:CreateToggle({
-   Name = "🎯 Aggressive Targeting",
-   CurrentValue = true,
-   Flag = "UltraHorseAggressiveTargetingToggle",
-   Callback = function(Value)
-      horseCatcher.settings.aggressiveTargeting = Value
-   end,
-})
-
--- Simplified Status Section (only Island Information)
+-- Simplified Status Section
 local LiveStatusSection = parentTab:CreateSection("📊 Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
@@ -1260,17 +1243,6 @@ spawn(function()
         
         -- Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "🐎 Horses on Island: " .. (horseCatcher.runtime.currentIslandHorses or 0) .. "\n"
-        
-        local totalIslands = 0
-        local totalHorses = 0
-        for islandName, horseCount in pairs(Cache.islandHorses) do
-            totalIslands = totalIslands + 1
-            totalHorses = totalHorses + horseCount
-        end
-        
-        islandText = islandText .. "🌍 Islands Scanned: " .. totalIslands .. "\n"
-        islandText = islandText .. "📊 Total Horses: " .. totalHorses .. "\n"
         islandText = islandText .. "🔍 Auto-Scanning: ✅"
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
@@ -1301,7 +1273,7 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
-            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
+            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌")
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
     end
