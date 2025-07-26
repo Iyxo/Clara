@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Simplified Attachment-Only Edition
--- by Iyxo - 2025-07-26 (Simplified)
--- Revolutionary horse catching with attachment mode only
+-- Horse Catcher Pro - Simplified CaptureProgress Edition
+-- by Iyxo - 2025-07-22 17:56:13
+-- Revolutionary horse catching with professional CaptureProgress monitoring
 
 local parentTab, Rayfield, Window = ...
 
@@ -9,6 +9,7 @@ local parentTab, Rayfield, Window = ...
 -- =================================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -139,6 +140,66 @@ local function updateCaptureProgressTracking()
 end
 
 -- =================================
+-- NOCLIP SYSTEM FOR SMOOTH MODE
+-- =================================
+local noclipSystem = {
+    active = false,
+    originalCanCollide = {},
+    connections = {}
+}
+
+local function enableNoclip()
+    if noclipSystem.active then return end
+    
+    noclipSystem.active = true
+    
+    local function setNoclip(object)
+        if object:IsA("BasePart") and object.CanCollide then
+            noclipSystem.originalCanCollide[object] = true
+            object.CanCollide = false
+        end
+    end
+    
+    -- Apply to current character
+    pcall(function()
+        for _, part in pairs(character:GetChildren()) do
+            setNoclip(part)
+        end
+    end)
+    
+    -- Monitor for new parts
+    noclipSystem.connections.childAdded = character.ChildAdded:Connect(function(child)
+        if noclipSystem.active then
+            wait(0.1) -- Wait for part to load
+            setNoclip(child)
+        end
+    end)
+end
+
+local function disableNoclip()
+    if not noclipSystem.active then return end
+    
+    noclipSystem.active = false
+    
+    -- Restore original collision
+    pcall(function()
+        for part, _ in pairs(noclipSystem.originalCanCollide) do
+            if part and part.Parent then
+                part.CanCollide = true
+            end
+        end
+    end)
+    
+    noclipSystem.originalCanCollide = {}
+    
+    -- Disconnect monitoring
+    if noclipSystem.connections.childAdded then
+        noclipSystem.connections.childAdded:Disconnect()
+        noclipSystem.connections.childAdded = nil
+    end
+end
+
+-- =================================
 -- PROFESSIONAL CACHING SYSTEM
 -- =================================
 local Cache = {
@@ -164,6 +225,7 @@ local horseCatcher = {
     connections = {
         capture = nil,
         targeting = nil,
+        movement = nil,
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
@@ -190,6 +252,7 @@ local horseCatcher = {
     },
     
     settings = {
+        movementMode = "attachment",
         captureCooldown = 0.4,
         smartTargeting = true,
         aggressiveTargeting = true,
@@ -229,6 +292,7 @@ local horseCatcher = {
     performance = {
         captureTimes = {},
         targetingTimes = {},
+        movementTimes = {},
         islandScanTimes = {},
         progressCheckTimes = {},
         maxCaptureTime = 0,
@@ -618,7 +682,7 @@ local function captureHorse(horse)
     return success
 end
 
--- Attachment movement function only
+-- Movement functions
 local function attachToHorse(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
@@ -647,6 +711,41 @@ local function attachToHorse(horse)
         weld.Name = "HorseAttachment"
         
         horseCatcher.isAttached = true
+    end)
+    
+    return true
+end
+
+-- Enhanced smooth follow with noclip
+local function smoothFollow(horse)
+    if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
+    
+    pcall(function()
+        local horsePos = horse.HumanoidRootPart.Position
+        local horseVelocity = horse.HumanoidRootPart.Velocity
+        local currentPos = humanoidRootPart.Position
+        
+        local prediction = horsePos + (horseVelocity * 0.3)
+        local direction = (prediction - currentPos).Unit
+        local distance = (prediction - currentPos).Magnitude
+        
+        if distance > horseCatcher.settings.safeDistance + 1 then
+            local targetPos = prediction - direction * horseCatcher.settings.safeDistance
+            targetPos = targetPos + Vector3.new(0, 2.5, 0)
+            
+            local tweenInfo = TweenInfo.new(
+                0.4,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+            
+            local tween = TweenService:Create(
+                humanoidRootPart,
+                tweenInfo,
+                {CFrame = CFrame.lookAt(targetPos, prediction)}
+            )
+            tween:Play()
+        end
     end)
     
     return true
@@ -739,8 +838,8 @@ local function isHorseCapturedOrComplete(horse)
         horseCatcher.statistics.horsesPerMinute = (horseCatcher.statistics.currentStreak / (sessionTime / 60))
         
         Rayfield:Notify({
-           Title = "Horse Captured",
-           Content = horseName .. " - " .. reason,
+           Title = "Horse Captured!",
+           Content = horseName .. " on " .. currentIsland,
            Duration = 2,
         })
     end
@@ -781,17 +880,17 @@ local function startHorseCatching()
     if not lassoReady then
         Rayfield:Notify({
            Title = "Error",
-           Content = "No lasso found",
-           Duration = 2,
+           Content = "No lasso found!",
+           Duration = 3,
         })
         return false
     end
     
     if not gameSystem.available or not gameSystem.networkReady then
         Rayfield:Notify({
-           Title = "Error", 
-           Content = "Network system unavailable",
-           Duration = 2,
+           Title = "Error",
+           Content = "Network system error",
+           Duration = 3,
         })
         return false
     end
@@ -812,9 +911,17 @@ local function startHorseCatching()
     horseCatcher.runtime.lastProgressValue = "0/0"
     horseCatcher.runtime.progressStuckTime = 0
     
+    local movementMode = horseCatcher.settings.movementMode == "attachment" and "Attachment" or "Smooth"
+    local currentIsland = detectCurrentIsland()
+    
+    -- Enable noclip for smooth mode
+    if horseCatcher.settings.movementMode == "smooth" then
+        enableNoclip()
+    end
+    
     Rayfield:Notify({
-       Title = "Horse Catching Started",
-       Content = "Attachment mode active",
+       Title = "Started!",
+       Content = movementMode .. " mode on " .. currentIsland,
        Duration = 2,
     })
     
@@ -843,6 +950,7 @@ local function startHorseCatching()
             return
         end
         
+        local startTime = tick()
         local progressData = getCaptureProgress(horseCatcher.currentTarget)
         
         if progressData.exists then
@@ -860,6 +968,12 @@ local function startHorseCatching()
         end
         
         horseCatcher.runtime.lastProgressCheck = currentTime
+        
+        local checkTime = tick() - startTime
+        table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
+        if #horseCatcher.performance.progressCheckTimes > 100 then
+            table.remove(horseCatcher.performance.progressCheckTimes, 1)
+        end
     end)
     
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
@@ -868,7 +982,9 @@ local function startHorseCatching()
         if horseCatcher.currentTarget then
             local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
             if captured then
-                detachFromHorse()
+                if horseCatcher.settings.movementMode == "attachment" then
+                    detachFromHorse()
+                end
                 horseCatcher.currentTarget = nil
                 horseCatcher.currentTargetProgress = nil
                 horseCatcher.runtime.currentTargetStartTime = 0
@@ -882,12 +998,14 @@ local function startHorseCatching()
         if horseCatcher.currentTarget and horseCatcher.settings.abandonOnStuckProgress then
             if horseCatcher.runtime.progressStuckTime > horseCatcher.settings.maxStuckProgressTime then
                 Rayfield:Notify({
-                   Title = "Skipping Horse",
-                   Content = "No progress detected",
-                   Duration = 1,
+                   Title = "Skipping",
+                   Content = "Stuck horse - moving to next",
+                   Duration = 2,
                 })
                 
-                detachFromHorse()
+                if horseCatcher.settings.movementMode == "attachment" then
+                    detachFromHorse()
+                end
                 horseCatcher.currentTarget = nil
                 horseCatcher.currentTargetProgress = nil
                 horseCatcher.runtime.currentTargetStartTime = 0
@@ -913,19 +1031,27 @@ local function startHorseCatching()
                 horseCatcher.runtime.progressStuckTime = 0
                 horseCatcher.currentTargetProgress = getCaptureProgress(horseCatcher.currentTarget)
             else
-                detachFromHorse()
+                if horseCatcher.settings.movementMode == "attachment" then
+                    detachFromHorse()
+                end
                 return
             end
         end
         
         if horseCatcher.currentTarget then
-            if not horseCatcher.isAttached or horseCatcher.runtime.forceDetach then
-                attachToHorse(horseCatcher.currentTarget)
+            if horseCatcher.settings.movementMode == "attachment" then
+                if not horseCatcher.isAttached or horseCatcher.runtime.forceDetach then
+                    attachToHorse(horseCatcher.currentTarget)
+                end
+            elseif horseCatcher.settings.movementMode == "smooth" then
+                smoothFollow(horseCatcher.currentTarget)
             end
             
             captureHorse(horseCatcher.currentTarget)
         else
-            detachFromHorse()
+            if horseCatcher.settings.movementMode == "attachment" then
+                detachFromHorse()
+            end
         end
     end)
     
@@ -940,6 +1066,9 @@ end
 local function stopHorseCatching()
     horseCatcher.isRunning = false
     
+    -- Disable noclip
+    disableNoclip()
+    
     for name, connection in pairs(horseCatcher.connections) do
         if connection then
             connection:Disconnect()
@@ -951,10 +1080,16 @@ local function stopHorseCatching()
     horseCatcher.currentTarget = nil
     horseCatcher.currentTargetProgress = nil
     
+    local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+    local minutes = math.floor(sessionTime / 60)
+    local seconds = math.floor(sessionTime % 60)
+    
+    local currentIsland = detectCurrentIsland()
+    
     Rayfield:Notify({
        Title = "Session Ended",
-       Content = "Captured: " .. horseCatcher.statistics.currentStreak,
-       Duration = 2,
+       Content = "Captured " .. horseCatcher.statistics.currentStreak .. " horses",
+       Duration = 3,
     })
     
     horseCatcher.statistics.currentStreak = 0
@@ -965,10 +1100,10 @@ end
 -- =================================
 
 -- CaptureProgress Control Section
-local CaptureProgressSection = parentTab:CreateSection("CaptureProgress System")
+local CaptureProgressSection = parentTab:CreateSection("🎯 CaptureProgress System")
 
 local ProgressMonitoringToggle = parentTab:CreateToggle({
-   Name = "CaptureProgress Monitoring",
+   Name = "📊 CaptureProgress Monitoring",
    CurrentValue = true,
    Flag = "ProgressMonitoringToggle",
    Callback = function(Value)
@@ -977,7 +1112,7 @@ local ProgressMonitoringToggle = parentTab:CreateToggle({
 })
 
 local AbandonStuckToggle = parentTab:CreateToggle({
-   Name = "Abandon Stuck Progress",
+   Name = "⏭️ Abandon Stuck Progress",
    CurrentValue = true,
    Flag = "AbandonStuckProgressToggle",
    Callback = function(Value)
@@ -986,7 +1121,7 @@ local AbandonStuckToggle = parentTab:CreateToggle({
 })
 
 local MaxStuckProgressSlider = parentTab:CreateSlider({
-   Name = "Max Stuck Progress Time",
+   Name = "⏳ Max Stuck Progress Time",
    Range = {5, 30},
    Increment = 1,
    Suffix = "s",
@@ -998,12 +1133,12 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
 })
 
 -- Main Control Section
-local MainControlSection = parentTab:CreateSection("Main Control")
+local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
 
 local MainToggle = parentTab:CreateToggle({
-   Name = "Horse Catching",
+   Name = "🚀 Ultra Horse Catching",
    CurrentValue = false,
-   Flag = "HorseCatchingMainToggle",
+   Flag = "UltraHorseCatchingMainToggle",
    Callback = function(Value)
       if Value then
          local success = startHorseCatching()
@@ -1016,50 +1151,77 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- Settings Section
-local SettingsSection = parentTab:CreateSection("Settings")
+-- Movement Settings Section
+local MovementSettingsSection = parentTab:CreateSection("📍 Movement & Optimization")
+
+local MovementDropdown = parentTab:CreateDropdown({
+   Name = "📍 Movement Mode",
+   Options = {"attachment", "smooth"},
+   CurrentOption = {"attachment"},
+   MultipleOptions = false,
+   Flag = "UltraHorseMovementModeDropdown",
+   Callback = function(Option)
+      local oldMode = horseCatcher.settings.movementMode
+      horseCatcher.settings.movementMode = Option[1]
+      
+      -- Handle noclip for smooth mode
+      if horseCatcher.isRunning then
+          if Option[1] == "smooth" and oldMode ~= "smooth" then
+              enableNoclip()
+          elseif Option[1] ~= "smooth" and oldMode == "smooth" then
+              disableNoclip()
+          end
+      end
+      
+      Rayfield:Notify({
+         Title = "Movement Updated",
+         Content = "Using " .. Option[1] .. " mode",
+         Duration = 2,
+      })
+   end,
+})
 
 local CaptureCooldownSlider = parentTab:CreateSlider({
-   Name = "Capture Cooldown",
+   Name = "⏱️ Capture Cooldown",
    Range = {0.2, 1},
    Increment = 0.05,
    Suffix = "s",
    CurrentValue = 0.4,
-   Flag = "CaptureCooldownSlider",
+   Flag = "UltraHorseCaptureCooldownSlider",
    Callback = function(Value)
       horseCatcher.settings.captureCooldown = Value
    end,
 })
 
 local SmartTargetingToggle = parentTab:CreateToggle({
-   Name = "Smart Targeting",
+   Name = "🧠 Smart Targeting",
    CurrentValue = true,
-   Flag = "SmartTargetingToggle",
+   Flag = "UltraHorseSmartTargetingToggle",
    Callback = function(Value)
       horseCatcher.settings.smartTargeting = Value
    end,
 })
 
 local AggressiveTargetingToggle = parentTab:CreateToggle({
-   Name = "Aggressive Targeting",
+   Name = "🎯 Aggressive Targeting",
    CurrentValue = true,
-   Flag = "AggressiveTargetingToggle",
+   Flag = "UltraHorseAggressiveTargetingToggle",
    Callback = function(Value)
       horseCatcher.settings.aggressiveTargeting = Value
    end,
 })
 
--- Status Section
-local StatusSection = parentTab:CreateSection("Status")
+-- Simplified Status Section (only Island Information)
+local LiveStatusSection = parentTab:CreateSection("📊 Status")
 
-local IslandInfo = parentTab:CreateParagraph({Title = "Island Information", Content = "Detecting..."})
-local TargetInfo = parentTab:CreateParagraph({Title = "Current Target", Content = "No target"})
+local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
+local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
 
 -- Quick Actions Section
-local QuickActionsSection = parentTab:CreateSection("Quick Actions")
+local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
 
 local ClearCacheButton = parentTab:CreateButton({
-   Name = "Clear Cache",
+   Name = "🗑️ Clear Cache",
    Callback = function()
       Cache.horses = {}
       Cache.horsesById = {}
@@ -1067,43 +1229,44 @@ local ClearCacheButton = parentTab:CreateButton({
       Cache.lastUpdate = 0
       horseCatcher.performance.captureTimes = {}
       horseCatcher.performance.targetingTimes = {}
+      horseCatcher.performance.movementTimes = {}
       
       Rayfield:Notify({
          Title = "Cache Cleared",
-         Content = "Performance optimized",
-         Duration = 1,
+         Content = "Performance cache optimized",
+         Duration = 2,
       })
    end,
 })
 
 local ResetCapturedButton = parentTab:CreateButton({
-   Name = "Reset Captured List",
+   Name = "🔄 Reset Captured List",
    Callback = function()
       horseCatcher.capturedHorses = {}
       Rayfield:Notify({
          Title = "List Reset",
-         Content = "Captured horses cleared",
-         Duration = 1,
+         Content = "Captured horses list cleared",
+         Duration = 2,
       })
    end,
 })
 
 -- Statistics Section
-local StatisticsSection = parentTab:CreateSection("Statistics")
+local StatisticsSection = parentTab:CreateSection("📈 Statistics")
 
-local SessionStats = parentTab:CreateParagraph({Title = "Session Metrics", Content = "Ready"})
-local IslandStats = parentTab:CreateParagraph({Title = "Island Statistics", Content = "No data"})
+local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for session"})
+local IslandStats = parentTab:CreateParagraph({Title = "🏝️ Island Statistics", Content = "No island data yet"})
 
 -- =================================
--- STATUS UPDATE SYSTEM
+-- SIMPLIFIED STATUS UPDATE SYSTEM
 -- =================================
 spawn(function()
     while wait(1) do
         local currentIsland = detectCurrentIsland()
         
         -- Island Information
-        local islandText = "Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "Horses on Island: " .. (horseCatcher.runtime.currentIslandHorses or 0) .. "\n"
+        local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
+        islandText = islandText .. "🐎 Horses on Island: " .. (horseCatcher.runtime.currentIslandHorses or 0) .. "\n"
         
         local totalIslands = 0
         local totalHorses = 0
@@ -1112,10 +1275,11 @@ spawn(function()
             totalHorses = totalHorses + horseCount
         end
         
-        islandText = islandText .. "Islands Scanned: " .. totalIslands .. "\n"
-        islandText = islandText .. "Total Horses: " .. totalHorses
+        islandText = islandText .. "🌍 Islands Scanned: " .. totalIslands .. "\n"
+        islandText = islandText .. "📊 Total Horses: " .. totalHorses .. "\n"
+        islandText = islandText .. "🔍 Auto-Scanning: ✅"
         
-        IslandInfo:Set({Title = "Island Information", Content = islandText})
+        IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
         -- Target Information
         local targetText = ""
@@ -1125,23 +1289,27 @@ spawn(function()
             local velocity = math.floor(horseCatcher.currentTarget.HumanoidRootPart.Velocity.Magnitude)
             local timeOnTarget = tick() - horseCatcher.runtime.currentTargetStartTime
             
-            targetText = targetName .. "\n"
-            targetText = targetText .. "Distance: " .. distance .. " studs\n"
-            targetText = targetText .. "Speed: " .. velocity .. " studs/s\n"
-            targetText = targetText .. "Target Time: " .. string.format("%.1f", timeOnTarget) .. "s\n"
+            targetText = "🐎 " .. targetName .. "\n"
+            targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
+            targetText = targetText .. "🏃 Speed: " .. velocity .. " studs/s\n"
+            targetText = targetText .. "⏱️ Target Time: " .. string.format("%.1f", timeOnTarget) .. "s\n"
             
             if horseCatcher.currentTargetProgress and horseCatcher.currentTargetProgress.exists then
-                targetText = targetText .. "Progress: " .. horseCatcher.currentTargetProgress.text
+                targetText = targetText .. "📊 Progress: " .. horseCatcher.currentTargetProgress.text
             else
-                targetText = targetText .. "Progress: No data"
+                targetText = targetText .. "📊 Progress: No data"
             end
             
-            targetText = targetText .. "\nAttached: " .. (horseCatcher.isAttached and "Yes" or "No")
+            if horseCatcher.settings.movementMode == "attachment" then
+                targetText = targetText .. "\n🔗 Attached: " .. (horseCatcher.isAttached and "✅" or "❌")
+            else
+                targetText = targetText .. "\n🌊 Smooth Follow: ✅ (Noclip)"
+            end
         else
             local wildCount = #Cache.horses
-            targetText = "Scanning for targets...\nWild horses: " .. wildCount .. "\nSmart targeting: " .. (horseCatcher.settings.smartTargeting and "On" or "Off") .. "\nIsland horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
+            targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
         end
-        TargetInfo:Set({Title = "Current Target", Content = targetText})
+        TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
         
         -- Session Statistics
         if horseCatcher.isRunning then
@@ -1149,32 +1317,32 @@ spawn(function()
             local sessionMinutes = math.floor(sessionTime / 60)
             local sessionSeconds = math.floor(sessionTime % 60)
             
-            local sessionText = "Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
-            sessionText = sessionText .. "Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
-            sessionText = sessionText .. "Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
-            sessionText = sessionText .. "Current Island: " .. currentIsland .. "\n"
-            sessionText = sessionText .. "Mode: Attachment"
+            local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
+            sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
+            sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
+            sessionText = sessionText .. "🏝️ Current Island: " .. currentIsland .. "\n"
+            sessionText = sessionText .. "📊 Mode: " .. horseCatcher.settings.movementMode:upper() .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or "")
             
-            SessionStats:Set({Title = "Session Metrics", Content = sessionText})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
         else
-            SessionStats:Set({Title = "Session Metrics", Content = "No active session\nCaptureProgress ready\nAuto-lasso ready"})
+            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nCaptureProgress monitoring ready\n🚀 Auto-lasso & protection ready"})
         end
         
         -- Island Statistics
-        local islandStatsText = "Per-Island Captures:\n"
+        local islandStatsText = "🏝️ Per-Island Captures:\n"
         local hasStats = false
         for islandName, captures in pairs(horseCatcher.statistics.islandStats) do
-            islandStatsText = islandStatsText .. islandName .. ": " .. captures .. " horses\n"
+            islandStatsText = islandStatsText .. "• " .. islandName .. ": " .. captures .. " horses\n"
             hasStats = true
         end
         
         if not hasStats then
             islandStatsText = islandStatsText .. "No captures yet"
         else
-            islandStatsText = islandStatsText .. "\nTotal Islands: " .. totalIslands
+            islandStatsText = islandStatsText .. "\n🌍 Total Islands: " .. totalIslands
         end
         
-        IslandStats:Set({Title = "Island Statistics", Content = islandStatsText})
+        IslandStats:Set({Title = "🏝️ Island Statistics", Content = islandStatsText})
     end
 end)
 
@@ -1187,6 +1355,8 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.lassoEquipped = false
     horseCatcher.currentLassoID = nil
     
+    disableNoclip()
+    
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
     
@@ -1197,7 +1367,7 @@ player.CharacterAdded:Connect(function(newCharacter)
         Rayfield:Notify({
            Title = "Character Respawned",
            Content = "Horse catching stopped",
-           Duration = 2,
+           Duration = 3,
         })
     end
 end)
@@ -1207,8 +1377,8 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "Horse Catcher Loaded",
-   Content = "Attachment mode ready",
-   Duration = 2,
+   Content = "Ready to catch horses!",
+   Duration = 3,
 })
 
 local initialIsland = detectCurrentIsland()
@@ -1217,12 +1387,24 @@ if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
        Title = "System Ready",
        Content = "Island: " .. initialIsland,
-       Duration = 2,
+       Duration = 3,
     })
 else
     Rayfield:Notify({
        Title = "Warning",
        Content = "Network issues detected",
-       Duration = 2,
+       Duration = 3,
     })
 end
+
+spawn(function()
+    wait(2)
+    local detectedIsland = detectCurrentIsland()
+    if detectedIsland ~= "Unknown" then
+        Rayfield:Notify({
+           Title = "Ready!",
+           Content = "Island: " .. detectedIsland,
+           Duration = 2,
+        })
+    end
+end)
