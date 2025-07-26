@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Advanced Island Scanner Edition
--- by Iyxo - 2025-07-26 14:13:40
--- Professional land-only teleportation with smart distribution
+-- Horse Catcher Pro - Advanced Island Scanner Edition (FIXED)
+-- by Iyxo - 2025-07-26 14:55:03
+-- Professional land-only teleportation with smart distribution - WORKING VERSION
 
 local parentTab, Rayfield, Window = ...
 
@@ -18,7 +18,7 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- ADVANCED ISLAND SCANNER SYSTEM
+-- ADVANCED ISLAND SCANNER SYSTEM (FIXED)
 -- =================================
 local IslandScanner = {
     islandBounds = {},
@@ -29,6 +29,7 @@ local IslandScanner = {
     
     settings = {
         enabled = false,
+        scanPoints = 12,
         waitTime = 0.5,
         landOnly = true,
         smartDistribution = true,
@@ -45,7 +46,8 @@ local IslandScanner = {
         foundHorses = {},
         lastTeleportTime = 0,
         scanPositionIndex = 1,
-        currentScanPositions = {}
+        currentScanPositions = {},
+        originalPosition = nil
     },
     
     -- Materiały terenu uznawane za "ląd"
@@ -83,83 +85,100 @@ end
 -- Inicjalizacja granic wysp
 IslandScanner.addIslandBounds("Mainland", Vector3.new(-992.5, 6.8, -951.3), Vector3.new(1084.9, 6.7, 861.8))
 
--- Sprawdź czy pozycja jest na lądzie
+-- Sprawdź czy pozycja jest na lądzie (NAPRAWIONA FUNKCJA)
 function IslandScanner.isLandPosition(position)
     if not IslandScanner.settings.landOnly then
         return true
     end
     
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {character}
-    
-    -- Raycast w dół z wysokości
-    local rayOrigin = position + Vector3.new(0, 50, 0)
-    local rayDirection = Vector3.new(0, -100, 0)
-    
-    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-    
-    if raycastResult and raycastResult.Instance then
-        if raycastResult.Instance.Name == "Terrain" then
-            local material = raycastResult.Material
-            return IslandScanner.landMaterials[material] == true
+    local success, result = pcall(function()
+        -- Cast ray down to check terrain material
+        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
+        
+        if raycast and raycast.Instance then
+            -- Check if it's terrain
+            if raycast.Instance.Name == "Terrain" then
+                local material = raycast.Material
+                
+                -- Check if it's a land material
+                return IslandScanner.landMaterials[material] == true
+            else
+                -- If not terrain, assume it's a part = land
+                return true
+            end
         end
-    end
+        
+        return false -- No hit = probably air/void
+    end)
     
-    return false
+    return success and result
 end
 
--- Generuj inteligentną siatkę pozycji dla wyspy
+-- Generuj inteligentną siatkę pozycji dla wyspy (NAPRAWIONA FUNKCJA)
 function IslandScanner.generateScanPositions(islandName)
     local bounds = IslandScanner.islandBounds[islandName]
     if not bounds then return {} end
     
     local positions = {}
-    local gridSize = IslandScanner.settings.gridSize
+    local count = IslandScanner.settings.scanPoints
+    
+    local minX = bounds.min.X
+    local maxX = bounds.max.X
+    local minZ = bounds.min.Z
+    local maxZ = bounds.max.Z
+    local avgY = bounds.center.Y + IslandScanner.settings.heightOffset
     
     if IslandScanner.settings.smartDistribution then
-        -- Smart Grid System
-        local xSteps = math.ceil(bounds.size.X / gridSize)
-        local zSteps = math.ceil(bounds.size.Z / gridSize)
+        -- Smart grid distribution (jak w starym kodzie)
+        local gridSize = math.ceil(math.sqrt(count))
+        local stepX = (maxX - minX) / gridSize
+        local stepZ = (maxZ - minZ) / gridSize
         
-        for x = 0, xSteps do
-            for z = 0, zSteps do
-                local baseX = bounds.min.X + (x * gridSize)
-                local baseZ = bounds.min.Z + (z * gridSize)
+        for i = 0, gridSize - 1 do
+            for j = 0, gridSize - 1 do
+                if #positions >= count then break end
                 
-                -- Dodaj losowy offset dla naturalności
-                local randomOffsetX = (math.random() - 0.5) * gridSize * 0.8
-                local randomOffsetZ = (math.random() - 0.5) * gridSize * 0.8
+                -- Grid point with some randomization
+                local baseX = minX + (i + 0.5) * stepX
+                local baseZ = minZ + (j + 0.5) * stepZ
                 
-                local scanPosition = Vector3.new(
-                    math.min(math.max(baseX + randomOffsetX, bounds.min.X), bounds.max.X),
-                    bounds.center.Y + IslandScanner.settings.heightOffset,
-                    math.min(math.max(baseZ + randomOffsetZ, bounds.min.Z), bounds.max.Z)
-                )
+                -- Add random offset (±25% of step size)
+                local randomX = baseX + (math.random() - 0.5) * stepX * 0.5
+                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.5
+                local randomY = avgY + math.random(-50, 150)
                 
-                -- Sprawdź czy to ląd (jeśli włączone)
-                if IslandScanner.isLandPosition(scanPosition) then
-                    table.insert(positions, scanPosition)
+                local point = Vector3.new(randomX, randomY, randomZ)
+                
+                -- Check if on land (if enabled)
+                if IslandScanner.settings.landOnly then
+                    local attempts = 0
+                    while not IslandScanner.isLandPosition(point) and attempts < 5 do
+                        randomX = baseX + (math.random() - 0.5) * stepX
+                        randomZ = baseZ + (math.random() - 0.5) * stepZ
+                        point = Vector3.new(randomX, randomY, randomZ)
+                        attempts = attempts + 1
+                    end
                 end
+                
+                table.insert(positions, point)
             end
         end
     else
-        -- Pure Random System (fallback)
-        for i = 1, 50 do
-            local randomX = bounds.min.X + math.random() * bounds.size.X
-            local randomZ = bounds.min.Z + math.random() * bounds.size.Z
-            local randomPosition = Vector3.new(randomX, bounds.center.Y + IslandScanner.settings.heightOffset, randomZ)
+        -- Pure random distribution
+        for i = 1, count do
+            local attempts = 0
+            local point
             
-            if IslandScanner.isLandPosition(randomPosition) then
-                table.insert(positions, randomPosition)
-            end
+            repeat
+                local randomX = minX + (maxX - minX) * math.random()
+                local randomZ = minZ + (maxZ - minZ) * math.random()
+                local randomY = avgY + math.random(-50, 150)
+                point = Vector3.new(randomX, randomY, randomZ)
+                attempts = attempts + 1
+            until not IslandScanner.settings.landOnly or IslandScanner.isLandPosition(point) or attempts > 10
+            
+            table.insert(positions, point)
         end
-    end
-    
-    -- Shuffle pozycji dla większej losowości
-    for i = #positions, 2, -1 do
-        local j = math.random(i)
-        positions[i], positions[j] = positions[j], positions[i]
     end
     
     return positions
@@ -217,7 +236,7 @@ function IslandScanner.findIslandHorses()
     return islandHorses
 end
 
--- Bezpieczna teleportacja z land-only
+-- Bezpieczna teleportacja (NAPRAWIONA FUNKCJA)
 function IslandScanner.teleportToPosition(targetPosition)
     local currentTime = os.clock()
     if currentTime - IslandScanner.runtime.lastTeleportTime < IslandScanner.settings.waitTime then
@@ -259,7 +278,86 @@ function IslandScanner.teleportToPosition(targetPosition)
     return true
 end
 
--- Główna logika skanowania
+-- NOWA FUNKCJA SKANOWANIA (jak w starym kodzie)
+function IslandScanner.startFullScan()
+    if IslandScanner.runtime.isScanning then return false end
+    
+    IslandScanner.runtime.isScanning = true
+    IslandScanner.runtime.originalPosition = humanoidRootPart.CFrame
+    
+    local currentIsland = detectCurrentIsland()
+    local scanPoints = IslandScanner.generateScanPositions(currentIsland)
+    
+    if #scanPoints == 0 then
+        Rayfield:Notify({
+           Title = "Scan Error",
+           Content = "No valid scan points generated",
+           Duration = 3,
+        })
+        IslandScanner.runtime.isScanning = false
+        return false
+    end
+    
+    Rayfield:Notify({
+       Title = "Full Island Scan Started",
+       Content = "Scanning " .. #scanPoints .. " points on " .. currentIsland,
+       Duration = 2,
+    })
+    
+    spawn(function()
+        for i, point in ipairs(scanPoints) do
+            if not IslandScanner.runtime.isScanning then break end
+            
+            -- Teleportuj się do punktu skanowania
+            if IslandScanner.teleportToPosition(point) then
+                wait(IslandScanner.settings.waitTime)
+                
+                -- Skanuj konie w tym miejscu
+                updateHorseCache() -- Odśwież cache koni
+                
+                Rayfield:Notify({
+                   Title = "Scanning Progress",
+                   Content = "Point " .. i .. "/" .. #scanPoints .. " completed",
+                   Duration = 0.5,
+                })
+            end
+        end
+        
+        -- Wróć do oryginalnej pozycji
+        if IslandScanner.runtime.originalPosition then
+            humanoidRootPart.CFrame = IslandScanner.runtime.originalPosition
+        end
+        
+        IslandScanner.runtime.isScanning = false
+        
+        Rayfield:Notify({
+           Title = "Full Scan Complete",
+           Content = "Returned to original position",
+           Duration = 2,
+        })
+    end)
+    
+    return true
+end
+
+-- Zatrzymaj skanowanie
+function IslandScanner.stopFullScan()
+    IslandScanner.runtime.isScanning = false
+    
+    -- Wróć do oryginalnej pozycji
+    if IslandScanner.runtime.originalPosition then
+        humanoidRootPart.CFrame = IslandScanner.runtime.originalPosition
+        IslandScanner.runtime.originalPosition = nil
+    end
+    
+    Rayfield:Notify({
+       Title = "Scan Stopped",
+       Content = "Returned to original position",
+       Duration = 2,
+    })
+end
+
+-- Główna logika skanowania (NAPRAWIONA)
 function IslandScanner.performScan()
     if not IslandScanner.settings.enabled or not horseCatcher.isRunning then
         return
@@ -1413,6 +1511,7 @@ local function stopHorseCatching()
     
     -- Stop island scanner
     IslandScanner.stopScanning()
+    IslandScanner.stopFullScan()
     
     -- Disable noclip
     disableNoclip()
@@ -1501,6 +1600,18 @@ local SmartDistributionToggle = parentTab:CreateToggle({
    end,
 })
 
+local ScanPointsSlider = parentTab:CreateSlider({
+   Name = "📍 Scan Points",
+   Range = {6, 50},
+   Increment = 1,
+   Suffix = " points",
+   CurrentValue = 12,
+   Flag = "ScanPointsSlider",
+   Callback = function(Value)
+      IslandScanner.settings.scanPoints = Value
+   end,
+})
+
 local ScanWaitTimeSlider = parentTab:CreateSlider({
    Name = "⏱️ Scan Wait Time",
    Range = {0.1, 5},
@@ -1513,15 +1624,26 @@ local ScanWaitTimeSlider = parentTab:CreateSlider({
    end,
 })
 
-local GridSizeSlider = parentTab:CreateSlider({
-   Name = "📐 Grid Size",
-   Range = {25, 100},
-   Increment = 5,
-   Suffix = " studs",
-   CurrentValue = 50,
-   Flag = "GridSizeSlider",
-   Callback = function(Value)
-      IslandScanner.settings.gridSize = Value
+-- Full Scan Buttons
+local FullScanButton = parentTab:CreateButton({
+   Name = "🚀 Start Full Island Scan",
+   Callback = function()
+      if not IslandScanner.runtime.isScanning then
+         IslandScanner.startFullScan()
+      else
+         Rayfield:Notify({
+            Title = "Scan Running",
+            Content = "Full scan already in progress",
+            Duration = 2,
+         })
+      end
+   end,
+})
+
+local StopScanButton = parentTab:CreateButton({
+   Name = "⏹️ Stop Full Scan",
+   Callback = function()
+      IslandScanner.stopFullScan()
    end,
 })
 
@@ -1713,7 +1835,7 @@ spawn(function()
                 end
                 
                 scannerText = scannerText .. "🌱 Land-Only: " .. (IslandScanner.settings.landOnly and "✅" or "❌") .. "\n"
-                scannerText = scannerText .. "📐 Grid Size: " .. IslandScanner.settings.gridSize .. " studs"
+                scannerText = scannerText .. "📐 Scan Points: " .. IslandScanner.settings.scanPoints .. " points"
             end
         else
             scannerText = "❌ Status: Disabled\n"
@@ -1736,6 +1858,7 @@ player.CharacterAdded:Connect(function(newCharacter)
     
     disableNoclip()
     IslandScanner.stopScanning()
+    IslandScanner.stopFullScan()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
