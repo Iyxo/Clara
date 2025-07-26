@@ -1,6 +1,6 @@
--- Horse Catcher Pro - Simplified CaptureProgress Edition with World Scanning
--- by Iyxo - 2025-07-26 13:19:23
--- Revolutionary horse catching with professional CaptureProgress monitoring and world scanning
+-- Horse Catcher Pro - Advanced Island Scanner Edition
+-- by Iyxo - 2025-07-26 14:13:40
+-- Professional land-only teleportation with smart distribution
 
 local parentTab, Rayfield, Window = ...
 
@@ -18,373 +18,365 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- =================================
--- UTILITY FUNCTIONS
+-- ADVANCED ISLAND SCANNER SYSTEM
 -- =================================
-local function getTableLength(t)
-    local count = 0
-    for _ in pairs(t) do count = count + 1 end
-    return count
-end
-
--- =================================
--- WORLD SCANNING SYSTEM
--- =================================
-local worldScanner = {
-    isScanning = false,
-    scanPoints = {},
-    currentScanIndex = 1,
-    foundHorses = {},
-    originalPosition = nil,
+local IslandScanner = {
+    islandBounds = {},
+    gridCache = {},
+    landPositions = {},
+    lastScanTime = 0,
+    scanCooldown = 0.1,
     
     settings = {
-        scanPointsCount = 12,
+        enabled = false,
         waitTime = 0.5,
         landOnly = true,
         smartDistribution = true,
-        autoScanOnEmpty = true,
-        scanRadius = 512
+        scanRange = 512,
+        gridSize = 50,
+        maxRaycastAttempts = 5,
+        heightOffset = 5
     },
     
-    -- Mainland bounds (as in your scanner script)
-    mainlandBounds = {
-        corner1 = Vector3.new(-992.5, 6.8, -951.3),
-        corner2 = Vector3.new(1084.9, 6.7, 861.8)
+    runtime = {
+        isScanning = false,
+        currentIsland = "Unknown",
+        scanningConnections = {},
+        foundHorses = {},
+        lastTeleportTime = 0,
+        scanPositionIndex = 1,
+        currentScanPositions = {}
     },
     
-    -- Generic bounds for other islands (will be calculated dynamically)
-    islandBounds = {}
+    -- Materiały terenu uznawane za "ląd"
+    landMaterials = {
+        [Enum.Material.Grass] = true,
+        [Enum.Material.Rock] = true,
+        [Enum.Material.Sand] = true,
+        [Enum.Material.Snow] = true,
+        [Enum.Material.Mud] = true,
+        [Enum.Material.Ground] = true,
+        [Enum.Material.Concrete] = true,
+        [Enum.Material.Brick] = true,
+        [Enum.Material.Cobblestone] = true,
+        [Enum.Material.CrackedLava] = true,
+        [Enum.Material.Glacier] = true,
+        [Enum.Material.LeafyGrass] = true,
+        [Enum.Material.Limestone] = true,
+        [Enum.Material.Pavement] = true,
+        [Enum.Material.Salt] = true,
+        [Enum.Material.Sandstone] = true,
+        [Enum.Material.Slate] = true
+    }
 }
 
--- Check if position is on land (not water)
-local function isOnLand(position)
-    if not worldScanner.settings.landOnly then return true end
-    
-    local success, result = pcall(function()
-        local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
-        
-        if raycast and raycast.Instance then
-            if raycast.Instance:IsA("Terrain") then
-                local material = raycast.Material
-                
-                local landMaterials = {
-                    Enum.Material.Grass,
-                    Enum.Material.Ground,
-                    Enum.Material.Rock,
-                    Enum.Material.Sand,
-                    Enum.Material.Snow,
-                    Enum.Material.Mud,
-                    Enum.Material.LeafyGrass,
-                    Enum.Material.Concrete,
-                    Enum.Material.Brick,
-                    Enum.Material.Cobblestone
-                }
-                
-                for _, landMat in pairs(landMaterials) do
-                    if material == landMat then
-                        return true
-                    end
-                end
-                
-                return material ~= Enum.Material.Water
-            else
-                return true
-            end
-        end
-        
-        return false
-    end)
-    
-    return success and result
-end
-
--- Get bounds for current island
-local function getIslandBounds(islandName)
-    if islandName == "Mainland" then
-        return worldScanner.mainlandBounds
-    end
-    
-    -- For other islands, try to calculate bounds dynamically
-    if worldScanner.islandBounds[islandName] then
-        return worldScanner.islandBounds[islandName]
-    end
-    
-    -- Calculate bounds for non-mainland islands
-    local island = Workspace.Islands:FindFirstChild(islandName)
-    if island then
-        local minX, maxX = math.huge, -math.huge
-        local minY, maxY = math.huge, -math.huge
-        local minZ, maxZ = math.huge, -math.huge
-        
-        local function processObject(obj)
-            if obj:IsA("BasePart") then
-                local pos = obj.Position
-                local size = obj.Size
-                
-                minX = math.min(minX, pos.X - size.X/2)
-                maxX = math.max(maxX, pos.X + size.X/2)
-                minY = math.min(minY, pos.Y - size.Y/2)
-                maxY = math.max(maxY, pos.Y + size.Y/2)
-                minZ = math.min(minZ, pos.Z - size.Z/2)
-                maxZ = math.max(maxZ, pos.Z + size.Z/2)
-            end
-        end
-        
-        local function scanChildren(parent)
-            for _, child in pairs(parent:GetChildren()) do
-                processObject(child)
-                scanChildren(child)
-            end
-        end
-        
-        scanChildren(island)
-        
-        if minX ~= math.huge then
-            worldScanner.islandBounds[islandName] = {
-                corner1 = Vector3.new(minX, minY, minZ),
-                corner2 = Vector3.new(maxX, maxY, maxZ)
-            }
-            return worldScanner.islandBounds[islandName]
-        end
-    end
-    
-    -- Fallback: use player position with radius
-    local playerPos = humanoidRootPart.Position
-    local radius = 500
-    return {
-        corner1 = Vector3.new(playerPos.X - radius, playerPos.Y - 100, playerPos.Z - radius),
-        corner2 = Vector3.new(playerPos.X + radius, playerPos.Y + 200, playerPos.Z + radius)
+-- Dodaj granice wysp
+function IslandScanner.addIslandBounds(islandName, minBounds, maxBounds)
+    IslandScanner.islandBounds[islandName] = {
+        min = minBounds,
+        max = maxBounds,
+        center = (minBounds + maxBounds) / 2,
+        size = maxBounds - minBounds
     }
 end
 
--- Generate smart scan points for current island
-local function generateScanPoints(islandName, count)
-    local points = {}
-    local bounds = getIslandBounds(islandName)
+-- Inicjalizacja granic wysp
+IslandScanner.addIslandBounds("Mainland", Vector3.new(-992.5, 6.8, -951.3), Vector3.new(1084.9, 6.7, 861.8))
+
+-- Sprawdź czy pozycja jest na lądzie
+function IslandScanner.isLandPosition(position)
+    if not IslandScanner.settings.landOnly then
+        return true
+    end
     
-    print("🗺️ Island bounds for " .. islandName .. ":")
-    print("Corner 1: " .. tostring(bounds.corner1))
-    print("Corner 2: " .. tostring(bounds.corner2))
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {character}
     
-    local minX = math.min(bounds.corner1.X, bounds.corner2.X)
-    local maxX = math.max(bounds.corner1.X, bounds.corner2.X)
-    local minZ = math.min(bounds.corner1.Z, bounds.corner2.Z)
-    local maxZ = math.max(bounds.corner1.Z, bounds.corner2.Z)
-    local avgY = (bounds.corner1.Y + bounds.corner2.Y) / 2
+    -- Raycast w dół z wysokości
+    local rayOrigin = position + Vector3.new(0, 50, 0)
+    local rayDirection = Vector3.new(0, -100, 0)
     
-    print("📊 Calculated bounds: X(" .. minX .. " to " .. maxX .. "), Z(" .. minZ .. " to " .. maxZ .. "), Y(" .. avgY .. ")")
+    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
     
-    if worldScanner.settings.smartDistribution then
-        -- Smart grid distribution
-        local gridSize = math.ceil(math.sqrt(count))
-        local stepX = (maxX - minX) / gridSize
-        local stepZ = (maxZ - minZ) / gridSize
+    if raycastResult and raycastResult.Instance then
+        if raycastResult.Instance.Name == "Terrain" then
+            local material = raycastResult.Material
+            return IslandScanner.landMaterials[material] == true
+        end
+    end
+    
+    return false
+end
+
+-- Generuj inteligentną siatkę pozycji dla wyspy
+function IslandScanner.generateScanPositions(islandName)
+    local bounds = IslandScanner.islandBounds[islandName]
+    if not bounds then return {} end
+    
+    local positions = {}
+    local gridSize = IslandScanner.settings.gridSize
+    
+    if IslandScanner.settings.smartDistribution then
+        -- Smart Grid System
+        local xSteps = math.ceil(bounds.size.X / gridSize)
+        local zSteps = math.ceil(bounds.size.Z / gridSize)
         
-        print("📐 Grid: " .. gridSize .. "x" .. gridSize .. ", Step X: " .. stepX .. ", Step Z: " .. stepZ)
-        
-        for i = 0, gridSize - 1 do
-            for j = 0, gridSize - 1 do
-                if #points >= count then break end
+        for x = 0, xSteps do
+            for z = 0, zSteps do
+                local baseX = bounds.min.X + (x * gridSize)
+                local baseZ = bounds.min.Z + (z * gridSize)
                 
-                -- Grid point with some randomization
-                local baseX = minX + (i + 0.5) * stepX
-                local baseZ = minZ + (j + 0.5) * stepZ
+                -- Dodaj losowy offset dla naturalności
+                local randomOffsetX = (math.random() - 0.5) * gridSize * 0.8
+                local randomOffsetZ = (math.random() - 0.5) * gridSize * 0.8
                 
-                -- Add random offset (±25% of step size) - REDUCED for testing
-                local randomX = baseX + (math.random() - 0.5) * stepX * 0.2 -- Reduced from 0.5 to 0.2
-                local randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.2 -- Reduced from 0.5 to 0.2
-                local randomY = avgY + math.random(-20, 50) -- Reduced Y variation
+                local scanPosition = Vector3.new(
+                    math.min(math.max(baseX + randomOffsetX, bounds.min.X), bounds.max.X),
+                    bounds.center.Y + IslandScanner.settings.heightOffset,
+                    math.min(math.max(baseZ + randomOffsetZ, bounds.min.Z), bounds.max.Z)
+                )
                 
-                local point = Vector3.new(randomX, randomY, randomZ)
-                
-                -- Check if on land (if enabled) - SIMPLIFIED
-                if worldScanner.settings.landOnly then
-                    local attempts = 0
-                    while not isOnLand(point) and attempts < 3 do -- Reduced attempts
-                        randomX = baseX + (math.random() - 0.5) * stepX * 0.3
-                        randomZ = baseZ + (math.random() - 0.5) * stepZ * 0.3
-                        randomY = avgY + math.random(-10, 30)
-                        point = Vector3.new(randomX, randomY, randomZ)
-                        attempts = attempts + 1
-                    end
+                -- Sprawdź czy to ląd (jeśli włączone)
+                if IslandScanner.isLandPosition(scanPosition) then
+                    table.insert(positions, scanPosition)
                 end
-                
-                table.insert(points, point)
-                print("📍 Generated point " .. #points .. ": " .. tostring(point))
             end
-            if #points >= count then break end
         end
     else
-        -- Pure random distribution - ALSO FIXED
-        for i = 1, count do
-            local attempts = 0
-            local point
+        -- Pure Random System (fallback)
+        for i = 1, 50 do
+            local randomX = bounds.min.X + math.random() * bounds.size.X
+            local randomZ = bounds.min.Z + math.random() * bounds.size.Z
+            local randomPosition = Vector3.new(randomX, bounds.center.Y + IslandScanner.settings.heightOffset, randomZ)
             
-            repeat
-                local randomX = minX + (maxX - minX) * math.random()
-                local randomZ = minZ + (maxZ - minZ) * math.random()
-                local randomY = avgY + math.random(-30, 80)
-                point = Vector3.new(randomX, randomY, randomZ)
-                attempts = attempts + 1
-            until not worldScanner.settings.landOnly or isOnLand(point) or attempts > 5 -- Reduced attempts
-            
-            table.insert(points, point)
-            print("📍 Generated random point " .. #points .. ": " .. tostring(point))
-        end
-    end
-    
-    print("✅ Generated " .. #points .. " scan points total")
-    return points
-end
-
--- Scan horses at specific position
-local function scanHorsesAtPosition(position, islandName)
-    local newHorses = {}
-    
-    local island = nil
-    if islandName == "Mainland" and Workspace.Islands:FindFirstChild("Mainland") then
-        island = Workspace.Islands.Mainland
-    elseif Workspace.Islands:FindFirstChild(islandName) then
-        island = Workspace.Islands[islandName]
-    end
-    
-    if island then
-        for _, child in pairs(island:GetChildren()) do
-            if child.Name:find("{") and child:FindFirstChild("HumanoidRootPart") then
-                local distance = (position - child.HumanoidRootPart.Position).Magnitude
-                
-                if distance <= worldScanner.settings.scanRadius then
-                    local humanoid = child:FindFirstChild("Humanoid")
-                    if humanoid and humanoid.Health > 0 and not Players:GetPlayerFromCharacter(child) then
-                        -- Check if wild horse
-                        local isWild = false
-                        local overhead = child:FindFirstChild("OverheadPart")
-                        if overhead and overhead:FindFirstChild("Overhead") then
-                            local nameLabel = overhead.Overhead:FindFirstChild("NameLabel")
-                            if nameLabel and nameLabel.Text == "Wild" then
-                                isWild = true
-                            end
-                        end
-                        
-                        if isWild and not horseCatcher.capturedHorses[child.Name] then
-                            local horseName = "Unknown"
-                            local breedLabel = overhead.Overhead:FindFirstChild("BreedLabel")
-                            if breedLabel and breedLabel.Text ~= "" then
-                                horseName = breedLabel.Text
-                            else
-                                horseName = child.Name:sub(2, 9) .. "..."
-                            end
-                            
-                            newHorses[child.Name] = {
-                                object = child,
-                                name = horseName,
-                                position = child.HumanoidRootPart.Position,
-                                distance = distance,
-                                scanPoint = position,
-                                timestamp = os.clock()
-                            }
-                        end
-                    end
-                end
+            if IslandScanner.isLandPosition(randomPosition) then
+                table.insert(positions, randomPosition)
             end
         end
     end
     
-    return newHorses
+    -- Shuffle pozycji dla większej losowości
+    for i = #positions, 2, -1 do
+        local j = math.random(i)
+        positions[i], positions[j] = positions[j], positions[i]
+    end
+    
+    return positions
 end
 
--- Continue scanning process - FIXED
-local function continueScan()
-    if not worldScanner.isScanning or worldScanner.currentScanIndex > #worldScanner.scanPoints then
-        worldScanner.isScanning = false
+-- Sprawdź czy w pobliżu są konie
+function IslandScanner.detectNearbyHorses()
+    local playerPos = humanoidRootPart.Position
+    local nearbyHorses = {}
+    
+    -- Sprawdź cache koni
+    for _, horseData in pairs(Cache.horses) do
+        if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
+            local distance = (playerPos - horseData.horse.HumanoidRootPart.Position).Magnitude
+            if distance <= IslandScanner.settings.scanRange then
+                table.insert(nearbyHorses, {
+                    horse = horseData.horse,
+                    distance = distance,
+                    position = horseData.horse.HumanoidRootPart.Position
+                })
+            end
+        end
+    end
+    
+    return nearbyHorses
+end
+
+-- Znajdź konie na całej wyspie
+function IslandScanner.findIslandHorses()
+    local islandName = detectCurrentIsland()
+    local bounds = IslandScanner.islandBounds[islandName]
+    if not bounds then return {} end
+    
+    local islandHorses = {}
+    
+    for _, horseData in pairs(Cache.horses) do
+        if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
+            local horsePos = horseData.horse.HumanoidRootPart.Position
+            
+            -- Sprawdź czy koń jest w granicach wyspy
+            if horsePos.X >= bounds.min.X and horsePos.X <= bounds.max.X and
+               horsePos.Z >= bounds.min.Z and horsePos.Z <= bounds.max.Z then
+                table.insert(islandHorses, {
+                    horse = horseData.horse,
+                    position = horsePos,
+                    distance = (humanoidRootPart.Position - horsePos).Magnitude
+                })
+            end
+        end
+    end
+    
+    -- Sortuj po odległości
+    table.sort(islandHorses, function(a, b) return a.distance < b.distance end)
+    
+    return islandHorses
+end
+
+-- Bezpieczna teleportacja z land-only
+function IslandScanner.teleportToPosition(targetPosition)
+    local currentTime = os.clock()
+    if currentTime - IslandScanner.runtime.lastTeleportTime < IslandScanner.settings.waitTime then
         return false
     end
     
-    local currentIsland = detectCurrentIsland()
-    local scanPoint = worldScanner.scanPoints[worldScanner.currentScanIndex]
-    
-    -- DEBUG: Print scan point
-    print("🔍 Teleporting to scan point " .. worldScanner.currentScanIndex .. ": " .. tostring(scanPoint))
-    
-    -- Teleport to scan point - FIXED
-    humanoidRootPart.CFrame = CFrame.new(scanPoint + Vector3.new(0, 5, 0)) -- Add height offset
-    
-    -- Wait before scanning
-    wait(worldScanner.settings.waitTime)
-    
-    -- Scan for horses
-    local newHorses = scanHorsesAtPosition(scanPoint, currentIsland)
-    for id, data in pairs(newHorses) do
-        worldScanner.foundHorses[id] = data
-        print("🐎 Found horse: " .. data.name .. " at scan point " .. worldScanner.currentScanIndex)
+    -- Dodatkowa weryfikacja terenu
+    if IslandScanner.settings.landOnly then
+        local attempts = 0
+        local finalPosition = targetPosition
+        
+        while attempts < IslandScanner.settings.maxRaycastAttempts do
+            if IslandScanner.isLandPosition(finalPosition) then
+                break
+            end
+            
+            -- Spróbuj pozycję w pobliżu
+            local offset = Vector3.new(
+                (math.random() - 0.5) * 20,
+                0,
+                (math.random() - 0.5) * 20
+            )
+            finalPosition = targetPosition + offset
+            attempts = attempts + 1
+        end
+        
+        -- Jeśli nie znaleziono lądu, anuluj teleportację
+        if attempts >= IslandScanner.settings.maxRaycastAttempts then
+            return false
+        end
+        
+        targetPosition = finalPosition
     end
     
-    worldScanner.currentScanIndex = worldScanner.currentScanIndex + 1
+    -- Wykonaj teleportację
+    humanoidRootPart.CFrame = CFrame.new(targetPosition)
+    IslandScanner.runtime.lastTeleportTime = currentTime
     
     return true
 end
 
--- Start world scanning - FIXED
-local function startWorldScan()
-    if worldScanner.isScanning then return end
-    
-    worldScanner.isScanning = true
-    worldScanner.originalPosition = humanoidRootPart.CFrame
-    
-    local currentIsland = detectCurrentIsland()
-    worldScanner.scanPoints = generateScanPoints(currentIsland, worldScanner.settings.scanPointsCount)
-    worldScanner.currentScanIndex = 1
-    worldScanner.foundHorses = {}
-    
-    print("🌍 Starting world scan on " .. currentIsland .. " with " .. #worldScanner.scanPoints .. " points")
-    for i, point in ipairs(worldScanner.scanPoints) do
-        print("Point " .. i .. ": " .. tostring(point))
+-- Główna logika skanowania
+function IslandScanner.performScan()
+    if not IslandScanner.settings.enabled or not horseCatcher.isRunning then
+        return
     end
     
-    Rayfield:Notify({
-       Title = "World Scan Started",
-       Content = "Scanning " .. currentIsland .. " (" .. #worldScanner.scanPoints .. " points)",
-       Duration = 2,
-    })
-end
-
--- Stop world scanning
-local function stopWorldScan()
-    if not worldScanner.isScanning then return end
-    
-    worldScanner.isScanning = false
-    
-    -- Return to original position
-    if worldScanner.originalPosition then
-        humanoidRootPart.CFrame = worldScanner.originalPosition
+    local currentTime = os.clock()
+    if currentTime - IslandScanner.lastScanTime < IslandScanner.scanCooldown then
+        return
     end
     
-    Rayfield:Notify({
-       Title = "World Scan Stopped",
-       Content = "Found " .. getTableLength(worldScanner.foundHorses) .. " horses",
-       Duration = 2,
-    })
-end
-
--- Get closest horse from scan results
-local function getClosestScanHorse()
-    local playerPos = humanoidRootPart.Position
-    local closestHorse = nil
-    local closestDistance = math.huge
+    IslandScanner.lastScanTime = currentTime
     
-    for id, data in pairs(worldScanner.foundHorses) do
-        if data.object and data.object.Parent and data.object:FindFirstChild("HumanoidRootPart") then
-            local distance = (playerPos - data.object.HumanoidRootPart.Position).Magnitude
-            if distance < closestDistance and not horseCatcher.capturedHorses[id] then
-                closestDistance = distance
-                closestHorse = data.object
+    -- Sprawdź czy w pobliżu są konie
+    local nearbyHorses = IslandScanner.detectNearbyHorses()
+    
+    if #nearbyHorses > 0 then
+        -- Konie w pobliżu - zatrzymaj skanowanie
+        if IslandScanner.runtime.isScanning then
+            IslandScanner.runtime.isScanning = false
+            Rayfield:Notify({
+               Title = "Scan Paused",
+               Content = "Horse detected nearby - stopping scan",
+               Duration = 1,
+            })
+        end
+        return
+    end
+    
+    -- Brak koni w pobliżu - sprawdź całą wyspę
+    local islandHorses = IslandScanner.findIslandHorses()
+    
+    if #islandHorses > 0 then
+        -- Znaleziono konie na wyspie - teleportuj się do najbliższego
+        local targetHorse = islandHorses[1]
+        local targetPosition = targetHorse.position + Vector3.new(
+            (math.random() - 0.5) * 40,
+            IslandScanner.settings.heightOffset,
+            (math.random() - 0.5) * 40
+        )
+        
+        if IslandScanner.teleportToPosition(targetPosition) then
+            Rayfield:Notify({
+               Title = "Horse Found",
+               Content = "Teleporting to horse location",
+               Duration = 1,
+            })
+        end
+        return
+    end
+    
+    -- Brak koni na wyspie - rozpocznij/kontynuuj systematyczne skanowanie
+    if not IslandScanner.runtime.isScanning then
+        IslandScanner.runtime.isScanning = true
+        local currentIsland = detectCurrentIsland()
+        IslandScanner.runtime.currentScanPositions = IslandScanner.generateScanPositions(currentIsland)
+        IslandScanner.runtime.scanPositionIndex = 1
+        
+        Rayfield:Notify({
+           Title = "Island Scan Started",
+           Content = "Scanning " .. currentIsland .. " for horses",
+           Duration = 2,
+        })
+    end
+    
+    -- Kontynuuj systematyczne skanowanie
+    if #IslandScanner.runtime.currentScanPositions > 0 then
+        local targetPosition = IslandScanner.runtime.currentScanPositions[IslandScanner.runtime.scanPositionIndex]
+        
+        if IslandScanner.teleportToPosition(targetPosition) then
+            IslandScanner.runtime.scanPositionIndex = IslandScanner.runtime.scanPositionIndex + 1
+            
+            -- Jeśli skończono pozycje, wygeneruj nowe
+            if IslandScanner.runtime.scanPositionIndex > #IslandScanner.runtime.currentScanPositions then
+                local currentIsland = detectCurrentIsland()
+                IslandScanner.runtime.currentScanPositions = IslandScanner.generateScanPositions(currentIsland)
+                IslandScanner.runtime.scanPositionIndex = 1
             end
-        else
-            -- Remove invalid horses
-            worldScanner.foundHorses[id] = nil
+        end
+    end
+end
+
+-- Start scanning system
+function IslandScanner.startScanning()
+    if IslandScanner.runtime.scanningConnections.main then
+        return false
+    end
+    
+    IslandScanner.runtime.scanningConnections.main = RunService.Heartbeat:Connect(function()
+        IslandScanner.performScan()
+    end)
+    
+    Rayfield:Notify({
+       Title = "Island Scanner Active",
+       Content = "Smart land-only scanning enabled",
+       Duration = 2,
+    })
+    
+    return true
+end
+
+-- Stop scanning system
+function IslandScanner.stopScanning()
+    for name, connection in pairs(IslandScanner.runtime.scanningConnections) do
+        if connection then
+            connection:Disconnect()
+            IslandScanner.runtime.scanningConnections[name] = nil
         end
     end
     
-    return closestHorse
+    IslandScanner.runtime.isScanning = false
+    IslandScanner.runtime.currentScanPositions = {}
+    
+    Rayfield:Notify({
+       Title = "Island Scanner Stopped",
+       Content = "Scanning disabled",
+       Duration = 2,
+    })
 end
 
 -- =================================
@@ -624,8 +616,7 @@ local horseCatcher = {
         cleanup = nil,
         islandMonitor = nil,
         progressMonitor = nil,
-        lassoProtection = nil,
-        worldScanner = nil
+        lassoProtection = nil
     },
     
     capturedHorses = {},
@@ -653,8 +644,7 @@ local horseCatcher = {
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
         attachmentOffset = 4,
-        targetingRadius = 300,
-        enableWorldScan = true
+        targetingRadius = 300
     },
     
     runtime = {
@@ -664,7 +654,6 @@ local horseCatcher = {
         lastIslandCheck = 0,
         lastProgressCheck = 0,
         lastLassoCheck = 0,
-        lastScanCheck = 0,
         
         currentTargetStartTime = 0,
         lastProgressChange = 0,
@@ -677,8 +666,7 @@ local horseCatcher = {
         targetingCount = 0,
         captureAttempts = 0,
         currentIslandHorses = 0,
-        sessionCapturedCount = 0,
-        noHorsesFoundTime = 0
+        sessionCapturedCount = 0
     },
     
     performance = {
@@ -1172,11 +1160,6 @@ local function isHorseCapturedOrComplete(horse)
         horseCatcher.runtime.lastSuccessfulCapture = os.clock()
         horseCatcher.runtime.sessionCapturedCount = horseCatcher.runtime.sessionCapturedCount + 1
         
-        -- Remove from scan results if exists
-        if worldScanner.foundHorses[horse.Name] then
-            worldScanner.foundHorses[horse.Name] = nil
-        end
-        
         local captureTime = os.clock() - horseCatcher.runtime.currentTargetStartTime
         if captureTime < horseCatcher.statistics.progressStats.fastestCapture then
             horseCatcher.statistics.progressStats.fastestCapture = captureTime
@@ -1230,7 +1213,7 @@ local function cleanupSystem()
 end
 
 -- =================================
--- ENHANCED MAIN LOGIC WITH WORLD SCANNING
+-- ENHANCED MAIN LOGIC
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -1264,9 +1247,7 @@ local function startHorseCatching()
     horseCatcher.runtime.lastIslandCheck = 0
     horseCatcher.runtime.lastProgressCheck = 0
     horseCatcher.runtime.lastLassoCheck = 0
-    horseCatcher.runtime.lastScanCheck = 0
     horseCatcher.runtime.sessionCapturedCount = 0
-    horseCatcher.runtime.noHorsesFoundTime = 0
     
     horseCatcher.runtime.currentTargetStartTime = 0
     horseCatcher.runtime.lastProgressChange = 0
@@ -1281,9 +1262,14 @@ local function startHorseCatching()
         enableNoclip()
     end
     
+    -- Start island scanner if enabled
+    if IslandScanner.settings.enabled then
+        IslandScanner.startScanning()
+    end
+    
     Rayfield:Notify({
        Title = "Started!",
-       Content = movementMode .. " mode on " .. currentIsland .. (horseCatcher.settings.enableWorldScan and " + World Scan" or ""),
+       Content = movementMode .. " mode on " .. currentIsland,
        Duration = 2,
     })
     
@@ -1335,66 +1321,8 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
     end)
     
-    -- World Scanner Connection - FIXED
-    horseCatcher.connections.worldScanner = RunService.Heartbeat:Connect(function()
-        if not horseCatcher.isRunning or not horseCatcher.settings.enableWorldScan then return end
-        
-        local currentTime = os.clock()
-        if currentTime - horseCatcher.runtime.lastScanCheck < 1 then -- Reduced from 2 to 1
-            return
-        end
-        
-        horseCatcher.runtime.lastScanCheck = currentTime
-        
-        -- If we're scanning, continue scan process - SPAWN FOR NON-BLOCKING
-        if worldScanner.isScanning then
-            spawn(function()
-                if not continueScan() then
-                    -- Scan complete
-                    worldScanner.isScanning = false
-                    print("✅ World scan complete! Found " .. getTableLength(worldScanner.foundHorses) .. " horses")
-                    
-                    Rayfield:Notify({
-                       Title = "Scan Complete",
-                       Content = "Found " .. getTableLength(worldScanner.foundHorses) .. " horses",
-                       Duration = 3,
-                    })
-                    
-                    if worldScanner.originalPosition then
-                        wait(0.5)
-                        humanoidRootPart.CFrame = worldScanner.originalPosition
-                        print("🔙 Returned to original position")
-                    end
-                end
-            end)
-            return
-        end
-        
-        -- Check if no horses found for a while
-        local horses = updateHorseCache()
-        if #horses == 0 then
-            if horseCatcher.runtime.noHorsesFoundTime == 0 then
-                horseCatcher.runtime.noHorsesFoundTime = currentTime
-                print("⚠️ No horses found, starting timer...")
-            elseif currentTime - horseCatcher.runtime.noHorsesFoundTime > 8 then -- Reduced from 10 to 8
-                -- No horses found for 8 seconds, start world scan
-                print("🚨 No horses for 8s, starting world scan!")
-                startWorldScan()
-                horseCatcher.runtime.noHorsesFoundTime = 0
-            end
-        else
-            if horseCatcher.runtime.noHorsesFoundTime > 0 then
-                print("✅ Horses found again, cancelling scan timer")
-            end
-            horseCatcher.runtime.noHorsesFoundTime = 0
-        end
-    end)
-    
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
-        
-        -- Skip main logic if world scanning
-        if worldScanner.isScanning then return end
         
         if horseCatcher.currentTarget then
             local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
@@ -1434,23 +1362,11 @@ local function startHorseCatching()
         end
         
         if not horseCatcher.currentTarget then
-            -- First try regular targeting
             if horseCatcher.settings.smartTargeting then
                 horseCatcher.currentTarget = findOptimalTarget()
             else
                 local horses = updateHorseCache()
                 horseCatcher.currentTarget = horses[1] and (horses[1].horse or horses[1])
-            end
-            
-            -- If no target found, try scan results
-            if not horseCatcher.currentTarget and horseCatcher.settings.enableWorldScan then
-                horseCatcher.currentTarget = getClosestScanHorse()
-                if horseCatcher.currentTarget then
-                    -- Teleport to scan horse
-                    humanoidRootPart.CFrame = CFrame.new(horseCatcher.currentTarget.HumanoidRootPart.Position + Vector3.new(10, 5, 10))
-                    wait(0.2)
-                    print("🐎 Teleported to scan horse: " .. getHorseName(horseCatcher.currentTarget))
-                end
             end
             
             if horseCatcher.currentTarget then
@@ -1495,8 +1411,8 @@ end
 local function stopHorseCatching()
     horseCatcher.isRunning = false
     
-    -- Stop world scanning
-    stopWorldScan()
+    -- Stop island scanner
+    IslandScanner.stopScanning()
     
     -- Disable noclip
     disableNoclip()
@@ -1528,7 +1444,7 @@ local function stopHorseCatching()
 end
 
 -- =================================
--- SIMPLIFIED UI WITH WORLD SCAN OPTIONS
+-- SIMPLIFIED UI
 -- =================================
 
 -- Main Control Section
@@ -1550,49 +1466,62 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- World Scanning Section
-local WorldScanSection = parentTab:CreateSection("🌍 World Scanning")
+-- Island Scanner Section
+local IslandScannerSection = parentTab:CreateSection("🌍 Advanced Island Scanner")
 
-local WorldScanToggle = parentTab:CreateToggle({
-   Name = "🌍 Enable World Scanning",
-   CurrentValue = true,
-   Flag = "WorldScanToggle",
+local ScannerToggle = parentTab:CreateToggle({
+   Name = "🔍 Smart Island Scanning",
+   CurrentValue = false,
+   Flag = "IslandScannerToggle",
    Callback = function(Value)
-      horseCatcher.settings.enableWorldScan = Value
-      worldScanner.settings.autoScanOnEmpty = Value
-   end,
-})
-
-local ScanPointsSlider = parentTab:CreateSlider({
-   Name = "📍 Scan Points",
-   Range = {6, 24},
-   Increment = 1,
-   Suffix = " points",
-   CurrentValue = 12,
-   Flag = "ScanPointsSlider",
-   Callback = function(Value)
-      worldScanner.settings.scanPointsCount = Value
-   end,
-})
-
-local ScanWaitSlider = parentTab:CreateSlider({
-   Name = "⏱️ Scan Wait Time",
-   Range = {0.2, 2},
-   Increment = 0.1,
-   Suffix = "s",
-   CurrentValue = 0.5,
-   Flag = "ScanWaitSlider",
-   Callback = function(Value)
-      worldScanner.settings.waitTime = Value
+      IslandScanner.settings.enabled = Value
+      if Value and horseCatcher.isRunning then
+         IslandScanner.startScanning()
+      else
+         IslandScanner.stopScanning()
+      end
    end,
 })
 
 local LandOnlyToggle = parentTab:CreateToggle({
-   Name = "🌱 Land Only Scan",
+   Name = "🌱 Land-Only Teleportation",
    CurrentValue = true,
    Flag = "LandOnlyToggle",
    Callback = function(Value)
-      worldScanner.settings.landOnly = Value
+      IslandScanner.settings.landOnly = Value
+   end,
+})
+
+local SmartDistributionToggle = parentTab:CreateToggle({
+   Name = "🧠 Smart Grid Distribution",
+   CurrentValue = true,
+   Flag = "SmartDistributionToggle",
+   Callback = function(Value)
+      IslandScanner.settings.smartDistribution = Value
+   end,
+})
+
+local ScanWaitTimeSlider = parentTab:CreateSlider({
+   Name = "⏱️ Scan Wait Time",
+   Range = {0.1, 5},
+   Increment = 0.1,
+   Suffix = "s",
+   CurrentValue = 0.5,
+   Flag = "ScanWaitTimeSlider",
+   Callback = function(Value)
+      IslandScanner.settings.waitTime = Value
+   end,
+})
+
+local GridSizeSlider = parentTab:CreateSlider({
+   Name = "📐 Grid Size",
+   Range = {25, 100},
+   Increment = 5,
+   Suffix = " studs",
+   CurrentValue = 50,
+   Flag = "GridSizeSlider",
+   Callback = function(Value)
+      IslandScanner.settings.gridSize = Value
    end,
 })
 
@@ -1676,29 +1605,10 @@ local LiveStatusSection = parentTab:CreateSection("📊 Status")
 
 local IslandInfo = parentTab:CreateParagraph({Title = "🏝️ Island Information", Content = "Detecting current island..."})
 local TargetInfo = parentTab:CreateParagraph({Title = "🐎 Current Target", Content = "No target selected"})
+local ScannerInfo = parentTab:CreateParagraph({Title = "🔍 Scanner Status", Content = "Scanner inactive"})
 
 -- Quick Actions Section
 local QuickActionsSection = parentTab:CreateSection("⚡ Quick Actions")
-
-local ManualScanButton = parentTab:CreateButton({
-   Name = "🔍 Manual World Scan",
-   Callback = function()
-      if not worldScanner.isScanning then
-         startWorldScan()
-         Rayfield:Notify({
-            Title = "Manual Scan",
-            Content = "Starting world scan manually",
-            Duration = 2,
-         })
-      else
-         Rayfield:Notify({
-            Title = "Already Scanning",
-            Content = "World scan in progress",
-            Duration = 2,
-         })
-      end
-   end,
-})
 
 local ClearCacheButton = parentTab:CreateButton({
    Name = "🗑️ Clear Cache",
@@ -1710,7 +1620,6 @@ local ClearCacheButton = parentTab:CreateButton({
       horseCatcher.performance.captureTimes = {}
       horseCatcher.performance.targetingTimes = {}
       horseCatcher.performance.progressCheckTimes = {}
-      worldScanner.foundHorses = {}
       
       Rayfield:Notify({
          Title = "Cache Cleared",
@@ -1741,13 +1650,7 @@ spawn(function()
         
         -- Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        islandText = islandText .. "🔍 Auto-Scanning: " .. (horseCatcher.settings.enableWorldScan and "✅" or "❌") .. "\n"
-        if worldScanner.isScanning then
-            islandText = islandText .. "🌍 World Scan: " .. worldScanner.currentScanIndex .. "/" .. #worldScanner.scanPoints .. "\n"
-            islandText = islandText .. "📊 Scan Found: " .. getTableLength(worldScanner.foundHorses) .. " horses"
-        else
-            islandText = islandText .. "🌍 World Scan: Ready"
-        end
+        islandText = islandText .. "🔍 Auto-Scanning: ✅"
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
         
@@ -1777,13 +1680,48 @@ spawn(function()
             end
         else
             local wildCount = #Cache.horses
-            local scanCount = getTableLength(worldScanner.foundHorses)
             targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌")
-            if horseCatcher.settings.enableWorldScan then
-                targetText = targetText .. "\n🌍 Scan horses: " .. scanCount
-            end
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
+        
+        -- Scanner Information
+        local scannerText = ""
+        if IslandScanner.settings.enabled then
+            if IslandScanner.runtime.isScanning then
+                local scanPositions = #IslandScanner.runtime.currentScanPositions
+                local currentIndex = IslandScanner.runtime.scanPositionIndex
+                local progress = scanPositions > 0 and math.floor((currentIndex / scanPositions) * 100) or 0
+                
+                scannerText = "🔍 Status: Active Scanning\n"
+                scannerText = scannerText .. "📍 Progress: " .. progress .. "% (" .. currentIndex .. "/" .. scanPositions .. ")\n"
+                scannerText = scannerText .. "🌱 Land-Only: " .. (IslandScanner.settings.landOnly and "✅" or "❌") .. "\n"
+                scannerText = scannerText .. "🧠 Smart Grid: " .. (IslandScanner.settings.smartDistribution and "✅" or "❌") .. "\n"
+                scannerText = scannerText .. "⏱️ Wait Time: " .. IslandScanner.settings.waitTime .. "s"
+            else
+                local nearbyHorses = IslandScanner.detectNearbyHorses()
+                local islandHorses = IslandScanner.findIslandHorses()
+                
+                if #nearbyHorses > 0 then
+                    scannerText = "⏸️ Status: Paused (Horse Nearby)\n"
+                    scannerText = scannerText .. "🐎 Nearby Horses: " .. #nearbyHorses .. "\n"
+                elseif #islandHorses > 0 then
+                    scannerText = "🎯 Status: Horse Found on Island\n"
+                    scannerText = scannerText .. "🐎 Island Horses: " .. #islandHorses .. "\n"
+                else
+                    scannerText = "🔍 Status: Ready to Scan\n"
+                    scannerText = scannerText .. "🏝️ Island: " .. currentIsland .. "\n"
+                end
+                
+                scannerText = scannerText .. "🌱 Land-Only: " .. (IslandScanner.settings.landOnly and "✅" or "❌") .. "\n"
+                scannerText = scannerText .. "📐 Grid Size: " .. IslandScanner.settings.gridSize .. " studs"
+            end
+        else
+            scannerText = "❌ Status: Disabled\n"
+            scannerText = scannerText .. "🔍 Enable scanner to start intelligent island exploration\n"
+            scannerText = scannerText .. "🌱 Features: Land-only teleportation, Smart grid distribution\n"
+            scannerText = scannerText .. "⚡ Performance: Optimized for minimal lag"
+        end
+        ScannerInfo:Set({Title = "🔍 Scanner Status", Content = scannerText})
     end
 end)
 
@@ -1797,7 +1735,7 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     
     disableNoclip()
-    stopWorldScan()
+    IslandScanner.stopScanning()
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1808,7 +1746,7 @@ player.CharacterAdded:Connect(function(newCharacter)
         
         Rayfield:Notify({
            Title = "Character Respawned",
-           Content = "Horse catching stopped",
+           Content = "Horse catching stopped - scanner disabled",
            Duration = 3,
         })
     end
@@ -1819,7 +1757,7 @@ end)
 -- =================================
 Rayfield:Notify({
    Title = "Horse Catcher Pro Loaded",
-   Content = "Ready with World Scanning!",
+   Content = "Advanced Island Scanner ready!",
    Duration = 3,
 })
 
@@ -1828,13 +1766,13 @@ local initialIsland = detectCurrentIsland()
 if gameSystem.available and gameSystem.networkReady then
     Rayfield:Notify({
        Title = "System Ready",
-       Content = "Island: " .. initialIsland .. " | World Scan: Ready",
+       Content = "Island: " .. initialIsland .. " | Land-only scanning available",
        Duration = 3,
     })
 else
     Rayfield:Notify({
        Title = "Warning",
-       Content = "Network issues detected",
+       Content = "Network issues detected - basic mode only",
        Duration = 3,
     })
 end
@@ -1843,10 +1781,20 @@ spawn(function()
     wait(2)
     local detectedIsland = detectCurrentIsland()
     if detectedIsland ~= "Unknown" then
-        Rayfield:Notify({
-           Title = "Ready!",
-           Content = "Island: " .. detectedIsland .. " | Auto-Scan: " .. (horseCatcher.settings.enableWorldScan and "ON" or "OFF"),
-           Duration = 2,
-        })
+        -- Check if island bounds are defined
+        local bounds = IslandScanner.islandBounds[detectedIsland]
+        if bounds then
+            Rayfield:Notify({
+               Title = "Ready!",
+               Content = "Island: " .. detectedIsland .. " | Scanner bounds configured",
+               Duration = 2,
+            })
+        else
+            Rayfield:Notify({
+               Title = "Ready!",
+               Content = "Island: " .. detectedIsland .. " | Configure bounds for optimal scanning",
+               Duration = 3,
+            })
+        end
     end
 end)
