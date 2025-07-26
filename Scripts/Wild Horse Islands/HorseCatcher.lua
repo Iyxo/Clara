@@ -1117,10 +1117,6 @@ local AbandonStuckToggle = parentTab:CreateToggle({
    Flag = "AbandonStuckProgressToggle",
    Callback = function(Value)
       horseCatcher.settings.abandonOnStuckProgress = Value
-      -- Show/hide the Max Stuck Progress Time slider based on this toggle
-      if MaxStuckProgressSlider then
-         MaxStuckProgressSlider.Visible = Value
-      end
    end,
 })
 
@@ -1135,11 +1131,6 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
       horseCatcher.settings.maxStuckProgressTime = Value
    end,
 })
-
--- Initially hide the slider if Abandon Stuck Progress is false
-if not horseCatcher.settings.abandonOnStuckProgress then
-   MaxStuckProgressSlider.Visible = false
-end
 
 -- Main Control Section
 local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
