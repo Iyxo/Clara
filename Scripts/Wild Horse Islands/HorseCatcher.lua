@@ -1,5 +1,5 @@
 -- Horse Catcher Pro - Simplified CaptureProgress Edition
--- by Iyxo - 2025-07-22 17:56:13
+-- by Iyxo - 2025-07-26 12:29:37
 -- Revolutionary horse catching with professional CaptureProgress monitoring
 
 local parentTab, Rayfield, Window = ...
@@ -29,7 +29,7 @@ local islandSystem = {
 }
 
 local function detectCurrentIsland()
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - islandSystem.lastUpdate < islandSystem.updateInterval then
         return islandSystem.currentIsland
     end
@@ -54,25 +54,23 @@ local function detectCurrentIsland()
     end)
     
     if islandSystem.currentIsland == "Unknown" then
-        pcall(function()
-            local playerPos = humanoidRootPart.Position
-            local closestIsland = "Mainland"
-            local shortestDistance = math.huge
-            
-            for _, island in pairs(Workspace.Islands:GetChildren()) do
-                if island:IsA("Model") and island:FindFirstChild("Terrain") then
-                    local islandPos = island:GetPivot().Position
-                    local distance = (playerPos - islandPos).Magnitude
-                    
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestIsland = island.Name
-                    end
+        local playerPos = humanoidRootPart.Position
+        local closestIsland = "Mainland"
+        local shortestDistance = math.huge
+        
+        for _, island in pairs(Workspace.Islands:GetChildren()) do
+            if island:IsA("Model") and island:FindFirstChild("Terrain") then
+                local islandPos = island:GetPivot().Position
+                local distance = (playerPos - islandPos).Magnitude
+                
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestIsland = island.Name
                 end
             end
-            
-            islandSystem.currentIsland = closestIsland
-        end)
+        end
+        
+        islandSystem.currentIsland = closestIsland
     end
     
     islandSystem.lastUpdate = currentTime
@@ -100,32 +98,30 @@ local function getCaptureProgress(horse)
         exists = false
     }
     
-    pcall(function()
-        local captureProgress = horse:FindFirstChild("CaptureProgress")
-        if captureProgress then
-            local progress = captureProgress:FindFirstChild("Progress")
-            if progress then
-                local textLabel = progress:FindFirstChild("TextLabel")
-                if textLabel and textLabel.Text then
-                    progressData.exists = true
-                    progressData.text = textLabel.Text
-                    
-                    local current, max = progressData.text:match("(%d+)/(%d+)")
-                    if current and max then
-                        progressData.current = tonumber(current)
-                        progressData.max = tonumber(max)
-                        progressData.isComplete = (progressData.current >= progressData.max and progressData.max > 0)
-                    end
+    local captureProgress = horse:FindFirstChild("CaptureProgress")
+    if captureProgress then
+        local progress = captureProgress:FindFirstChild("Progress")
+        if progress then
+            local textLabel = progress:FindFirstChild("TextLabel")
+            if textLabel and textLabel.Text then
+                progressData.exists = true
+                progressData.text = textLabel.Text
+                
+                local current, max = progressData.text:match("(%d+)/(%d+)")
+                if current and max then
+                    progressData.current = tonumber(current)
+                    progressData.max = tonumber(max)
+                    progressData.isComplete = (progressData.current >= progressData.max and progressData.max > 0)
                 end
             end
         end
-    end)
+    end
     
     return progressData
 end
 
 local function updateCaptureProgressTracking()
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - captureProgressSystem.lastUpdate < captureProgressSystem.updateInterval then
         return
     end
@@ -161,11 +157,9 @@ local function enableNoclip()
     end
     
     -- Apply to current character
-    pcall(function()
-        for _, part in pairs(character:GetChildren()) do
-            setNoclip(part)
-        end
-    end)
+    for _, part in pairs(character:GetChildren()) do
+        setNoclip(part)
+    end
     
     -- Monitor for new parts
     noclipSystem.connections.childAdded = character.ChildAdded:Connect(function(child)
@@ -182,13 +176,11 @@ local function disableNoclip()
     noclipSystem.active = false
     
     -- Restore original collision
-    pcall(function()
-        for part, _ in pairs(noclipSystem.originalCanCollide) do
-            if part and part.Parent then
-                part.CanCollide = true
-            end
+    for part, _ in pairs(noclipSystem.originalCanCollide) do
+        if part and part.Parent then
+            part.CanCollide = true
         end
-    end)
+    end
     
     noclipSystem.originalCanCollide = {}
     
@@ -210,6 +202,39 @@ local Cache = {
     maxCacheSize = 500,
     islandHorses = {}
 }
+
+-- =================================
+-- OPTIMIZED GARBAGE COLLECTION
+-- =================================
+local function optimizeGC()
+    -- Batch cleanup instead of individual removes
+    if #horseCatcher.performance.captureTimes > 100 then
+        local newTable = {}
+        local startIndex = #horseCatcher.performance.captureTimes - 50
+        for i = startIndex, #horseCatcher.performance.captureTimes do
+            table.insert(newTable, horseCatcher.performance.captureTimes[i])
+        end
+        horseCatcher.performance.captureTimes = newTable
+    end
+    
+    if #horseCatcher.performance.targetingTimes > 50 then
+        local newTable = {}
+        local startIndex = #horseCatcher.performance.targetingTimes - 25
+        for i = startIndex, #horseCatcher.performance.targetingTimes do
+            table.insert(newTable, horseCatcher.performance.targetingTimes[i])
+        end
+        horseCatcher.performance.targetingTimes = newTable
+    end
+    
+    if #horseCatcher.performance.progressCheckTimes > 50 then
+        local newTable = {}
+        local startIndex = #horseCatcher.performance.progressCheckTimes - 25
+        for i = startIndex, #horseCatcher.performance.progressCheckTimes do
+            table.insert(newTable, horseCatcher.performance.progressCheckTimes[i])
+        end
+        horseCatcher.performance.progressCheckTimes = newTable
+    end
+end
 
 -- =================================
 -- ULTRA-OPTIMIZED HORSE CATCHER SYSTEM
@@ -245,7 +270,6 @@ local horseCatcher = {
         islandStats = {},
         progressStats = {
             totalProgressHits = 0,
-            averageProgressToCapture = 0,
             fastestCapture = 999,
             slowestCapture = 0
         }
@@ -255,15 +279,10 @@ local horseCatcher = {
         movementMode = "attachment",
         captureCooldown = 0.4,
         smartTargeting = true,
-        
         abandonOnStuckProgress = true,
         maxStuckProgressTime = 15,
-        
-        safeDistance = 5,
         attachmentOffset = 4,
-        targetingRadius = 300,
-        batchProcessing = true,
-        maxBatchSize = 5
+        targetingRadius = 300
     },
     
     runtime = {
@@ -291,8 +310,6 @@ local horseCatcher = {
     performance = {
         captureTimes = {},
         targetingTimes = {},
-        movementTimes = {},
-        islandScanTimes = {},
         progressCheckTimes = {},
         maxCaptureTime = 0,
         avgCaptureTime = 0
@@ -331,25 +348,21 @@ local function getHorseName(horse)
     end
     
     local horseName = "Unknown"
-    local success = pcall(function()
-        local overheadPart = horse:FindFirstChild("OverheadPart")
-        if overheadPart then
-            local overhead = overheadPart:FindFirstChild("Overhead")
-            if overhead then
-                local breedLabel = overhead:FindFirstChild("BreedLabel")
-                if breedLabel and breedLabel.Text and breedLabel.Text ~= "" then
-                    horseName = breedLabel.Text
-                else
-                    horseName = horse.Name:sub(2, 9)
-                end
+    local overheadPart = horse:FindFirstChild("OverheadPart")
+    if overheadPart then
+        local overhead = overheadPart:FindFirstChild("Overhead")
+        if overhead then
+            local breedLabel = overhead:FindFirstChild("BreedLabel")
+            if breedLabel and breedLabel.Text and breedLabel.Text ~= "" then
+                horseName = breedLabel.Text
+            else
+                horseName = horse.Name:sub(2, 9)
             end
         end
-    end)
-    
-    if success then
-        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
-        Cache.horsesById[horse.Name].name = horseName
     end
+    
+    Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+    Cache.horsesById[horse.Name].name = horseName
     
     return horseName
 end
@@ -363,34 +376,30 @@ local function isWildHorse(horse)
     end
     
     local isWild = false
-    local success = pcall(function()
-        local overheadPart = horse:FindFirstChild("OverheadPart")
-        if overheadPart then
-            local overhead = overheadPart:FindFirstChild("Overhead")
-            if overhead then
-                local nameLabel = overhead:FindFirstChild("NameLabel")
-                if nameLabel and nameLabel.Text == "Wild" then
-                    isWild = true
-                end
+    local overheadPart = horse:FindFirstChild("OverheadPart")
+    if overheadPart then
+        local overhead = overheadPart:FindFirstChild("Overhead")
+        if overhead then
+            local nameLabel = overhead:FindFirstChild("NameLabel")
+            if nameLabel and nameLabel.Text == "Wild" then
+                isWild = true
             end
         end
-    end)
-    
-    if success then
-        Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
-        Cache.horsesById[horse.Name].isWild = isWild
     end
+    
+    Cache.horsesById[horse.Name] = Cache.horsesById[horse.Name] or {}
+    Cache.horsesById[horse.Name].isWild = isWild
     
     return isWild
 end
 
 local function updateHorseCache()
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - Cache.lastUpdate < Cache.updateInterval then
         return Cache.horses
     end
     
-    local startTime = tick()
+    local startTime = os.clock()
     Cache.horses = {}
     Cache.islandHorses = {}
     local horseCount = 0
@@ -432,23 +441,21 @@ local function updateHorseCache()
         Cache.islandHorses[islandName] = localHorseCount
     end
     
-    pcall(function()
-        if Workspace.Islands then
-            local currentIslandPriority = 1
-            
-            for _, island in pairs(Workspace.Islands:GetChildren()) do
-                if island:IsA("Model") and island.Name ~= "Islands" then
-                    local priority = (island.Name == currentIsland) and currentIslandPriority or 2
-                    scanLocation(island, island.Name, priority)
-                end
-            end
-            
-            if Workspace.Islands:FindFirstChild("Mainland") then
-                local priority = (currentIsland == "Mainland") and currentIslandPriority or 2
-                scanLocation(Workspace.Islands.Mainland, "Mainland", priority)
+    if Workspace.Islands then
+        local currentIslandPriority = 1
+        
+        for _, island in pairs(Workspace.Islands:GetChildren()) do
+            if island:IsA("Model") and island.Name ~= "Islands" then
+                local priority = (island.Name == currentIsland) and currentIslandPriority or 2
+                scanLocation(island, island.Name, priority)
             end
         end
-    end)
+        
+        if Workspace.Islands:FindFirstChild("Mainland") then
+            local priority = (currentIsland == "Mainland") and currentIslandPriority or 2
+            scanLocation(Workspace.Islands.Mainland, "Mainland", priority)
+        end
+    end
     
     table.sort(Cache.horses, function(a, b)
         if a.priority ~= b.priority then
@@ -460,15 +467,8 @@ local function updateHorseCache()
     
     Cache.lastUpdate = currentTime
     
-    local scanTime = tick() - startTime
+    local scanTime = os.clock() - startTime
     table.insert(horseCatcher.performance.targetingTimes, scanTime)
-    table.insert(horseCatcher.performance.islandScanTimes, scanTime)
-    if #horseCatcher.performance.targetingTimes > 100 then
-        table.remove(horseCatcher.performance.targetingTimes, 1)
-    end
-    if #horseCatcher.performance.islandScanTimes > 50 then
-        table.remove(horseCatcher.performance.islandScanTimes, 1)
-    end
     
     horseCatcher.runtime.targetingCount = horseCatcher.runtime.targetingCount + 1
     horseCatcher.runtime.currentIslandHorses = Cache.islandHorses[currentIsland] or 0
@@ -490,30 +490,26 @@ local function equipLasso()
         if lastEquipped then
             local inventoryItem = gameSystem.u3.GetLocal({"inventory", lastEquipped})
             if inventoryItem then
-                pcall(function()
-                    local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
-                    if currentlyEquipped ~= lastEquipped then
-                        gameSystem.u2.Network:FireServer("Inventory", "Use", lastEquipped)
-                    end
-                    success = true
-                    toolID = lastEquipped
-                end)
+                local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
+                if currentlyEquipped ~= lastEquipped then
+                    gameSystem.u2.Network:FireServer("Inventory", "Use", lastEquipped)
+                end
+                success = true
+                toolID = lastEquipped
             end
         else
-            pcall(function()
-                local inventory = gameSystem.u3.GetLocal({"inventory"}) or {}
-                for itemId, itemData in pairs(inventory) do
-                    if itemId:find("{") and itemData.id then
-                        local itemInfo = gameSystem.u1.Items.GetInfo(itemData.id)
-                        if itemInfo and itemInfo.name and itemInfo.name:lower():find("lasso") then
-                            gameSystem.u2.Network:FireServer("Inventory", "Use", itemId)
-                            success = true
-                            toolID = itemId
-                            break
-                        end
+            local inventory = gameSystem.u3.GetLocal({"inventory"}) or {}
+            for itemId, itemData in pairs(inventory) do
+                if itemId:find("{") and itemData.id then
+                    local itemInfo = gameSystem.u1.Items.GetInfo(itemData.id)
+                    if itemInfo and itemInfo.name and itemInfo.name:lower():find("lasso") then
+                        gameSystem.u2.Network:FireServer("Inventory", "Use", itemId)
+                        success = true
+                        toolID = itemId
+                        break
                     end
                 end
-            end)
+            end
         end
     end
     
@@ -536,29 +532,27 @@ local function protectLasso()
         return
     end
     
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - horseCatcher.runtime.lastLassoCheck < 1 then
         return
     end
     
     horseCatcher.runtime.lastLassoCheck = currentTime
     
-    pcall(function()
-        if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
-            local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
-            
-            if not currentlyEquipped or currentlyEquipped ~= horseCatcher.currentLassoID then
-                if horseCatcher.currentLassoID then
-                    local inventoryItem = gameSystem.u3.GetLocal({"inventory", horseCatcher.currentLassoID})
-                    if inventoryItem then
-                        gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
-                    else
-                        equipLasso()
-                    end
+    if gameSystem.available and gameSystem.u3 and gameSystem.networkReady then
+        local currentlyEquipped = gameSystem.u3.GetLocal({"temporary", "equippedEquipment"})
+        
+        if not currentlyEquipped or currentlyEquipped ~= horseCatcher.currentLassoID then
+            if horseCatcher.currentLassoID then
+                local inventoryItem = gameSystem.u3.GetLocal({"inventory", horseCatcher.currentLassoID})
+                if inventoryItem then
+                    gameSystem.u2.Network:FireServer("Inventory", "Use", horseCatcher.currentLassoID)
+                else
+                    equipLasso()
                 end
             end
         end
-    end)
+    end
 end
 
 local function findOptimalTarget()
@@ -569,7 +563,7 @@ local function findOptimalTarget()
     local currentIsland = detectCurrentIsland()
     local candidates = {}
     
-    for i = 1, math.min(#horses, horseCatcher.settings.maxBatchSize * 2) do
+    for i = 1, math.min(#horses, 10) do
         local horseData = horses[i]
         if horseData and horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
             local horse = horseData.horse
@@ -647,31 +641,26 @@ local function captureHorse(horse)
         return false
     end
     
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - horseCatcher.runtime.lastCaptureTime < horseCatcher.settings.captureCooldown then
         return false
     end
     
-    local startTime = tick()
+    local startTime = os.clock()
     local success = false
     
-    pcall(function()
-        if gameSystem.available and gameSystem.networkReady then
-            gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", horse)
-            success = true
-        end
-        
-        horseCatcher.runtime.lastCaptureTime = currentTime
-        horseCatcher.runtime.captureAttempts = horseCatcher.runtime.captureAttempts + 1
-        horseCatcher.statistics.totalAttempts = horseCatcher.statistics.totalAttempts + 1
-    end)
+    if gameSystem.available and gameSystem.networkReady then
+        gameSystem.u2.Network:FireServer("Equipment", horseCatcher.currentLassoID, "Activate", horse)
+        success = true
+    end
+    
+    horseCatcher.runtime.lastCaptureTime = currentTime
+    horseCatcher.runtime.captureAttempts = horseCatcher.runtime.captureAttempts + 1
+    horseCatcher.statistics.totalAttempts = horseCatcher.statistics.totalAttempts + 1
     
     if success then
-        local captureTime = tick() - startTime
+        local captureTime = os.clock() - startTime
         table.insert(horseCatcher.performance.captureTimes, captureTime)
-        if #horseCatcher.performance.captureTimes > 1000 then
-            table.remove(horseCatcher.performance.captureTimes, 1)
-        end
         
         if captureTime > horseCatcher.performance.maxCaptureTime then
             horseCatcher.performance.maxCaptureTime = captureTime
@@ -685,32 +674,30 @@ end
 local function attachToHorse(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
-    pcall(function()
-        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
-            if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) and attachment:IsA("WeldConstraint") then
-                attachment:Destroy()
-            end
+    for _, attachment in pairs(humanoidRootPart:GetChildren()) do
+        if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) and attachment:IsA("WeldConstraint") then
+            attachment:Destroy()
         end
-        
-        local horseRoot = horse.HumanoidRootPart
-        local horsePos = horseRoot.Position
-        local horseVelocity = horseRoot.Velocity
-        
-        local prediction = horsePos + (horseVelocity * 0.2)
-        local sideOffset = horseRoot.CFrame.RightVector * horseCatcher.settings.attachmentOffset
-        local heightOffset = Vector3.new(0, 3.5, 0)
-        
-        humanoidRootPart.CFrame = CFrame.lookAt(prediction + sideOffset + heightOffset, prediction)
-        wait(0.03)
-        
-        local weld = Instance.new("WeldConstraint")
-        weld.Part0 = humanoidRootPart
-        weld.Part1 = horseRoot
-        weld.Parent = humanoidRootPart
-        weld.Name = "HorseAttachment"
-        
-        horseCatcher.isAttached = true
-    end)
+    end
+    
+    local horseRoot = horse.HumanoidRootPart
+    local horsePos = horseRoot.Position
+    local horseVelocity = horseRoot.Velocity
+    
+    local prediction = horsePos + (horseVelocity * 0.2)
+    local sideOffset = horseRoot.CFrame.RightVector * horseCatcher.settings.attachmentOffset
+    local heightOffset = Vector3.new(0, 3.5, 0)
+    
+    humanoidRootPart.CFrame = CFrame.lookAt(prediction + sideOffset + heightOffset, prediction)
+    wait(0.03)
+    
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = humanoidRootPart
+    weld.Part1 = horseRoot
+    weld.Parent = humanoidRootPart
+    weld.Name = "HorseAttachment"
+    
+    horseCatcher.isAttached = true
     
     return true
 end
@@ -719,49 +706,46 @@ end
 local function smoothFollow(horse)
     if not horse or not horse:FindFirstChild("HumanoidRootPart") then return false end
     
-    pcall(function()
-        local horsePos = horse.HumanoidRootPart.Position
-        local horseVelocity = horse.HumanoidRootPart.Velocity
-        local currentPos = humanoidRootPart.Position
+    local horsePos = horse.HumanoidRootPart.Position
+    local horseVelocity = horse.HumanoidRootPart.Velocity
+    local currentPos = humanoidRootPart.Position
+    
+    local prediction = horsePos + (horseVelocity * 0.3)
+    local direction = (prediction - currentPos).Unit
+    local distance = (prediction - currentPos).Magnitude
+    local safeDistance = 5
+    
+    if distance > safeDistance + 1 then
+        local targetPos = prediction - direction * safeDistance
+        targetPos = targetPos + Vector3.new(0, 2.5, 0)
         
-        local prediction = horsePos + (horseVelocity * 0.3)
-        local direction = (prediction - currentPos).Unit
-        local distance = (prediction - currentPos).Magnitude
+        local tweenInfo = TweenInfo.new(
+            0.4,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        )
         
-        if distance > horseCatcher.settings.safeDistance + 1 then
-            local targetPos = prediction - direction * horseCatcher.settings.safeDistance
-            targetPos = targetPos + Vector3.new(0, 2.5, 0)
-            
-            local tweenInfo = TweenInfo.new(
-                0.4,
-                Enum.EasingStyle.Quad,
-                Enum.EasingDirection.Out
-            )
-            
-            local tween = TweenService:Create(
-                humanoidRootPart,
-                tweenInfo,
-                {CFrame = CFrame.lookAt(targetPos, prediction)}
-            )
-            tween:Play()
-        end
-    end)
+        local tween = TweenService:Create(
+            humanoidRootPart,
+            tweenInfo,
+            {CFrame = CFrame.lookAt(targetPos, prediction)}
+        )
+        tween:Play()
+    end
     
     return true
 end
 
 local function detachFromHorse()
-    pcall(function()
-        for _, attachment in pairs(humanoidRootPart:GetChildren()) do
-            if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) then
-                if attachment:IsA("WeldConstraint") or attachment:IsA("Weld") then
-                    attachment:Destroy()
-                end
+    for _, attachment in pairs(humanoidRootPart:GetChildren()) do
+        if (attachment.Name == "HorseAttachment" or attachment.Name:find("Weld")) then
+            if attachment:IsA("WeldConstraint") or attachment:IsA("Weld") then
+                attachment:Destroy()
             end
         end
-        horseCatcher.isAttached = false
-        horseCatcher.runtime.forceDetach = false
-    end)
+    end
+    horseCatcher.isAttached = false
+    horseCatcher.runtime.forceDetach = false
 end
 
 local function isHorseCapturedOrComplete(horse)
@@ -773,50 +757,48 @@ local function isHorseCapturedOrComplete(horse)
     local horseName = "Unknown"
     local reason = ""
     
-    pcall(function()
-        local progressData = getCaptureProgress(horse)
-        if progressData.exists and progressData.isComplete then
-            captured = true
-            reason = "Progress complete (" .. progressData.text .. ")"
-        end
-        
-        if not captured then
-            local overheadPart = horse:FindFirstChild("OverheadPart")
-            if overheadPart then
-                local overhead = overheadPart:FindFirstChild("Overhead")
-                if overhead then
-                    local nameLabel = overhead:FindFirstChild("NameLabel")
-                    if nameLabel and nameLabel.Text ~= "Wild" then
-                        captured = true
-                        reason = "Name changed from Wild"
-                    end
-                    
-                    local breedLabel = overhead:FindFirstChild("BreedLabel")
-                    if breedLabel and breedLabel.Text ~= "" then
-                        horseName = breedLabel.Text
-                    end
+    local progressData = getCaptureProgress(horse)
+    if progressData.exists and progressData.isComplete then
+        captured = true
+        reason = "Progress complete (" .. progressData.text .. ")"
+    end
+    
+    if not captured then
+        local overheadPart = horse:FindFirstChild("OverheadPart")
+        if overheadPart then
+            local overhead = overheadPart:FindFirstChild("Overhead")
+            if overhead then
+                local nameLabel = overhead:FindFirstChild("NameLabel")
+                if nameLabel and nameLabel.Text ~= "Wild" then
+                    captured = true
+                    reason = "Name changed from Wild"
+                end
+                
+                local breedLabel = overhead:FindFirstChild("BreedLabel")
+                if breedLabel and breedLabel.Text ~= "" then
+                    horseName = breedLabel.Text
                 end
             end
         end
-        
-        if not captured then
-            local humanoid = horse:FindFirstChild("Humanoid")
-            if not humanoid or humanoid.Health <= 0 then
-                captured = true
-                reason = "Horse died/removed"
-            end
+    end
+    
+    if not captured then
+        local humanoid = horse:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            captured = true
+            reason = "Horse died/removed"
         end
-    end)
+    end
     
     if captured then
         horseCatcher.capturedHorses[horse.Name] = true
         horseCatcher.statistics.totalCaptured = horseCatcher.statistics.totalCaptured + 1
         horseCatcher.statistics.currentStreak = horseCatcher.statistics.currentStreak + 1
         horseCatcher.statistics.successfulCaptures = horseCatcher.statistics.successfulCaptures + 1
-        horseCatcher.runtime.lastSuccessfulCapture = tick()
+        horseCatcher.runtime.lastSuccessfulCapture = os.clock()
         horseCatcher.runtime.sessionCapturedCount = horseCatcher.runtime.sessionCapturedCount + 1
         
-        local captureTime = tick() - horseCatcher.runtime.currentTargetStartTime
+        local captureTime = os.clock() - horseCatcher.runtime.currentTargetStartTime
         if captureTime < horseCatcher.statistics.progressStats.fastestCapture then
             horseCatcher.statistics.progressStats.fastestCapture = captureTime
         end
@@ -834,7 +816,7 @@ local function isHorseCapturedOrComplete(horse)
             horseCatcher.statistics.bestStreak = horseCatcher.statistics.currentStreak
         end
         
-        local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+        local sessionTime = os.clock() - horseCatcher.runtime.sessionStartTime
         horseCatcher.statistics.horsesPerMinute = (horseCatcher.statistics.currentStreak / (sessionTime / 60))
         
         Rayfield:Notify({
@@ -848,23 +830,21 @@ local function isHorseCapturedOrComplete(horse)
 end
 
 local function cleanupSystem()
-    local currentTime = tick()
+    local currentTime = os.clock()
     if currentTime - horseCatcher.runtime.lastCleanupTime < 15 then
         return
     end
     
     if #Cache.horses > Cache.maxCacheSize * 0.8 then
-        for i = Cache.maxCacheSize * 0.6, #Cache.horses do
-            Cache.horses[i] = nil
+        local newHorses = {}
+        local startIndex = math.floor(Cache.maxCacheSize * 0.6)
+        for i = startIndex, #Cache.horses do
+            table.insert(newHorses, Cache.horses[i])
         end
+        Cache.horses = newHorses
     end
     
-    if #horseCatcher.performance.captureTimes > 1000 then
-        for i = 1, 500 do
-            table.remove(horseCatcher.performance.captureTimes, 1)
-        end
-    end
-    
+    optimizeGC()
     updateCaptureProgressTracking()
     
     horseCatcher.runtime.lastCleanupTime = currentTime
@@ -896,7 +876,7 @@ local function startHorseCatching()
     end
     
     horseCatcher.isRunning = true
-    horseCatcher.runtime.sessionStartTime = tick()
+    horseCatcher.runtime.sessionStartTime = os.clock()
     horseCatcher.statistics.sessionsRun = horseCatcher.statistics.sessionsRun + 1
     horseCatcher.statistics.currentStreak = 0
     horseCatcher.runtime.lastCaptureTime = 0
@@ -929,7 +909,7 @@ local function startHorseCatching()
     horseCatcher.connections.islandMonitor = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         
-        local currentTime = tick()
+        local currentTime = os.clock()
         if currentTime - horseCatcher.runtime.lastIslandCheck < 5 then
             return
         end
@@ -946,12 +926,12 @@ local function startHorseCatching()
     horseCatcher.connections.progressMonitor = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning or not horseCatcher.currentTarget then return end
         
-        local currentTime = tick()
+        local currentTime = os.clock()
         if currentTime - horseCatcher.runtime.lastProgressCheck < 0.5 then
             return
         end
         
-        local startTime = tick()
+        local startTime = os.clock()
         local progressData = getCaptureProgress(horseCatcher.currentTarget)
         
         if progressData.exists then
@@ -970,11 +950,8 @@ local function startHorseCatching()
         
         horseCatcher.runtime.lastProgressCheck = currentTime
         
-        local checkTime = tick() - startTime
+        local checkTime = os.clock() - startTime
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
-        if #horseCatcher.performance.progressCheckTimes > 100 then
-            table.remove(horseCatcher.performance.progressCheckTimes, 1)
-        end
     end)
     
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
@@ -1026,8 +1003,8 @@ local function startHorseCatching()
             end
             
             if horseCatcher.currentTarget then
-                horseCatcher.runtime.currentTargetStartTime = tick()
-                horseCatcher.runtime.lastProgressChange = tick()
+                horseCatcher.runtime.currentTargetStartTime = os.clock()
+                horseCatcher.runtime.lastProgressChange = os.clock()
                 horseCatcher.runtime.lastProgressValue = "0/0"
                 horseCatcher.runtime.progressStuckTime = 0
                 horseCatcher.currentTargetProgress = getCaptureProgress(horseCatcher.currentTarget)
@@ -1081,7 +1058,7 @@ local function stopHorseCatching()
     horseCatcher.currentTarget = nil
     horseCatcher.currentTargetProgress = nil
     
-    local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
+    local sessionTime = os.clock() - horseCatcher.runtime.sessionStartTime
     local minutes = math.floor(sessionTime / 60)
     local seconds = math.floor(sessionTime % 60)
     
@@ -1212,7 +1189,7 @@ local ClearCacheButton = parentTab:CreateButton({
       Cache.lastUpdate = 0
       horseCatcher.performance.captureTimes = {}
       horseCatcher.performance.targetingTimes = {}
-      horseCatcher.performance.movementTimes = {}
+      horseCatcher.performance.progressCheckTimes = {}
       
       Rayfield:Notify({
          Title = "Cache Cleared",
@@ -1253,7 +1230,7 @@ spawn(function()
             local targetName = getHorseName(horseCatcher.currentTarget)
             local distance = math.floor((humanoidRootPart.Position - horseCatcher.currentTarget.HumanoidRootPart.Position).Magnitude)
             local velocity = math.floor(horseCatcher.currentTarget.HumanoidRootPart.Velocity.Magnitude)
-            local timeOnTarget = tick() - horseCatcher.runtime.currentTargetStartTime
+            local timeOnTarget = os.clock() - horseCatcher.runtime.currentTargetStartTime
             
             targetText = "🐎 " .. targetName .. "\n"
             targetText = targetText .. "📏 Distance: " .. distance .. " studs\n"
