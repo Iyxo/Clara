@@ -1,6 +1,6 @@
--- Horse Catcher Pro - SIMPLE TELEPORT VERSION
--- by Iyxo - 2025-07-26 15:53:00
--- KURWA PROSTE: Brak konia = teleportuj losowo, Znalazł konia = łap
+-- Horse Catcher Pro - AUTO TELEPORT WHEN NO HORSE
+-- by Iyxo - 2025-07-26 16:05:05
+-- KURWA DZIAŁA: Brak konia przez X sekund = AUTO TELEPORT!
 
 local parentTab, Rayfield, Window = ...
 
@@ -29,13 +29,18 @@ local MAINLAND_BOUNDS = {
 }
 
 -- =================================
--- TELEPORT SETTINGS
+-- AUTO TELEPORT SETTINGS
 -- =================================
-local teleportSettings = {
+local autoTeleportSettings = {
     enabled = false,
-    waitTime = 0.5,
+    noHorseTimeout = 10,  -- Sekundy bez konia przed teleportem
+    waitTime = 0.5,       -- Czas między teleportami
     landOnly = true,
-    lastTeleportTime = 0
+    
+    -- Runtime
+    lastHorseFoundTime = 0,
+    lastTeleportTime = 0,
+    isTeleporting = false
 }
 
 -- LAND MATERIALS
@@ -57,7 +62,7 @@ local LAND_MATERIALS = {
 
 -- Sprawdź czy ląd
 local function isOnLand(position)
-    if not teleportSettings.landOnly then return true end
+    if not autoTeleportSettings.landOnly then return true end
     
     local success, result = pcall(function()
         local raycast = workspace:Raycast(position + Vector3.new(0, 10, 0), Vector3.new(0, -100, 0))
@@ -82,7 +87,7 @@ end
 -- Teleportuj się losowo
 local function teleportRandomly()
     local currentTime = os.clock()
-    if currentTime - teleportSettings.lastTeleportTime < teleportSettings.waitTime then
+    if currentTime - autoTeleportSettings.lastTeleportTime < autoTeleportSettings.waitTime then
         return false
     end
     
@@ -95,7 +100,13 @@ local function teleportRandomly()
     until isOnLand(targetPosition) or attempts >= 10
     
     humanoidRootPart.CFrame = CFrame.new(targetPosition)
-    teleportSettings.lastTeleportTime = currentTime
+    autoTeleportSettings.lastTeleportTime = currentTime
+    
+    Rayfield:Notify({
+       Title = "Auto Teleport",
+       Content = "No horses found - teleporting randomly",
+       Duration = 1,
+    })
     
     return true
 end
@@ -107,17 +118,18 @@ end
 -- Sprawdź czy konie w pobliżu
 local function hasNearbyHorses()
     local playerPos = humanoidRootPart.Position
+    local horseCount = 0
     
     for _, horseData in pairs(Cache.horses) do
         if horseData.horse and horseData.horse:FindFirstChild("HumanoidRootPart") then
             local distance = (playerPos - horseData.horse.HumanoidRootPart.Position).Magnitude
             if distance <= 400 then -- RANGE
-                return true
+                horseCount = horseCount + 1
             end
         end
     end
     
-    return false
+    return horseCount > 0, horseCount
 end
 
 -- =================================
@@ -923,7 +935,7 @@ local function cleanupSystem()
 end
 
 -- =================================
--- MAIN LOGIC - KURWA PROSTE
+-- MAIN LOGIC - AUTO TELEPORT WHEN NO HORSE
 -- =================================
 local function startHorseCatching()
     if horseCatcher.isRunning then return false end
@@ -954,6 +966,10 @@ local function startHorseCatching()
     horseCatcher.runtime.lastProgressChange = 0
     horseCatcher.runtime.lastProgressValue = "0/0"
     horseCatcher.runtime.progressStuckTime = 0
+    
+    -- RESET AUTO TELEPORT TIMER
+    autoTeleportSettings.lastHorseFoundTime = os.clock()
+    autoTeleportSettings.isTeleporting = false
     
     local movementMode = horseCatcher.settings.movementMode == "attachment" and "Attachment" or "Smooth"
     local currentIsland = detectCurrentIsland()
@@ -1017,7 +1033,7 @@ local function startHorseCatching()
         table.insert(horseCatcher.performance.progressCheckTimes, checkTime)
     end)
     
-    -- GŁÓWNA LOGIKA - KURWA PROSTE
+    -- GŁÓWNA LOGIKA - AUTO TELEPORT WHEN NO HORSE
     horseCatcher.connections.capture = RunService.Heartbeat:Connect(function()
         if not horseCatcher.isRunning then return end
         
@@ -1025,10 +1041,14 @@ local function startHorseCatching()
         updateHorseCache()
         
         -- SPRAWDŹ CZY JEST KONIK W POBLIŻU
-        local hasHorses = hasNearbyHorses()
+        local hasHorses, horseCount = hasNearbyHorses()
+        local currentTime = os.clock()
         
         if hasHorses then
-            -- JEST KONIK - ŁAP GO!
+            -- JEST KONIK - RESETUJ TIMER I ŁAP GO!
+            autoTeleportSettings.lastHorseFoundTime = currentTime
+            autoTeleportSettings.isTeleporting = false
+            
             if horseCatcher.currentTarget then
                 local captured, reason = isHorseCapturedOrComplete(horseCatcher.currentTarget)
                 if captured then
@@ -1089,9 +1109,13 @@ local function startHorseCatching()
                 captureHorse(horseCatcher.currentTarget)
             end
         else
-            -- BRAK KONIA - TELEPORTUJ SIĘ LOSOWO
-            if teleportSettings.enabled then
+            -- BRAK KONIA - SPRAWDŹ CZY CZAS NA AUTO TELEPORT
+            local timeSinceLastHorse = currentTime - autoTeleportSettings.lastHorseFoundTime
+            
+            if autoTeleportSettings.enabled and timeSinceLastHorse >= autoTeleportSettings.noHorseTimeout then
+                -- AUTO TELEPORT!
                 teleportRandomly()
+                autoTeleportSettings.isTeleporting = true
             end
         end
     end)
@@ -1106,6 +1130,10 @@ end
 
 local function stopHorseCatching()
     horseCatcher.isRunning = false
+    
+    -- Reset auto teleport
+    autoTeleportSettings.isTeleporting = false
+    autoTeleportSettings.lastHorseFoundTime = 0
     
     -- Disable noclip
     disableNoclip()
@@ -1159,15 +1187,30 @@ local MainToggle = parentTab:CreateToggle({
    end,
 })
 
--- Teleport Scanner Section
-local TeleportScannerSection = parentTab:CreateSection("🎲 Random Teleport Scanner")
+-- Auto Teleport Section
+local AutoTeleportSection = parentTab:CreateSection("🎲 Auto Teleport When No Horse")
 
-local TeleportToggle = parentTab:CreateToggle({
-   Name = "🎲 Random Teleportation",
+local AutoTeleportToggle = parentTab:CreateToggle({
+   Name = "🎲 Auto Teleport When No Horse",
    CurrentValue = false,
-   Flag = "TeleportToggle",
+   Flag = "AutoTeleportToggle",
    Callback = function(Value)
-      teleportSettings.enabled = Value
+      autoTeleportSettings.enabled = Value
+      if Value then
+         autoTeleportSettings.lastHorseFoundTime = os.clock()
+      end
+   end,
+})
+
+local NoHorseTimeoutSlider = parentTab:CreateSlider({
+   Name = "⏰ No Horse Timeout",
+   Range = {5, 60},
+   Increment = 1,
+   Suffix = "s",
+   CurrentValue = 10,
+   Flag = "NoHorseTimeoutSlider",
+   Callback = function(Value)
+      autoTeleportSettings.noHorseTimeout = Value
    end,
 })
 
@@ -1176,7 +1219,7 @@ local LandOnlyToggle = parentTab:CreateToggle({
    CurrentValue = true,
    Flag = "LandOnlyToggle",
    Callback = function(Value)
-      teleportSettings.landOnly = Value
+      autoTeleportSettings.landOnly = Value
    end,
 })
 
@@ -1188,7 +1231,7 @@ local TeleportWaitTimeSlider = parentTab:CreateSlider({
    CurrentValue = 0.5,
    Flag = "TeleportWaitTimeSlider",
    Callback = function(Value)
-      teleportSettings.waitTime = Value
+      autoTeleportSettings.waitTime = Value
    end,
 })
 
@@ -1310,13 +1353,25 @@ local ResetCapturedButton = parentTab:CreateButton({
 spawn(function()
     while wait(1) do
         local currentIsland = detectCurrentIsland()
+        local hasHorses, horseCount = hasNearbyHorses()
+        local currentTime = os.clock()
+        local timeSinceLastHorse = currentTime - autoTeleportSettings.lastHorseFoundTime
         
         -- Island Information
         local islandText = "🏝️ Current Island: " .. currentIsland .. "\n"
-        if teleportSettings.enabled then
-            islandText = islandText .. "🎲 Random Teleportation: ✅"
+        if autoTeleportSettings.enabled then
+            if hasHorses then
+                islandText = islandText .. "🎲 Auto Teleport: Ready (Horse found)"
+            else
+                local timeLeft = autoTeleportSettings.noHorseTimeout - timeSinceLastHorse
+                if timeLeft > 0 then
+                    islandText = islandText .. "🎲 Auto Teleport: " .. string.format("%.1f", timeLeft) .. "s"
+                else
+                    islandText = islandText .. "🎲 Auto Teleport: ACTIVE"
+                end
+            end
         else
-            islandText = islandText .. "🎲 Random Teleportation: ❌"
+            islandText = islandText .. "🎲 Auto Teleport: Disabled"
         end
         
         IslandInfo:Set({Title = "🏝️ Island Information", Content = islandText})
@@ -1346,16 +1401,18 @@ spawn(function()
                 targetText = targetText .. "\n🌊 Smooth Follow: ✅ (Noclip)"
             end
         else
-            local wildCount = #Cache.horses
-            local hasHorses = hasNearbyHorses()
-            
             if hasHorses then
-                targetText = "🔍 Searching for optimal target...\n🐎 Wild horses nearby: " .. wildCount
+                targetText = "🔍 Searching for optimal target...\n🐎 Wild horses nearby: " .. horseCount
             else
-                if teleportSettings.enabled then
-                    targetText = "🎲 No horses nearby - teleporting randomly\n🌍 Mainland bounds: " .. MAINLAND_BOUNDS.minX .. " to " .. MAINLAND_BOUNDS.maxX
+                if autoTeleportSettings.enabled then
+                    if autoTeleportSettings.isTeleporting then
+                        targetText = "🎲 Auto teleporting - searching for horses\n⏰ No horses for " .. string.format("%.1f", timeSinceLastHorse) .. "s"
+                    else
+                        local timeLeft = autoTeleportSettings.noHorseTimeout - timeSinceLastHorse
+                        targetText = "❌ No horses nearby\n🎲 Auto teleport in " .. string.format("%.1f", math.max(0, timeLeft)) .. "s"
+                    end
                 else
-                    targetText = "❌ No horses nearby\n💡 Enable random teleportation to search"
+                    targetText = "❌ No horses nearby\n💡 Enable auto teleport to search automatically"
                 end
             end
         end
@@ -1373,6 +1430,10 @@ player.CharacterAdded:Connect(function(newCharacter)
     horseCatcher.currentLassoID = nil
     
     disableNoclip()
+    
+    -- Reset auto teleport
+    autoTeleportSettings.isTeleporting = false
+    autoTeleportSettings.lastHorseFoundTime = 0
     
     islandSystem.currentIsland = "Unknown"
     islandSystem.lastUpdate = 0
@@ -1392,12 +1453,12 @@ end)
 -- Initialization
 Rayfield:Notify({
    Title = "Horse Catcher Pro Loaded",
-   Content = "Simple teleport scanner ready!",
+   Content = "Auto teleport when no horse ready!",
    Duration = 3,
 })
 
 Rayfield:Notify({
    Title = "System Ready",
-   Content = "Mainland bounds configured",
+   Content = "Mainland bounds configured - Auto teleport available",
    Duration = 2,
 })
