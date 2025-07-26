@@ -1117,6 +1117,10 @@ local AbandonStuckToggle = parentTab:CreateToggle({
    Flag = "AbandonStuckProgressToggle",
    Callback = function(Value)
       horseCatcher.settings.abandonOnStuckProgress = Value
+      -- Show/hide the Max Stuck Progress Time slider based on this toggle
+      if MaxStuckProgressSlider then
+         MaxStuckProgressSlider.Visible = Value
+      end
    end,
 })
 
@@ -1131,6 +1135,11 @@ local MaxStuckProgressSlider = parentTab:CreateSlider({
       horseCatcher.settings.maxStuckProgressTime = Value
    end,
 })
+
+-- Initially hide the slider if Abandon Stuck Progress is false
+if not horseCatcher.settings.abandonOnStuckProgress then
+   MaxStuckProgressSlider.Visible = false
+end
 
 -- Main Control Section
 local MainControlSection = parentTab:CreateSection("🎯 Professional Control")
@@ -1251,12 +1260,6 @@ local ResetCapturedButton = parentTab:CreateButton({
    end,
 })
 
--- Statistics Section
-local StatisticsSection = parentTab:CreateSection("📈 Statistics")
-
-local SessionStats = parentTab:CreateParagraph({Title = "📈 Session Metrics", Content = "Ready for session"})
-local IslandStats = parentTab:CreateParagraph({Title = "🏝️ Island Statistics", Content = "No island data yet"})
-
 -- =================================
 -- SIMPLIFIED STATUS UPDATE SYSTEM
 -- =================================
@@ -1310,39 +1313,6 @@ spawn(function()
             targetText = "🔍 Scanning for targets...\n🐎 Wild horses: " .. wildCount .. "\n🎯 Smart targeting: " .. (horseCatcher.settings.smartTargeting and "✅" or "❌") .. "\n🏝️ Island horses: " .. (horseCatcher.runtime.currentIslandHorses or 0)
         end
         TargetInfo:Set({Title = "🐎 Current Target", Content = targetText})
-        
-        -- Session Statistics
-        if horseCatcher.isRunning then
-            local sessionTime = tick() - horseCatcher.runtime.sessionStartTime
-            local sessionMinutes = math.floor(sessionTime / 60)
-            local sessionSeconds = math.floor(sessionTime % 60)
-            
-            local sessionText = "⏱️ Session Time: " .. sessionMinutes .. "m " .. sessionSeconds .. "s\n"
-            sessionText = sessionText .. "🐎 Horses Captured: " .. horseCatcher.statistics.currentStreak .. "\n"
-            sessionText = sessionText .. "📈 Capture Rate: " .. string.format("%.1f", horseCatcher.statistics.horsesPerMinute) .. "/min\n"
-            sessionText = sessionText .. "🏝️ Current Island: " .. currentIsland .. "\n"
-            sessionText = sessionText .. "📊 Mode: " .. horseCatcher.settings.movementMode:upper() .. (horseCatcher.settings.movementMode == "smooth" and " (Noclip)" or "")
-            
-            SessionStats:Set({Title = "📈 Session Metrics", Content = sessionText})
-        else
-            SessionStats:Set({Title = "📈 Session Metrics", Content = "No active session\nCaptureProgress monitoring ready\n🚀 Auto-lasso & protection ready"})
-        end
-        
-        -- Island Statistics
-        local islandStatsText = "🏝️ Per-Island Captures:\n"
-        local hasStats = false
-        for islandName, captures in pairs(horseCatcher.statistics.islandStats) do
-            islandStatsText = islandStatsText .. "• " .. islandName .. ": " .. captures .. " horses\n"
-            hasStats = true
-        end
-        
-        if not hasStats then
-            islandStatsText = islandStatsText .. "No captures yet"
-        else
-            islandStatsText = islandStatsText .. "\n🌍 Total Islands: " .. totalIslands
-        end
-        
-        IslandStats:Set({Title = "🏝️ Island Statistics", Content = islandStatsText})
     end
 end)
 
