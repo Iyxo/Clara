@@ -1,14 +1,6 @@
 --[[
-    Wild Horse Islands - Loader
+    Wild Horse Islands - Loader (v3, with error reporting)
     ----------------------------------------------------------------
-    Skrypt do executora Robloxa. Zaduje Rayfield UI, tworzy zakladki
-    dla wszystkich farmow oraz zaladowuje duze skrypty (HorseCatcher,
-    HorseManipulator, ButtonGameClicker) z GitHuba.
-
-    USTAWIENIA:
-      Ponizej w `CONFIG.BASE_URL` wpisz raw URL swojego repo, np.:
-        https://raw.githubusercontent.com/<user>/<repo>/main/Scripts/Wild%20Horse%20Islands
-
     URUCHOMIENIE w executorze:
       loadstring(game:HttpGet("https://raw.githubusercontent.com/Iyxo/Clara/main/Loader.lua"))()
 --]]
@@ -47,62 +39,81 @@ local Window = Rayfield:CreateWindow({
 })
 
 -- =================================================================
--- Helper: zaladuj skrypt z GitHuba i przekaz mu (tab, Rayfield, Window)
+-- Helpery
 -- =================================================================
 local function fetchScript(name)
     local url = CONFIG.BASE_URL .. "/" .. name
     local ok, source = pcall(game.HttpGet, game, url)
-    if not ok or not source or source == "" then
-        warn(("[Loader] Blad pobierania %s: %s"):format(name, tostring(source)))
-        return nil
+    if not ok then
+        return nil, "HttpGet error: " .. tostring(source)
     end
-    return source
+    if not source or source == "" then
+        return nil, "pusty plik / 404 dla " .. url
+    end
+    return source, nil
+end
+
+local function showError(tab, name, err)
+    warn(("[Loader] %s: %s"):format(name, tostring(err)))
+    pcall(function()
+        tab:CreateSection("BLAD: " .. name)
+        tab:CreateParagraph({
+            Title = "Skrypt sie nie zaladowal",
+            Content = tostring(err),
+        })
+        tab:CreateButton({
+            Name = "Sprobuj ponownie (przeladuj " .. name .. ")",
+            Callback = function()
+                Rayfield:Notify({Title = "Reload", Content = "Przeladuj cale UI: F1 lub odpal loader jeszcze raz", Duration = 4})
+            end,
+        })
+    end)
 end
 
 local function runWithTab(name, tab)
-    local source = fetchScript(name)
+    local source, fetchErr = fetchScript(name)
     if not source then
-        Rayfield:Notify({Title = "Blad", Content = "Nie pobrano " .. name, Duration = 4})
+        showError(tab, name, fetchErr)
         return
     end
-    local fn, err = loadstring(source)
+    local fn, compileErr = loadstring(source, "=" .. name)
     if not fn then
-        warn(("[Loader] loadstring %s: %s"):format(name, tostring(err)))
-        Rayfield:Notify({Title = "Blad", Content = name .. " sie nie skompilowal", Duration = 4})
+        showError(tab, name, "compile: " .. tostring(compileErr))
         return
     end
-    local ok2, runErr = pcall(fn, tab, Rayfield, Window)
-    if not ok2 then
-        warn(("[Loader] Runtime %s: %s"):format(name, tostring(runErr)))
-        Rayfield:Notify({Title = "Blad", Content = name .. " runtime: " .. tostring(runErr), Duration = 6})
+    local ok, runErr = pcall(fn, tab, Rayfield, Window)
+    if not ok then
+        showError(tab, name, "runtime: " .. tostring(runErr))
+        return
     end
+    print(("[Loader] %s OK"):format(name))
 end
 
 local function runStandalone(name)
-    local source = fetchScript(name)
+    local source, fetchErr = fetchScript(name)
     if not source then
-        Rayfield:Notify({Title = "Blad", Content = "Nie pobrano " .. name, Duration = 4})
+        Rayfield:Notify({Title = "Blad pobierania", Content = name .. ": " .. fetchErr, Duration = 5})
         return false
     end
-    local fn, err = loadstring(source)
+    local fn, compileErr = loadstring(source, "=" .. name)
     if not fn then
-        warn(("[Loader] loadstring %s: %s"):format(name, tostring(err)))
+        Rayfield:Notify({Title = "Blad kompilacji", Content = name .. ": " .. tostring(compileErr), Duration = 5})
         return false
     end
     local ok, runErr = pcall(fn)
     if not ok then
-        warn(("[Loader] Runtime %s: %s"):format(name, tostring(runErr)))
+        Rayfield:Notify({Title = "Blad runtime", Content = name .. ": " .. tostring(runErr), Duration = 5})
         return false
     end
     return true
 end
 
 -- =================================================================
--- Tab: Auto Farm
+-- Tab: Auto Farm (logika inline, niezalezna od GitHuba)
 -- =================================================================
 local FarmTab = Window:CreateTab("Auto Farm", 4483362458)
-FarmTab:CreateSection("Anti AFK")
 
+FarmTab:CreateSection("Anti AFK")
 FarmTab:CreateToggle({
     Name = "Anti AFK",
     CurrentValue = false,
@@ -110,84 +121,46 @@ FarmTab:CreateToggle({
     Callback = function(value)
         _G.AntiAFKActive = value
         if value then
-            runStandalone("AntiAfk.lua")
+            if runStandalone("AntiAfk.lua") then
+                Rayfield:Notify({Title = "Anti AFK", Content = "Wlaczone.", Duration = 2})
+            end
+        else
+            Rayfield:Notify({Title = "Anti AFK", Content = "Wylaczone.", Duration = 2})
         end
     end,
 })
 
 FarmTab:CreateSection("Farmy")
+local farms = {
+    {label = "Auto Farm Animals", flag = "AutoFarmAnimalToggle", gflag = "AutoFarmAnimalActive", file = "AutoFarmAnimal.lua"},
+    {label = "Auto Farm Collectables", flag = "AutoFarmCollectablesToggle", gflag = "AutoFarmCollectablesActive", file = "AutoFarmCollectables.lua"},
+    {label = "Auto Farm Crystals (Unicorn Island)", flag = "AutoFarmCrystalsToggle", gflag = "AutoFarmCrystalActive", file = "AutoFarmCrystals.lua"},
+    {label = "Auto Farm Training Island", flag = "AutoFarmTrainingToggle", gflag = "TrainingAutoFarmActive", file = "AutoFarmTrainingIsland.lua"},
+}
 
-FarmTab:CreateToggle({
-    Name = "Auto Farm Animals",
-    CurrentValue = false,
-    Flag = "AutoFarmAnimalToggle",
-    Callback = function(value)
-        _G.AutoFarmAnimalActive = value
-        if value then
-            runStandalone("AutoFarmAnimal.lua")
-        end
-    end,
-})
-
-FarmTab:CreateToggle({
-    Name = "Auto Farm Collectables",
-    CurrentValue = false,
-    Flag = "AutoFarmCollectablesToggle",
-    Callback = function(value)
-        _G.AutoFarmCollectablesActive = value
-        if value then
-            runStandalone("AutoFarmCollectables.lua")
-        end
-    end,
-})
-
-FarmTab:CreateToggle({
-    Name = "Auto Farm Crystals (Unicorn Island)",
-    CurrentValue = false,
-    Flag = "AutoFarmCrystalsToggle",
-    Callback = function(value)
-        _G.AutoFarmCrystalActive = value
-        if value then
-            runStandalone("AutoFarmCrystals.lua")
-        end
-    end,
-})
-
-FarmTab:CreateToggle({
-    Name = "Auto Farm Training Island",
-    CurrentValue = false,
-    Flag = "AutoFarmTrainingToggle",
-    Callback = function(value)
-        _G.TrainingAutoFarmActive = value
-        if value then
-            runStandalone("AutoFarmTrainingIsland.lua")
-        end
-    end,
-})
+for _, f in ipairs(farms) do
+    FarmTab:CreateToggle({
+        Name = f.label,
+        CurrentValue = false,
+        Flag = f.flag,
+        Callback = function(value)
+            _G[f.gflag] = value
+            if value then
+                if runStandalone(f.file) then
+                    Rayfield:Notify({Title = f.label, Content = "Wlaczone.", Duration = 2})
+                end
+            else
+                Rayfield:Notify({Title = f.label, Content = "Wylaczone.", Duration = 2})
+            end
+        end,
+    })
+end
 
 FarmTab:CreateSection("Info")
 FarmTab:CreateParagraph({
     Title = "Jak to dziala",
-    Content = "Wlacz toggle, zeby uruchomic dany skrypt. Wylacz, zeby zatrzymac (skrypty czytaja flagi _G).",
+    Content = "Wlacz toggle - skrypt sie pobiera z GitHuba i startuje. Wylacz - flaga _G zostaje ustawiona na false i skrypt sam sie zatrzymuje.",
 })
-
--- =================================================================
--- Tab: Horse Catcher (zewnetrzny skrypt z Rayfield UI)
--- =================================================================
-local HorseCatcherTab = Window:CreateTab("Horse Catcher", 4483362458)
-runWithTab("HorseCatcher.lua", HorseCatcherTab)
-
--- =================================================================
--- Tab: Horse Manipulator
--- =================================================================
-local HorseManipulatorTab = Window:CreateTab("Horse Manipulator", 4483362458)
-runWithTab("HorseManipulator.lua", HorseManipulatorTab)
-
--- =================================================================
--- Tab: Button Game
--- =================================================================
-local ButtonGameTab = Window:CreateTab("Button Game", 4483362458)
-runWithTab("ButtonGameClicker.lua", ButtonGameTab)
 
 -- =================================================================
 -- Tab: Player
@@ -207,7 +180,7 @@ PlayerTab:CreateSlider({
     Name = "WalkSpeed",
     Range = {16, 200},
     Increment = 1,
-    Suffix = "studs/s",
+    Suffix = " studs/s",
     CurrentValue = 16,
     Flag = "WalkSpeedSlider",
     Callback = function(value)
@@ -256,25 +229,64 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- =================================================================
+-- Taby z duzymi skryptami (laduja sie z GitHuba w tle)
+-- =================================================================
+local HorseCatcherTab = Window:CreateTab("Horse Catcher", 4483362458)
+local HorseManipulatorTab = Window:CreateTab("Horse Manipulator", 4483362458)
+local ButtonGameTab = Window:CreateTab("Button Game", 4483362458)
+
+-- Placeholder zanim skrypty sie zaladuja
+HorseCatcherTab:CreateParagraph({Title = "Ladowanie...", Content = "Pobieranie HorseCatcher.lua z GitHuba..."})
+HorseManipulatorTab:CreateParagraph({Title = "Ladowanie...", Content = "Pobieranie HorseManipulator.lua z GitHuba..."})
+ButtonGameTab:CreateParagraph({Title = "Ladowanie...", Content = "Pobieranie ButtonGameClicker.lua z GitHuba..."})
+
+-- =================================================================
 -- Tab: Settings
 -- =================================================================
 local SettingsTab = Window:CreateTab("Settings", 4483362458)
+SettingsTab:CreateSection("Loader")
+SettingsTab:CreateParagraph({
+    Title = "Wersja",
+    Content = "Clara Loader v3 - Wild Horse Islands",
+})
+SettingsTab:CreateParagraph({
+    Title = "BASE_URL",
+    Content = CONFIG.BASE_URL,
+})
 SettingsTab:CreateButton({
     Name = "Destroy UI",
     Callback = function()
         Rayfield:Destroy()
     end,
 })
-
-SettingsTab:CreateParagraph({
-    Title = "Wersja",
-    Content = "Clara Loader v2 - Wild Horse Islands",
+SettingsTab:CreateButton({
+    Name = "Wymus zatrzymanie wszystkich farm",
+    Callback = function()
+        _G.AntiAFKActive = false
+        _G.AutoFarmAnimalActive = false
+        _G.AutoFarmCollectablesActive = false
+        _G.AutoFarmCrystalActive = false
+        _G.TrainingAutoFarmActive = false
+        Rayfield:Notify({Title = "Stop", Content = "Wszystkie farmy wylaczone.", Duration = 3})
+    end,
 })
 
 Rayfield:LoadConfiguration()
-
 Rayfield:Notify({
     Title = "Clara zaladowana",
-    Content = "Otworz menu klawiszem K (domyslnie Rayfield).",
-    Duration = 5,
+    Content = "Otworz/zamknij menu klawiszem K.",
+    Duration = 4,
 })
+
+-- =================================================================
+-- Asynchroniczne ladowanie duzych skryptow (zeby nie blokowac UI)
+-- =================================================================
+task.spawn(function()
+    runWithTab("HorseCatcher.lua", HorseCatcherTab)
+end)
+task.spawn(function()
+    runWithTab("HorseManipulator.lua", HorseManipulatorTab)
+end)
+task.spawn(function()
+    runWithTab("ButtonGameClicker.lua", ButtonGameTab)
+end)
