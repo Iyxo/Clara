@@ -22,17 +22,15 @@ Clara-main/
 
 ## Jak uruchomic (najszybciej)
 
-1. Wgraj caly folder na swoj GitHub (lub fork tego repo).
-2. W pliku `Loader.lua` ustaw `CONFIG.BASE_URL` na raw URL do folderu `Scripts/Wild Horse Islands` w twoim repo, np.:
-   ```lua
-   BASE_URL = "https://raw.githubusercontent.com/TWOJ_NICK/Clara-main/main/Scripts/Wild%20Horse%20Islands"
-   ```
-   (spacje musza byc zakodowane jako `%20`)
-3. W executorze wklej i wykonaj:
-   ```lua
-   loadstring(game:HttpGet("https://raw.githubusercontent.com/TWOJ_NICK/Clara-main/main/Loader.lua"))()
-   ```
-4. Otworzy sie menu Rayfield z zakladkami: **Auto Farm**, **Horse Catcher**, **Horse Manipulator**, **Button Game**, **Player**, **Settings**. Domyslnie menu chowa sie/pokazuje klawiszem **K**.
+W executorze wklej i wykonaj:
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Iyxo/Clara/main/Loader.lua"))()
+```
+
+Otworzy sie menu Rayfield z zakladkami: **Auto Farm**, **Horse Catcher**, **Horse Manipulator**, **Button Game**, **Player**, **Settings**. Domyslnie menu chowa sie/pokazuje klawiszem **K**.
+
+> **Wlasny fork?** Jezeli forkujesz repo, zmien `CONFIG.BASE_URL` w `Loader.lua` na swoj raw URL do folderu `Scripts/Wild Horse Islands` (spacje jako `%20`).
 
 ## Jak uruchomic bez GitHuba (lokalnie)
 

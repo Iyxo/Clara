@@ -10,11 +10,11 @@
         https://raw.githubusercontent.com/<user>/<repo>/main/Scripts/Wild%20Horse%20Islands
 
     URUCHOMIENIE w executorze:
-      loadstring(game:HttpGet("https://raw.githubusercontent.com/<user>/<repo>/main/Loader.lua"))()
+      loadstring(game:HttpGet("https://raw.githubusercontent.com/Iyxo/Clara/main/Loader.lua"))()
 --]]
 
 local CONFIG = {
-    BASE_URL = "https://raw.githubusercontent.com/AZYsGithub/Clara-main/main/Scripts/Wild%20Horse%20Islands",
+    BASE_URL = "https://raw.githubusercontent.com/Iyxo/Clara/main/Scripts/Wild%20Horse%20Islands",
     THEME = "Default",
 }
 
