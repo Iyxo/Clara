@@ -1,89 +1,95 @@
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+-- AutoFarmAnimal - teleportuje gracza po kolei do zwierzat na wszystkich wyspach
+
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
--- Flaga kontrolująca działanie skryptu
-_G.AutoFarmAnimalActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
+local LocalPlayer = Players.LocalPlayer
 
--- Funkcja do teleportowania gracza do wskazanego obiektu
+if _G.AutoFarmAnimalActive == nil then
+    _G.AutoFarmAnimalActive = true
+end
+
+if _G.__AutoFarmAnimalRunning then
+    return
+end
+_G.__AutoFarmAnimalRunning = true
+
+local function getRoot()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
 local function teleportTo(part)
-    local character = player.Character or player.CharacterAdded:Wait()
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        character.HumanoidRootPart.CFrame = part.CFrame
+    local root = getRoot()
+    if root and part and part.Parent then
+        root.CFrame = part.CFrame
     end
 end
 
--- Funkcja do podążania za obiektem
-local function followObject(target)
-    local character = player.Character or player.CharacterAdded:Wait()
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
+local function findAnimalRoots()
+    local results = {}
+    local islands = Workspace:FindFirstChild("Islands")
+    if not islands then return results end
 
-    -- Funkcja aktualizująca położenie gracza na obiekcie
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not _G.AutoFarmAnimalActive then
-            connection:Disconnect() -- Zatrzymaj śledzenie, jeśli flaga jest ustawiona na false
+    for _, island in ipairs(islands:GetChildren()) do
+        local nodes = island:FindFirstChild("Nodes")
+        local animals = nodes and nodes:FindFirstChild("Animals")
+        if animals then
+            for _, animal in ipairs(animals:GetChildren()) do
+                local hrp = animal:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    table.insert(results, hrp)
+                end
+            end
+        end
+    end
+    return results
+end
+
+local function followUntilGone(target)
+    local stepConn
+    stepConn = RunService.Heartbeat:Connect(function()
+        if not _G.AutoFarmAnimalActive or not target or not target.Parent then
+            stepConn:Disconnect()
             return
         end
-        if target and target.Parent then
-            humanoidRootPart.CFrame = target.CFrame * CFrame.new(0, 1.6, 0.4)
-        else
-            connection:Disconnect()
+        local root = getRoot()
+        if root then
+            root.CFrame = target.CFrame * CFrame.new(0, 1.6, 0.4)
         end
     end)
-end
 
--- Funkcja do wyszukiwania folderu Animals w Workspace.Islands
-local function getAnimalsFolder()
-    for _, island in pairs(Workspace.Islands:GetChildren()) do
-        local animalsFolder = island:FindFirstChild("Nodes") and island.Nodes:FindFirstChild("Animals")
-        if animalsFolder then
-            return animalsFolder
-        end
+    while _G.AutoFarmAnimalActive and target and target.Parent do
+        task.wait(0.5)
     end
-    return nil
+
+    if stepConn.Connected then
+        stepConn:Disconnect()
+    end
 end
 
--- Szukanie wszystkich obiektów HumanoidRootPart w folderze Animals
-local function getNextTarget()
-    local animalsFolder = getAnimalsFolder()
-    if animalsFolder then
-        for _, animal in pairs(animalsFolder:GetChildren()) do
-            if animal:FindFirstChild("HumanoidRootPart") then
-                return animal.HumanoidRootPart
+task.spawn(function()
+    while _G.AutoFarmAnimalActive do
+        local targets = findAnimalRoots()
+        local target = targets[1]
+
+        if target then
+            teleportTo(target)
+            followUntilGone(target)
+        else
+            print("[AutoFarmAnimal] Brak zwierzat. Czekam...")
+            local waited = 0
+            while _G.AutoFarmAnimalActive and waited < 5 do
+                task.wait(1)
+                waited = waited + 1
+                if #findAnimalRoots() > 0 then break end
             end
         end
     end
-    return nil
-end
 
--- Główna pętla
-while _G.AutoFarmAnimalActive do
-    local targetPart = getNextTarget()
+    _G.__AutoFarmAnimalRunning = nil
+    print("[AutoFarmAnimal] Skrypt zatrzymany.")
+end)
 
-    if targetPart then
-        teleportTo(targetPart)
-        followObject(targetPart)
-
-        -- Czekaj, aż obiekt zniknie
-        repeat
-            if not _G.AutoFarmAnimalActive then
-                break -- Przerwij pętlę, jeśli flaga jest ustawiona na false
-            end
-            wait(1)
-        until not targetPart.Parent
-    else
-        -- Jeśli nie ma więcej obiektów, poczekaj na nowe obiekty
-        print("Brak więcej obiektów do śledzenia. Czekam na nowe obiekty...")
-        repeat
-            if not _G.AutoFarmAnimalActive then
-                break -- Przerwij pętlę, jeśli flaga jest ustawiona na false
-            end
-            wait(1)
-        until getNextTarget() -- Czekaj, aż pojawią się nowe obiekty
-    end
-end
-
-print("Skrypt zatrzymany.")
+print("[AutoFarmAnimal] Aktywny.")

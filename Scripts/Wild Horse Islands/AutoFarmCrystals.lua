@@ -1,36 +1,61 @@
--- Flaga kontrolująca działanie skryptu
-_G.AutoFarmCrystalActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
+-- AutoFarmCrystals - teleportuje gracza nad krysztaly na Unicorn Island
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
-local islandsFolder = game:GetService("Workspace").Islands["Unicorn Island"]
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
-local teleportHeight = 5 -- Wysokość nad obiektem, na którą teleportujemy gracza
+local LocalPlayer = Players.LocalPlayer
 
--- Funkcja sprawdzająca modele i teleportująca do "Meshes/Gems 2"
-local function teleportToGems()
-    if _G.AutoFarmCrystalActive then -- Sprawdzenie, czy skrypt jest aktywny
-        -- Przeglądaj każdy model w folderze "Unicorn Island"
-        for _, model in pairs(islandsFolder:GetChildren()) do
-            if model:IsA("Model") then
-                -- Sprawdź, czy model ma "Meshes/Gems 2" w środku
-                local gem = model:FindFirstChild("Meshes/Gems 2", true) -- Szukaj w głąb modelu
-                if gem then
-                    -- Oblicz nowe CFrame, które przesuwa gracza nad obiekt
-                    local aboveGemCFrame = CFrame.new(gem.Position + Vector3.new(0, teleportHeight, 0))
-                    rootPart.CFrame = aboveGemCFrame
-                    print("Znaleziono i przeniesiono nad: " .. gem.Name)
-                    break -- Zatrzymaj po znalezieniu pierwszego dopasowania
-                end
-            end
-        end
-    end
+if _G.AutoFarmCrystalActive == nil then
+    _G.AutoFarmCrystalActive = true
 end
 
--- Użycie RunService do szybkiego sprawdzania i teleportacji
-RunService.Heartbeat:Connect(function()
-    teleportToGems()
+if _G.__AutoFarmCrystalRunning then
+    return
+end
+_G.__AutoFarmCrystalRunning = true
+
+local TELEPORT_HEIGHT = 5
+local CRYSTAL_NAME = "Meshes/Gems 2"
+
+local function getRoot()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getUnicornIsland()
+    local islands = Workspace:FindFirstChild("Islands")
+    return islands and islands:FindFirstChild("Unicorn Island")
+end
+
+local function findGem()
+    local island = getUnicornIsland()
+    if not island then return nil end
+
+    for _, descendant in ipairs(island:GetDescendants()) do
+        if descendant.Name == CRYSTAL_NAME and descendant:IsA("BasePart") then
+            return descendant
+        end
+    end
+    return nil
+end
+
+local connection
+connection = RunService.Heartbeat:Connect(function()
+    if not _G.AutoFarmCrystalActive then
+        connection:Disconnect()
+        _G.__AutoFarmCrystalRunning = nil
+        print("[AutoFarmCrystals] Skrypt zatrzymany.")
+        return
+    end
+
+    local gem = findGem()
+    if gem then
+        local root = getRoot()
+        if root then
+            root.CFrame = CFrame.new(gem.Position + Vector3.new(0, TELEPORT_HEIGHT, 0))
+        end
+    end
 end)
+
+print("[AutoFarmCrystals] Aktywny.")

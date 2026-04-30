@@ -1,67 +1,80 @@
--- Flaga kontrolująca działanie skryptu
-_G.AutoFarmCollectablesActive = true -- Używamy _G, aby można było ją zmieniać z innego skryptu
+-- AutoFarmCollectables - automatycznie zbiera collectables (rosliny, krzaki itd.)
 
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
-local islandsFolder = game:GetService("Workspace").Islands
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
--- Lista obiektów, do których należy się teleportować
-local targetObjects = {
-    "Meshes/Bush (1)",
-    "Meshes/Cattail_Cattail",
-    "Meshes/Wheat Plane",
-    "Meshes/Cotton Plant_Stem",
-    "Primary",
-    "Meshes/Corn Stalk"
-}
+local LocalPlayer = Players.LocalPlayer
 
--- Funkcja symulująca wciśnięcie klawisza
-local function simulateKeyPress(key)
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    VirtualInputManager:SendKeyEvent(true, key, false, game)
-    wait(0.1) -- Krótkie opóźnienie
-    VirtualInputManager:SendKeyEvent(false, key, false, game)
+if _G.AutoFarmCollectablesActive == nil then
+    _G.AutoFarmCollectablesActive = true
 end
 
--- Funkcja do teleportacji
-local function teleportToTarget()
-    if not _G.AutoFarmCollectablesActive then return end -- Sprawdzenie, czy skrypt jest aktywny
+if _G.__AutoFarmCollectablesRunning then
+    return
+end
+_G.__AutoFarmCollectablesRunning = true
 
-    local found = false
-    for _, folder in pairs(islandsFolder:GetChildren()) do
-        if folder:IsA("Folder") and folder:FindFirstChild("Collectables") then
-            local collectablesFolder = folder.Collectables
-            for _, model in pairs(collectablesFolder:GetChildren()) do
+local TARGET_NAMES = {
+    ["Meshes/Bush (1)"] = true,
+    ["Meshes/Cattail_Cattail"] = true,
+    ["Meshes/Wheat Plane"] = true,
+    ["Meshes/Cotton Plant_Stem"] = true,
+    ["Primary"] = true,
+    ["Meshes/Corn Stalk"] = true,
+}
+
+local function getRoot()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function pressE()
+    VirtualInputManager:SendKeyEvent(true, "E", false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, "E", false, game)
+end
+
+local function findNextCollectable()
+    local islands = Workspace:FindFirstChild("Islands")
+    if not islands then return nil end
+
+    for _, island in ipairs(islands:GetChildren()) do
+        local collectables = island:FindFirstChild("Collectables")
+        if collectables then
+            for _, model in ipairs(collectables:GetChildren()) do
                 if model:IsA("Model") then
-                    for _, objName in pairs(targetObjects) do
-                        local target = model:FindFirstChild(objName, true)
-                        if target then
-                            -- Przypisz obiektowi CFrame i symuluj kliknięcie
-                            rootPart.CFrame = target.CFrame
-                            wait(1) -- Poczekaj 1 sekundę
-                            simulateKeyPress("E")
-                            found = true
-                            break -- Zatrzymaj po znalezieniu pierwszego dopasowania
+                    for _, descendant in ipairs(model:GetDescendants()) do
+                        if TARGET_NAMES[descendant.Name] and descendant:IsA("BasePart") then
+                            return descendant
                         end
                     end
                 end
-                if found then break end
             end
         end
-        if found then break end
     end
+    return nil
 end
 
--- Użycie RunService.Stepped do szybkiego sprawdzania i teleportacji
-local connection
-connection = RunService.Stepped:Connect(function()
-    if _G.AutoFarmCollectablesActive then
-        teleportToTarget()
-    else
-        -- Wyłączanie symulacji klawisza 'E' gdy skrypt jest wyłączony
-        connection:Disconnect()
+task.spawn(function()
+    while _G.AutoFarmCollectablesActive do
+        local target = findNextCollectable()
+        if target then
+            local root = getRoot()
+            if root then
+                root.CFrame = target.CFrame
+                task.wait(0.7)
+                pressE()
+                task.wait(0.3)
+            end
+        else
+            task.wait(1)
+        end
     end
+
+    _G.__AutoFarmCollectablesRunning = nil
+    print("[AutoFarmCollectables] Skrypt zatrzymany.")
 end)
+
+print("[AutoFarmCollectables] Aktywny.")
